@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rs-telegram-bot-web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Persist database
+      - ./data:/app/data
+      # Persist media files
+      - ./media:/app/media
+      # Persist static files (optional, for development)
+      - ./staticfiles:/app/staticfiles
+    command: python manage.py runserver 0.0.0.0:8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rs-telegram-bot-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Share database with web service
+      - ./data:/app/data
+      # Share media files with web service
+      - ./media:/app/media
+    command: python bot/polling.py
+    depends_on:
+      - web
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  data:
+  media:

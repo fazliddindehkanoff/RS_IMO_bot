@@ -1,0 +1,12 @@
+aiogram==3.13.1
+sqlalchemy[asyncio]==2.0.36
+aiosqlite==0.20.0
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+pillow==11.0.0
+reportlab==4.2.5
+aiofiles==24.1.0
+django==5.0.6
+django-unfold==0.30.0
+djangorestframework==3.15.1

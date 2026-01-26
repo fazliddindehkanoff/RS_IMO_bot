@@ -1,0 +1,124 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+    <h1 id="site-name">
+        <a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a>
+    </h1>
+{% endblock %}
+
+{% block content %}
+    <div class="flex flex-col lg:flex-row lg:gap-8">
+        <div class="flex-grow">
+            <div class="app-admin_panel module">
+                <div class="bg-gray-50 mb-6 rounded-md p-3 dark:bg-gray-800">
+                    <table class="border border-gray-400/10 border-spacing-none border-separate rounded-md overflow-hidden shadow-sm text-gray-700 text-sm w-full dark:border-gray-800">
+                        <caption class="font-semibold mb-3 text-gray-700 text-left dark:text-gray-200">
+                            <a href="{% url 'admin:index' %}" class="section">Statistika</a>
+                        </caption>
+                        <tbody>
+                            <tr class="bg-white dark:bg-gray-900">
+                                <th scope="row" class="font-normal p-3 text-left dark:text-gray-200 border-b border-gray-100 dark:border-gray-800">
+                                    <a href="/admin/admin_panel/student/">O'quvchilar</a>
+                                </th>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800">
+                                    {{ students_total|default:0 }} ({{ students_active|default:0 }} faol)
+                                </td>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800 w-16">
+                                    <a href="/admin/admin_panel/student/" class="block leading-none text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200" title="{% translate 'Change' %}">
+                                        <span class="material-symbols-outlined">edit_square</span>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr class="bg-white dark:bg-gray-900">
+                                <th scope="row" class="font-normal p-3 text-left dark:text-gray-200 border-b border-gray-100 dark:border-gray-800">
+                                    <a href="/admin/admin_panel/teacher/">O'qituvchilar</a>
+                                </th>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800">{{ teachers_count|default:0 }}</td>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800 w-16">
+                                    <a href="/admin/admin_panel/teacher/" class="block leading-none text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200" title="{% translate 'Change' %}">
+                                        <span class="material-symbols-outlined">edit_square</span>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr class="bg-white dark:bg-gray-900">
+                                <th scope="row" class="font-normal p-3 text-left dark:text-gray-200 border-b border-gray-100 dark:border-gray-800">
+                                    <a href="/admin/admin_panel/parent/">Ota-onalar</a>
+                                </th>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800">{{ parents_count|default:0 }}</td>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800 w-16">
+                                    <a href="/admin/admin_panel/parent/" class="block leading-none text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200" title="{% translate 'Change' %}">
+                                        <span class="material-symbols-outlined">edit_square</span>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr class="bg-white dark:bg-gray-900">
+                                <th scope="row" class="font-normal p-3 text-left dark:text-gray-200 border-b border-gray-100 dark:border-gray-800">
+                                    <a href="/admin/admin_panel/test/">Testlar</a>
+                                </th>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800">{{ tests_total|default:0 }} ({{ tests_active|default:0 }} faol)</td>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800 w-16">
+                                    <a href="/admin/admin_panel/test/" class="block leading-none text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200" title="{% translate 'Change' %}">
+                                        <span class="material-symbols-outlined">edit_square</span>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr class="bg-white dark:bg-gray-900">
+                                <th scope="row" class="font-normal p-3 text-left dark:text-gray-200 border-b border-gray-100 dark:border-gray-800">
+                                    <a href="/admin/admin_panel/testattempt/">Test topshirishlar</a>
+                                </th>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800">
+                                    {{ test_attempts_total|default:0 }} — kutilmoqda: {{ test_attempts_pending|default:0 }}, topshirilgan: {{ test_attempts_submitted|default:0 }}
+                                </td>
+                                <td class="p-3 text-right border-b border-gray-100 dark:border-gray-800 w-16">
+                                    <a href="/admin/admin_panel/testattempt/" class="block leading-none text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200" title="{% translate 'Change' %}">
+                                        <span class="material-symbols-outlined">edit_square</span>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr class="bg-white dark:bg-gray-900">
+                                <th scope="row" class="font-normal p-3 text-left dark:text-gray-200">
+                                    <a href="/admin/admin_panel/certificate/">Sertifikatlar</a>
+                                </th>
+                                <td class="p-3 text-right">{{ certificates_count|default:0 }}</td>
+                                <td class="p-3 text-right w-16">
+                                    <a href="/admin/admin_panel/certificate/" class="block leading-none text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200" title="{% translate 'Change' %}">
+                                        <span class="material-symbols-outlined">edit_square</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {% if recent_test_attempts %}
+                <div class="app-admin_panel module">
+                    <div class="bg-gray-50 mb-6 rounded-md p-3 dark:bg-gray-800">
+                        <table class="border border-gray-400/10 border-spacing-none border-separate rounded-md overflow-hidden shadow-sm text-gray-700 text-sm w-full dark:border-gray-800">
+                            <caption class="font-semibold mb-3 text-gray-700 text-left dark:text-gray-200">So'nggi test topshirishlar</caption>
+                            <tbody>
+                                {% for attempt in recent_test_attempts %}
+                                    <tr class="bg-white dark:bg-gray-900{% if not forloop.last %} border-b border-gray-100 dark:border-gray-800{% endif %}">
+                                        <th scope="row" class="font-normal p-3 text-left dark:text-gray-200">
+                                            <a href="{% url 'admin:admin_panel_testattempt_change' attempt.pk %}">
+                                                {{ attempt.student.first_name }} {{ attempt.student.last_name|default:"" }} — {{ attempt.test.title }}
+                                            </a>
+                                        </th>
+                                        <td class="p-3 text-right text-gray-500 dark:text-gray-400">
+                                            {{ attempt.get_status_display }} · {{ attempt.created_at }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
