@@ -18,7 +18,6 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-change-this-in-prod
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = ["*",]
-CSRF_TRUSTED_ORIGINS = ["46ae0782998a.ngrok-free.app",]
 CSRF_COOKIE_SECURE = False
 # Application definition
 INSTALLED_APPS = [
@@ -170,7 +169,9 @@ def environment_callback(request):
     return ["Development"] if DEBUG else ["Production"]
 
 # CSRF settings for webhook
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "https://localhost").split(",")
+# CSRF_TRUSTED_ORIGINS must include protocol (http:// or https://)
+csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "https://rs.nomean.uz")
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins.split(",") if origin.strip()]
 
 # Telegram Bot Settings
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
