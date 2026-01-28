@@ -26,28 +26,6 @@ services:
       retries: 3
       start_period: 40s
 
-  bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: rs-telegram-bot-bot
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      # Share database with web service
-      - ./data:/app/data
-      # Share media files with web service
-      - ./media:/app/media
-    command: python bot/polling.py
-    depends_on:
-      - web
-    healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
 volumes:
   data:
   media:

@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import time
+import threading
 from pathlib import Path
 from django.conf import settings
 from aiogram import Bot
@@ -10,6 +11,31 @@ from aiogram.enums import ParseMode
 from aiogram.types import FSInputFile
 
 logger = logging.getLogger(__name__)
+
+# Global event loop for background tasks
+_background_loop = None
+_background_thread = None
+
+
+def get_background_loop():
+    """Get or create background event loop for sending messages."""
+    global _background_loop, _background_thread
+    
+    if _background_loop is None or _background_loop.is_closed():
+        def run_loop(loop):
+            asyncio.set_event_loop(loop)
+            loop.run_forever()
+        
+        _background_loop = asyncio.new_event_loop()
+        _background_thread = threading.Thread(
+            target=run_loop,
+            args=(_background_loop,),
+            daemon=True
+        )
+        _background_thread.start()
+        logger.info("Started background event loop for message sending")
+    
+    return _background_loop
 
 
 def send_test_assignment_message(telegram_id: int, test, with_start_button: bool = False):
@@ -23,6 +49,12 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
     """
     from bot.keyboards import get_start_test_keyboard
 
+    # Pre-fetch all Django ORM data before entering async context
+    test_title = test.title
+    test_grade_display = test.get_grade_display()
+    test_duration = test.duration_minutes
+    test_questions_count = test.get_questions_count()
+
     async def _send_message():
         bot = Bot(
             token=settings.BOT_TOKEN,
@@ -31,12 +63,11 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
 
         message_text = (
             f"📝 <b>Yangi test yuborildi!</b>\n\n"
-            f"<b>Test:</b> {test.title}\n"
-            f"<b>Sinf:</b> {test.get_grade_display()}\n"
-            f"<b>Davomiyligi:</b> {test.duration_minutes} daqiqa\n"
-            f"<b>Savollar soni:</b> {test.get_questions_count()}\n\n"
-            "Testni boshlash uchun quyidagi <b>Boshlash</b> tugmasini bosing yoki "
-            "bottda /start → Imtihonlar bo'limiga o'ting."
+            f"<b>Test:</b> {test_title}\n"
+            f"<b>Sinf:</b> {test_grade_display}\n"
+            f"<b>Davomiyligi:</b> {test_duration} daqiqa\n"
+            f"<b>Savollar soni:</b> {test_questions_count}\n\n"
+            "Testni boshlash uchun quyidagi <b>Boshlash</b> tugmasini bosing."
         )
 
         reply_markup = get_start_test_keyboard() if with_start_button else None
@@ -54,20 +85,14 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
         finally:
             await bot.session.close()
     
-    # Run async function in sync context
+    # Use background event loop to run async function
+    loop = get_background_loop()
+    future = asyncio.run_coroutine_threadsafe(_send_message(), loop)
     try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    if loop.is_running():
-        # If loop is already running, use run_coroutine_threadsafe
-        import threading
-        future = asyncio.run_coroutine_threadsafe(_send_message(), loop)
-        future.result()
-    else:
-        loop.run_until_complete(_send_message())
+        future.result(timeout=30)  # 30 second timeout
+    except Exception as e:
+        logger.error("Error sending test assignment message to %s: %s", telegram_id, e)
+        raise
 
 
 def send_certificate_message(telegram_id: int, certificate_image_path: str, delay_seconds: float = 1.0):
@@ -120,17 +145,11 @@ def send_certificate_message(telegram_id: int, certificate_image_path: str, dela
         finally:
             await bot.session.close()
     
-    # Run async function in sync context
+    # Use background event loop to run async function
+    loop = get_background_loop()
+    future = asyncio.run_coroutine_threadsafe(_send_certificate(), loop)
     try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    if loop.is_running():
-        # If loop is already running, use run_coroutine_threadsafe
-        import threading
-        future = asyncio.run_coroutine_threadsafe(_send_certificate(), loop)
-        future.result()
-    else:
-        loop.run_until_complete(_send_certificate())
+        future.result(timeout=30)  # 30 second timeout
+    except Exception as e:
+        logger.error("Error sending certificate message to %s: %s", telegram_id, e)
+        raise

@@ -261,6 +261,7 @@ class TestAdmin(ModelAdmin):
         students = Student.objects.filter(query)
         sent_count = 0
         skip_count = 0
+        error_count = 0
 
         for student in students:
             attempt_exists = TestAttempt.objects.filter(
@@ -288,14 +289,20 @@ class TestAdmin(ModelAdmin):
                 # Wait 1 second between messages to avoid rate limiting
                 time.sleep(1.0)
             except Exception as e:
-                logger.error("Failed to send test to %s: %s", student.telegram_id, e)
+                error_count += 1
+                logger.error("Failed to send test to student %s (ID: %s): %s", 
+                           student.first_name, student.telegram_id, e, exc_info=True)
                 if attempt:
                     attempt.delete()
 
+        message = f"Yuborildi: {sent_count} | O'tkazib yuborildi: {skip_count} (oldin yuborilgan)"
+        if error_count > 0:
+            message += f" | Xatolar: {error_count}"
+        
         self.message_user(
             request,
-            f"Yuborildi: {sent_count} | O'tkazib yuborildi: {skip_count} (oldin yuborilgan)",
-            level=messages.SUCCESS
+            message,
+            level=messages.SUCCESS if error_count == 0 else messages.WARNING
         )
     send_test_to_students_action.short_description = "Testni o'quvchilarga yuborish"
 
