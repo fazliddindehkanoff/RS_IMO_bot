@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q, Max, F, FloatField, OuterRef, Subquery
 from django.db.models.functions import Coalesce
-from unfold.admin import ModelAdmin, TabularInline
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from unfold.decorators import display
 
 from .models import (
@@ -186,15 +186,14 @@ class CertificateAdmin(ModelAdmin):
     ordering = ['-generated_at']
 
 
-class TestQuestionInline(TabularInline):
+class TestQuestionInline(StackedInline):
     """Inline admin for TestQuestion."""
     model = TestQuestion
     extra = 1
     fields = [
         'question_number',
-        'type',
         'text',
-        'image_file_id',
+        'image',
         'option_a',
         'option_b',
         'option_c',
@@ -313,19 +312,18 @@ class TestQuestionAdmin(ModelAdmin):
     list_display = [
         'test',
         'question_number',
-        'type',
         'text_short',
         'correct_answer',
         'ball_weight',
         'created_at'
     ]
-    list_filter = ['test', 'type', 'created_at']
+    list_filter = ['test', 'created_at']
     search_fields = ['text', 'option_a', 'option_b', 'option_c', 'option_d']
     readonly_fields = ['created_at']
     ordering = ['test', 'question_number']
     fieldsets = (
         ('Asosiy ma\'lumotlar', {
-            'fields': ('test', 'question_number', 'type', 'text', 'image_file_id')
+            'fields': ('test', 'question_number', 'text', 'image'),
         }),
         ('Variantlar', {
             'fields': ('option_a', 'option_b', 'option_c', 'option_d')

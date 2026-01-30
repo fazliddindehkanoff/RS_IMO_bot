@@ -496,10 +496,6 @@ class Test(models.Model):
 
 class TestQuestion(models.Model):
     """Question in a test with multiple choice options."""
-    TYPE_CHOICES = [
-        ('TEXT', 'Matn'),
-        ('IMAGE', 'Rasm'),
-    ]
     ANSWER_CHOICES = [
         ('A', 'A'),
         ('B', 'B'),
@@ -517,25 +513,32 @@ class TestQuestion(models.Model):
         validators=[MinValueValidator(1)],
         verbose_name="Savol raqami"
     )
-    type = models.CharField(
-        max_length=10,
-        choices=TYPE_CHOICES,
-        default='TEXT',
-        verbose_name="Tur",
-        help_text="Savol turi: Matn yoki Rasm"
+    text = models.TextField(
+        verbose_name="Savol matni",
     )
-    text = models.TextField(verbose_name="Savol matni")
-    image_file_id = models.CharField(
-        max_length=255,
+    image = models.ImageField(
+        upload_to='questions/',
         null=True,
         blank=True,
-        help_text="Telegram file_id agar rasm bo'lsa",
-        verbose_name="Rasm file_id"
+        verbose_name="Savol rasmi",
+        help_text="Agar rasm bo'lsa, savol matni rasm ostida caption sifatida yuboriladi.",
     )
-    option_a = models.CharField(max_length=500, verbose_name="Variant A")
-    option_b = models.CharField(max_length=500, verbose_name="Variant B")
-    option_c = models.CharField(max_length=500, verbose_name="Variant C")
-    option_d = models.CharField(max_length=500, verbose_name="Variant D")
+    option_a = models.CharField(
+        max_length=500,
+        verbose_name="Variant A",
+    )
+    option_b = models.CharField(
+        max_length=500,
+        verbose_name="Variant B",
+    )
+    option_c = models.CharField(
+        max_length=500,
+        verbose_name="Variant C",
+    )
+    option_d = models.CharField(
+        max_length=500,
+        verbose_name="Variant D",
+    )
     correct_answer = models.CharField(
         max_length=1,
         choices=ANSWER_CHOICES,

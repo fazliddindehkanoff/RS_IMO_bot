@@ -12,9 +12,10 @@ from aiogram.types import FSInputFile
 
 logger = logging.getLogger(__name__)
 
-# Global event loop for background tasks
+# Global event loop and reused bot for background tasks
 _background_loop = None
 _background_thread = None
+_shared_bot = None
 
 
 def get_background_loop():
@@ -38,6 +39,17 @@ def get_background_loop():
     return _background_loop
 
 
+def _get_bot():
+    """Get or create shared Bot instance (used inside background loop). Reusing one bot avoids repeated connection setup and timeouts."""
+    global _shared_bot
+    if _shared_bot is None:
+        _shared_bot = Bot(
+            token=settings.BOT_TOKEN,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+    return _shared_bot
+
+
 def send_test_assignment_message(telegram_id: int, test, with_start_button: bool = False):
     """
     Send test assignment message to user via Telegram.
@@ -56,11 +68,7 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
     test_questions_count = test.get_questions_count()
 
     async def _send_message():
-        bot = Bot(
-            token=settings.BOT_TOKEN,
-            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-        )
-
+        bot = _get_bot()
         message_text = (
             f"📝 <b>Yangi test yuborildi!</b>\n\n"
             f"<b>Test:</b> {test_title}\n"
@@ -69,27 +77,27 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
             f"<b>Savollar soni:</b> {test_questions_count}\n\n"
             "Testni boshlash uchun quyidagi <b>Boshlash</b> tugmasini bosing."
         )
-
         reply_markup = get_start_test_keyboard() if with_start_button else None
+        await bot.send_message(
+            chat_id=telegram_id,
+            text=message_text,
+            reply_markup=reply_markup,
+        )
+        logger.info("Test assignment message sent to %s", telegram_id)
 
-        try:
-            await bot.send_message(
-                chat_id=telegram_id,
-                text=message_text,
-                reply_markup=reply_markup,
-            )
-            logger.info("Test assignment message sent to %s", telegram_id)
-        except Exception as e:
-            logger.error("Failed to send message to %s: %s", telegram_id, e)
-            raise
-        finally:
-            await bot.session.close()
-    
-    # Use background event loop to run async function
     loop = get_background_loop()
     future = asyncio.run_coroutine_threadsafe(_send_message(), loop)
     try:
-        future.result(timeout=30)  # 30 second timeout
+        future.result(timeout=60)
+    except TimeoutError:
+        logger.error(
+            "Timeout sending test assignment to %s (60s). Check BOT_TOKEN and network.",
+            telegram_id,
+        )
+        raise TimeoutError(
+            f"Telegram xabar yuborish 60 soniyadan oshdi (ID: {telegram_id}). "
+            "Bot token va internet ulanishini tekshiring."
+        )
     except Exception as e:
         logger.error("Error sending test assignment message to %s: %s", telegram_id, e)
         raise
@@ -104,52 +112,46 @@ def send_certificate_message(telegram_id: int, certificate_image_path: str, dela
         certificate_image_path: Path to certificate image file (relative to MEDIA_ROOT or absolute)
         delay_seconds: Delay before sending (for rate limiting)
     """
+    if not Path(certificate_image_path).is_absolute():
+        image_path = Path(settings.MEDIA_ROOT) / certificate_image_path
+    else:
+        image_path = Path(certificate_image_path)
+
+    if not image_path.exists():
+        logger.error("Certificate image not found: %s", image_path)
+        raise FileNotFoundError(f"Certificate image not found: {image_path}")
+
+    message_text = (
+        "🎓 <b>Tabriklaymiz!</b>\n\n"
+        "Sizning test natijangiz bo'yicha sertifikat tayyorlandi.\n\n"
+        "Quyida sizning sertifikatingiz:"
+    )
+
     async def _send_certificate():
-        bot = Bot(
-            token=settings.BOT_TOKEN,
-            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        if delay_seconds > 0:
+            await asyncio.sleep(delay_seconds)
+        bot = _get_bot()
+        photo = FSInputFile(str(image_path))
+        await bot.send_photo(
+            chat_id=telegram_id,
+            photo=photo,
+            caption=message_text,
         )
+        logger.info("Certificate sent to %s", telegram_id)
 
-        # Get absolute path
-        if not Path(certificate_image_path).is_absolute():
-            image_path = Path(settings.MEDIA_ROOT) / certificate_image_path
-        else:
-            image_path = Path(certificate_image_path)
-        
-        if not image_path.exists():
-            logger.error("Certificate image not found: %s", image_path)
-            raise FileNotFoundError(f"Certificate image not found: {image_path}")
-
-        message_text = (
-            "🎓 <b>Tabriklaymiz!</b>\n\n"
-            "Sizning test natijangiz bo'yicha sertifikat tayyorlandi.\n\n"
-            "Quyida sizning sertifikatingiz:"
-        )
-
-        try:
-            # Add delay for rate limiting
-            if delay_seconds > 0:
-                await asyncio.sleep(delay_seconds)
-            
-            # Use FSInputFile to properly send the photo
-            photo = FSInputFile(str(image_path))
-            await bot.send_photo(
-                chat_id=telegram_id,
-                photo=photo,
-                caption=message_text,
-            )
-            logger.info("Certificate sent to %s", telegram_id)
-        except Exception as e:
-            logger.error("Failed to send certificate to %s: %s", telegram_id, e)
-            raise
-        finally:
-            await bot.session.close()
-    
-    # Use background event loop to run async function
     loop = get_background_loop()
     future = asyncio.run_coroutine_threadsafe(_send_certificate(), loop)
     try:
-        future.result(timeout=30)  # 30 second timeout
+        future.result(timeout=60)
+    except TimeoutError:
+        logger.error(
+            "Timeout sending certificate to %s (60s). Check BOT_TOKEN and network.",
+            telegram_id,
+        )
+        raise TimeoutError(
+            f"Telegram sertifikat yuborish 60 soniyadan oshdi (ID: {telegram_id}). "
+            "Bot token va internet ulanishini tekshiring."
+        )
     except Exception as e:
         logger.error("Error sending certificate message to %s: %s", telegram_id, e)
         raise

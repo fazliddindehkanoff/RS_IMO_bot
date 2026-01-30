@@ -5,7 +5,7 @@ from typing import Optional
 from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from django.utils import timezone
 from datetime import timedelta
 
@@ -159,8 +159,15 @@ async def cancel_test_start(callback: CallbackQuery, state: FSMContext):
 
 # ==================== QUESTIONS + NAVIGATION (5.3, 5.4) ====================
 
+def _question_has_image(question) -> bool:
+    """Return True if question has an uploaded image file."""
+    return bool(question.image and question.image.name)
+
+
 async def show_question(message: Message, attempt: TestAttempt, question, question_number: int, total_questions: int, callback: CallbackQuery = None):
     """Show question with answer options.
+    
+    If the question has an image, the image is sent with the text as caption.
     
     Args:
         message: Message object (used for sending new messages)
@@ -174,8 +181,8 @@ async def show_question(message: Message, attempt: TestAttempt, question, questi
     existing_answer = await TestService.get_answer(attempt, question)
     current_answer = existing_answer.answer_choice if existing_answer else None
     
-    # Build question text
-    text = f"<b>Savol {question_number}/{total_questions}</b>\n\n"
+    # Build question text (plain text)
+    text = f"Savol {question_number}/{total_questions}\n\n"
     text += f"{question.text}\n\n"
     
     options = question.get_options_dict()
@@ -191,68 +198,71 @@ async def show_question(message: Message, attempt: TestAttempt, question, questi
     
     # Check if expired
     if attempt.is_expired():
-        text += "\n\n⚠️ <b>Vaqt tugadi!</b>"
+        text += "\n\n⚠️ Vaqt tugadi!"
     
     # Build keyboard
     has_previous = question_number > 1
     has_next = question_number < total_questions
     keyboard = get_answer_keyboard(question_number, total_questions, has_previous, has_next, current_answer)
     
+    has_image = _question_has_image(question)
+
     # Edit existing message if callback provided, otherwise send new message
     if callback:
-        # Check if current message has a photo
         message_has_photo = callback.message.photo is not None and len(callback.message.photo) > 0
-        
-        # If question has image or current message has photo, try to edit caption
-        if question.image_file_id or message_has_photo:
-            # Edit caption for photo messages
+
+        if message_has_photo and has_image:
+            # Both photo: edit caption
             try:
                 await callback.message.edit_caption(
                     caption=text,
                     reply_markup=keyboard,
-                    parse_mode="HTML"
                 )
             except Exception:
-                # If edit fails (e.g., caption too long or message changed), send new message
+                # Fallback: send new photo
                 from exam_bot_admin.webhook import bot
-                photo_id = question.image_file_id
-                if not photo_id and message_has_photo:
-                    photo_id = callback.message.photo[-1].file_id
-                if photo_id:
-                    await bot.send_photo(
-                        chat_id=message.chat.id,
-                        photo=photo_id,
-                        caption=text,
-                        reply_markup=keyboard,
-                        parse_mode="HTML"
-                    )
-                else:
-                    # Fallback to text if no photo available
-                    await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-        else:
-            # Edit text message
+                photo_file = FSInputFile(question.image.path)
+                await bot.send_photo(
+                    chat_id=message.chat.id,
+                    photo=photo_file,
+                    caption=text,
+                    reply_markup=keyboard,
+                )
+        elif not message_has_photo and not has_image:
+            # Both text: edit text
             try:
                 await callback.message.edit_text(
                     text=text,
                     reply_markup=keyboard,
-                    parse_mode="HTML"
                 )
             except Exception:
-                # If edit fails, send new message
-                await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+                await message.answer(text, reply_markup=keyboard)
+        else:
+            # Type switch (photo↔text): send new message
+            from exam_bot_admin.webhook import bot
+            if has_image:
+                photo_file = FSInputFile(question.image.path)
+                await bot.send_photo(
+                    chat_id=message.chat.id,
+                    photo=photo_file,
+                    caption=text,
+                    reply_markup=keyboard,
+                )
+            else:
+                await message.answer(text, reply_markup=keyboard)
     else:
         # Send new message
-        if question.image_file_id:
+        if has_image:
             from exam_bot_admin.webhook import bot
+            photo_file = FSInputFile(question.image.path)
             await bot.send_photo(
                 chat_id=message.chat.id,
-                photo=question.image_file_id,
+                photo=photo_file,
                 caption=text,
                 reply_markup=keyboard,
-                parse_mode="HTML"
             )
         else:
-            await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+            await message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(StateFilter(TestStates.answering_question), F.data.startswith("test_answer_"))
