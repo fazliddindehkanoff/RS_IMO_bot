@@ -141,6 +141,7 @@ def get_edit_fields_keyboard() -> InlineKeyboardMarkup:
 def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
     """Get main menu keyboard."""
     builder = ReplyKeyboardBuilder()
+    builder.button(text="👥 Do'stlarni taklif qilish")
     builder.button(text="📜 Sertifikatlar")
     builder.button(text="💬 Fikr bildirish")
     builder.adjust(2)

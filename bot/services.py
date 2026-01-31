@@ -6,7 +6,7 @@ from asgiref.sync import sync_to_async
 
 from admin_panel.models import (
     Student, Parent, Teacher, RegistrationSource, BotState,
-    Test, TestQuestion, TestAttempt, TestAnswer
+    Test, TestQuestion, TestAttempt, TestAnswer, Referral
 )
 from datetime import timedelta
 
@@ -25,8 +25,12 @@ class StudentService:
                     'username': username,
                     'first_name': '',
                     'is_active': True,
+                    'referral_code': str(telegram_id),
                 }
             )
+            if not student.referral_code:
+                student.referral_code = str(telegram_id)
+                student.save(update_fields=['referral_code'])
             return student, created
     
     @staticmethod
@@ -147,6 +151,42 @@ class StudentService:
                 return source
             except RegistrationSource.DoesNotExist:
                 return None
+
+    @staticmethod
+    @sync_to_async
+    def get_student_by_referral_code(referral_code: str):
+        """Get student by referral code (e.g. telegram_id as string)."""
+        if not referral_code:
+            return None
+        try:
+            return Student.objects.get(referral_code=referral_code)
+        except Student.DoesNotExist:
+            try:
+                return Student.objects.get(telegram_id=int(referral_code))
+            except (ValueError, Student.DoesNotExist):
+                return None
+
+    @staticmethod
+    @sync_to_async
+    def create_referral_and_award_points(referrer: Student, referred: Student, points: int = 5):
+        """Create Referral record and add points to referrer. Idempotent per referred student."""
+        with transaction.atomic():
+            if Referral.objects.filter(referred=referred).exists():
+                return None
+            Referral.objects.create(referrer=referrer, referred=referred, points_earned=points)
+            referrer.referral_points = (referrer.referral_points or 0) + points
+            referrer.save(update_fields=['referral_points'])
+            return referrer
+
+    @staticmethod
+    @sync_to_async
+    def get_referral_leaderboard(limit: int = 10):
+        """Get top students by referral_points."""
+        return list(
+            Student.objects.filter(is_active=True)
+            .order_by('-referral_points', '-created_at')
+            .values('telegram_id', 'first_name', 'last_name', 'referral_points')[:limit]
+        )
 
 
 class BotStateService:

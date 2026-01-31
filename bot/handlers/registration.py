@@ -17,21 +17,31 @@ from bot.keyboards import (
 )
 from bot.services import StudentService, BotStateService
 from admin_panel.models import Student, Parent, Teacher, RegistrationSource
+from admin_panel.utils import send_referral_notification
 
 logger = logging.getLogger(__name__)
 
 router = Router()
 
 
+def _parse_start_referral(message_text: str) -> str | None:
+    """Parse /start payload: /start REF_CODE -> return REF_CODE or None."""
+    if not message_text or not message_text.strip().startswith("/start"):
+        return None
+    parts = message_text.strip().split(maxsplit=1)
+    return parts[1].strip() if len(parts) > 1 else None
+
+
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    """Handle /start command."""
+    """Handle /start command. Supports referral: /start REF_CODE."""
     telegram_id = message.from_user.id
     username = message.from_user.username
-    
+    ref_code = _parse_start_referral(message.text or "")
+
     # Get or create student
     student, created = await StudentService.get_or_create_student(telegram_id, username)
-    
+
     if student.first_name and student.last_name and student.date_of_birth and student.document_number:
         # Student already registered
         await message.answer(
@@ -62,6 +72,49 @@ async def cmd_start(message: Message, state: FSMContext):
         )
         await state.set_state(RegistrationStates.waiting_for_first_name)
         await BotStateService.set_state(telegram_id, "waiting_for_first_name")
+        # Store referrer in state after set_state so it is not overwritten (only for new registrations)
+        if ref_code and ref_code != str(telegram_id):
+            referrer = await StudentService.get_student_by_referral_code(ref_code)
+            if referrer and referrer.telegram_id != telegram_id:
+                if referrer.first_name and referrer.last_name and referrer.document_number:
+                    await BotStateService.update_state_data(telegram_id, referrer_telegram_id=referrer.telegram_id)
+
+
+@router.message(F.text == "👥 Do'stlarni taklif qilish")
+async def handle_referral_menu(message: Message, state: FSMContext):
+    """Show referral stats, link and leaderboard (Uzbek)."""
+    telegram_id = message.from_user.id
+    student = await StudentService.get_student(telegram_id)
+    if not student or not student.first_name or not student.document_number:
+        await message.answer("❌ Avval ro'yxatdan o'ting!")
+        return
+
+    points = getattr(student, 'referral_points', 0) or 0
+    ref_code = student.referral_code or str(telegram_id)
+    bot_me = await message.bot.get_me()
+    bot_username = bot_me.username if bot_me else ""
+    referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
+
+    text = (
+        "👥 <b>Do'stlarni taklif qilish</b>\n\n"
+        f"📊 <b>Sizning ballaringiz:</b> {points} ball\n\n"
+        "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun siz <b>5 ball</b> olasiz.\n\n"
+        "<b>Sizning havolangiz:</b>\n"
+        f"<code>{referral_link}</code>\n\n"
+    )
+
+    leaderboard = await StudentService.get_referral_leaderboard(limit=10)
+    if leaderboard:
+        text += "🏆 <b>Reyting (referral ballari bo'yicha):</b>\n\n"
+        for i, row in enumerate(leaderboard, 1):
+            name = f"{row.get('first_name', '')} {row.get('last_name', '')}".strip() or "—"
+            pts = row.get('referral_points') or 0
+            marker = " 👈" if row.get('telegram_id') == telegram_id else ""
+            text += f"{i}. {name} — <b>{pts}</b> ball{marker}\n"
+    else:
+        text += "Reyting hali bo'sh. Do'stlaringizni taklif qiling!\n"
+
+    await message.answer(text)
 
 
 # ==================== STEP 1: STUDENT INFORMATION ====================
@@ -833,19 +886,47 @@ async def save_all_data_and_show_confirmation(message_or_callback, state: FSMCon
 
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_confirmation), F.data == "confirm")
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
-    """Confirm registration."""
+    """Confirm registration. Create referral if came via ref link, notify referrer, show referral info."""
     telegram_id = callback.from_user.id
-    
+    state_data = await BotStateService.get_state(telegram_id)
+    data = (state_data.state_data or {}) if state_data else {}
+    referrer_telegram_id = data.get("referrer_telegram_id")
+
     await callback.message.edit_text(
         "🎉 <b>Tabriklaymiz!</b> Ro'yxatdan o'tish muvaffaqiyatli yakunlandi!\n\n"
         "Endi siz imtihonlarni topshirishingiz mumkin."
     )
     await callback.answer()
-    
-    # Clear state
+
+    # Clear state before creating referral (we already have referrer_telegram_id)
     await state.clear()
     await BotStateService.clear_state(telegram_id)
-    
+
+    student = await StudentService.get_student(telegram_id)
+    referrer_name = None
+
+    if referrer_telegram_id and student:
+        referrer = await StudentService.get_student(referrer_telegram_id)
+        if referrer:
+            await StudentService.create_referral_and_award_points(referrer, student, points=5)
+            referrer_name = f"{student.first_name} {student.last_name or ''}".strip()
+            send_referral_notification(referrer_telegram_id, referrer_name, points_earned=5)
+
+    # Referral info message in Uzbek (for all new users after registration)
+    bot_me = await callback.bot.get_me()
+    bot_username = bot_me.username if bot_me else ""
+    ref_code = (student.referral_code or str(telegram_id)) if student else str(telegram_id)
+    referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
+
+    referral_message = (
+        "👥 <b>Do'stlaringizni taklif qiling va ballar oling!</b>\n\n"
+        "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun siz <b>5 ball</b> olasiz.\n\n"
+        "Quyidagi havolani do'stlaringizga yuboring:\n"
+        f"<code>{referral_link}</code>\n\n"
+        "Reyting va ballaringizni ko'rish uchun asosiy menyuda <b>Do'stlarni taklif qilish</b> tugmasini bosing."
+    )
+    await callback.message.answer(referral_message)
+
     await callback.message.answer(
         "Quyidagi menyudan kerakli bo'limni tanlang:",
         reply_markup=get_main_menu_keyboard()

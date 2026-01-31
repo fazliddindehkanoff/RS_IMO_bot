@@ -155,3 +155,36 @@ def send_certificate_message(telegram_id: int, certificate_image_path: str, dela
     except Exception as e:
         logger.error("Error sending certificate message to %s: %s", telegram_id, e)
         raise
+
+
+def send_referral_notification(telegram_id: int, referred_user_name: str, points_earned: int = 5):
+    """
+    Notify referrer that someone signed up via their link and they earned points.
+
+    Args:
+        telegram_id: Referrer's Telegram ID
+        referred_user_name: Display name of the user who just registered
+        points_earned: Points earned (default 5)
+    """
+    message_text = (
+        f"🎉 <b>Tabriklaymiz!</b>\n\n"
+        f"Sizning havolangiz orqali <b>{referred_user_name}</b> ro'yxatdan o'tdi.\n\n"
+        f"Siz <b>{points_earned}</b> ball qo'lga kiritdingiz!"
+    )
+
+    async def _send_message():
+        bot = _get_bot()
+        await bot.send_message(
+            chat_id=telegram_id,
+            text=message_text,
+        )
+        logger.info("Referral notification sent to %s", telegram_id)
+
+    loop = get_background_loop()
+    future = asyncio.run_coroutine_threadsafe(_send_message(), loop)
+    try:
+        future.result(timeout=30)
+    except TimeoutError:
+        logger.error("Timeout sending referral notification to %s", telegram_id)
+    except Exception as e:
+        logger.error("Error sending referral notification to %s: %s", telegram_id, e)

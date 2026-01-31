@@ -49,6 +49,20 @@ class Student(models.Model):
     photo = models.ImageField(upload_to='students/', null=True, blank=True, verbose_name="Rasm")
     document_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="Metrika raqami")
     school_name = models.CharField(max_length=500, null=True, blank=True, verbose_name="Maktab nomi")
+    referral_code = models.CharField(
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name="Referral kodi",
+        help_text="Do'stlarni taklif qilish havolasida ishlatiladi (admin tomonidan tahrirlanmaydi)",
+    )
+    referral_points = models.IntegerField(
+        default=0,
+        verbose_name="Referral ballari",
+        help_text="Har bir taklif qilingan do'st uchun 5 ball (admin tomonidan tahrirlanmaydi)",
+    )
     achievements_description = models.TextField(null=True, blank=True, verbose_name="Avvalgi yutuqlar izohi")
     achievements_file = models.FileField(upload_to='students/achievements/', null=True, blank=True, verbose_name="Avvalgi yutuqlar fayli/rasmi")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
@@ -148,6 +162,37 @@ class Teacher(models.Model):
 
     def __str__(self):
         return f"{self.full_name} - {self.student.first_name}'s teacher"
+
+
+class Referral(models.Model):
+    """Referral: when a user signs up via another user's link, referrer earns points."""
+    referrer = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='referrals_made',
+        verbose_name="Taklif qiluvchi",
+    )
+    referred = models.OneToOneField(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='referred_by',
+        verbose_name="Ro'yxatdan o'tgan",
+    )
+    points_earned = models.IntegerField(default=5, verbose_name="Olingan ball")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
+
+    class Meta:
+        db_table = 'referrals'
+        verbose_name = "Referral"
+        verbose_name_plural = "Referrallar"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['referrer']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.referrer.first_name} → {self.referred.first_name}"
 
 
 class RegistrationSource(models.Model):

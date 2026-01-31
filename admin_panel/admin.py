@@ -17,6 +17,7 @@ from .models import (
     TestQuestion,
     TestAttempt,
     TestAnswer,
+    Referral,
 )
 from .utils import send_test_assignment_message, send_certificate_message
 from .certificate_generator import generate_certificate
@@ -75,10 +76,10 @@ class LastTestAttemptScoreFilter(admin.SimpleListFilter):
 @admin.register(Student)
 class StudentAdmin(ModelAdmin):
     """Admin for Student model."""
-    list_display = ['telegram_id', 'first_name', 'last_name', 'grade', 'last_test_score_display', 'school_name', 'is_active', 'created_at']
+    list_display = ['telegram_id', 'first_name', 'last_name', 'grade', 'last_test_score_display', 'referral_points', 'school_name', 'is_active', 'created_at']
     list_filter = ['grade', 'is_active', LastTestAttemptScoreFilter, 'created_at']
-    search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name']
-    readonly_fields = ['created_at', 'updated_at']
+    search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name', 'referral_code']
+    readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code']
     ordering = ['-created_at']
     actions = ['send_certificate_action']
     
@@ -158,6 +159,22 @@ class StudentAdmin(ModelAdmin):
         )
     
     send_certificate_action.short_description = "Sertifikat yuborish (oxirgi test bo'yicha)"
+
+
+@admin.register(Referral)
+class ReferralAdmin(ModelAdmin):
+    """Admin for Referral model. Read-only: referrals are created by bot on signup."""
+    list_display = ['referrer', 'referred', 'points_earned', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['referrer__first_name', 'referrer__last_name', 'referred__first_name', 'referred__last_name']
+    readonly_fields = ['referrer', 'referred', 'points_earned', 'created_at']
+    ordering = ['-created_at']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Parent)
