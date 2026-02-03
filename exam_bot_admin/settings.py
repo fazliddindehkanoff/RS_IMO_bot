@@ -65,14 +65,16 @@ WSGI_APPLICATION = "exam_bot_admin.wsgi.application"
 
 # Database - using the same SQLite database as the bot
 # Ensure data directory exists
+import dj_database_url
+
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": DATA_DIR / "exam_bot.db",
-    }
+    "default": dj_database_url.config(
+        default=f"sqlite:///{DATA_DIR}/exam_bot.db",
+        conn_max_age=600,
+    )
 }
 
 # Password validation
@@ -158,7 +160,6 @@ UNFOLD = {
                     {"title": "Savollar", "icon": "quiz", "link": "/admin/admin_panel/testquestion/"},
                     {"title": "Test topshirishlar", "icon": "assignment_turned_in", "link": "/admin/admin_panel/testattempt/"},
                     {"title": "Test javoblari", "icon": "fact_check", "link": "/admin/admin_panel/testanswer/"},
-                    {"title": "Sertifikatlar", "icon": "workspace_premium", "link": "/admin/admin_panel/certificate/"},
                     {"title": "Majburiy kanallar", "icon": "campaign", "link": "/admin/admin_panel/mandatorychannel/"},
                 ],
             },

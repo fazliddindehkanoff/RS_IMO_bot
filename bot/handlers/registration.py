@@ -1,7 +1,25 @@
-"""Registration handlers."""
 import logging
 from datetime import datetime
-from typing import Any
+
+from bot.constants import (
+    GREETING_MESSAGE, STEP_2_ASK_SURNAME, STEP_3_ASK_DOB, STEP_4_ASK_METRIKA,
+    STEP_5_ASK_REGION, STEP_6_ASK_DISTRICT, STEP_7_ASK_SCHOOL, STEP_8_ASK_GRADE,
+    STEP_9_ASK_LANGUAGE, STEP_10_ASK_PHOTO, STEP_11_ASK_ACHIEVEMENTS,
+    STEP_12_ASK_ACHIEVEMENTS_FILE, STEP_13_ASK_GUARDIAN_NAME, STEP_14_ASK_RELATIONSHIP,
+    STEP_15_ASK_GUARDIAN_AGE, STEP_16_ASK_GUARDIAN_PROFESSION, STEP_17_ASK_GUARDIAN_PHONE,
+    STEP_18_ASK_GUARDIAN_PHONE_2, STEP_19_ASK_TEACHER_NAME, STEP_20_ASK_TEACHER_WORKPLACE,
+    STEP_21_ASK_TEACHER_PHONE, STEP_22_ASK_SOURCE, STEP_23_CONFIRMATION_HEADER,
+    SUCCESS_MESSAGE, PROMO_MESSAGE, ERROR_NAME_LENGTH, ERROR_SURNAME_LENGTH,
+    ERROR_DATE_FORMAT, ERROR_INVALID_PHOTO, ERROR_INVALID_FILE, ERROR_INVALID_AGE,
+    ERROR_INVALID_PHONE_UZB, ERROR_USE_BUTTONS, ALREADY_REGISTERED,
+    REFERRAL_MENU_TITLE, REFERRAL_POINTS, REFERRAL_DESC, LEADERBOARD_TITLE,
+    LEADERBOARD_EMPTY, LEADERBOARD_USER_RANK, CHECK_SUBS_FAIL, CHECK_SUBS_SUCCESS,
+    CHECK_SUBS_START, CHECK_SUBS_CONFIRMED_ANSWER, CHECK_SUBS_NOT_CONFIRMED,
+    EDIT_TITLE, EDIT_PROMPT_PREFIX, EDIT_PROMPT_DEFAULT, EDIT_FIELD_SUFFIXES,
+    ERROR_NOT_REGISTERED, ERROR_DATE_FORMAT_EDIT, ERROR_INVALID_FILE_OR_SKIP,
+    MENU_PROMPT,     STEP_19_ASK_TEACHER_NAME_AFTER_PHONE, STEP_18_PHONE2_SKIPPED_THEN_19, STEP_18_PHONE2_SAVED_THEN_19
+)
+
 
 from asgiref.sync import sync_to_async
 from aiogram import Router, F
@@ -54,20 +72,20 @@ async def check_subs(callback: CallbackQuery, state: FSMContext):
         
         try:
             await callback.message.edit_text(
-                "❌ <b>Siz hali quyidagi kanallarga obuna bo'lmadingiz:</b>",
+                CHECK_SUBS_FAIL,
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
             )
         except Exception:
             await callback.message.answer(
-                "❌ <b>Siz hali quyidagi kanallarga obuna bo'lmadingiz:</b>",
+                CHECK_SUBS_FAIL,
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
             )
-        await callback.answer("❌ Obuna tasdiqlanmadi")
+        await callback.answer(CHECK_SUBS_NOT_CONFIRMED)
         return
 
     await callback.message.delete()
-    await callback.message.answer("✅ <b>Obuna tasdiqlandi!</b>\n\n/start buyrug'ini bosing.")
-    await callback.answer("✅ Obuna tasdiqlandi!")
+    await callback.message.answer(CHECK_SUBS_SUCCESS)
+    await callback.answer(CHECK_SUBS_CONFIRMED_ANSWER)
 
 
 @router.message(Command("start"))
@@ -91,7 +109,7 @@ async def cmd_start(message: Message, state: FSMContext):
         keyboard.append([InlineKeyboardButton(text="✅ Obunani tekshirish", callback_data="check_subs")])
         
         await message.answer(
-            "❌ <b>Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling:</b>",
+            CHECK_SUBS_START,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
         )
         return
@@ -105,33 +123,13 @@ async def cmd_start(message: Message, state: FSMContext):
     if student.first_name and student.last_name and student.date_of_birth and student.document_number:
         # Student already registered
         await message.answer(
-            f"Assalomu alaykum, {student.first_name}!\n\n"
-            "Siz allaqachon ro'yxatdan o'tgansiz. Quyidagi menyudan kerakli bo'limni tanlang:",
+            ALREADY_REGISTERED.format(first_name=student.first_name),
             reply_markup=get_main_menu_keyboard()
         )
         await state.clear()
     else:
         # Start registration
-        # Updated Text: Intro
-        await message.answer(
-            "👋 Assalomu alaykum! Oldinda sizni olimpiadaga ishtirok etish uchun 23 ta qadamlik ro'yxatdan o'tish jarayoni kutib turibdi 🤭\n"
-            "Har bir qadamda sizdan quyidagi ma'lumotlarni so'raymiz:\n\n"
-            "1. O'zingiz haqingizda:\n"
-            "• Ism\n"
-            "• Familiya\n"
-            "• Tug'ilgan sana\n"
-            "• Metrika raqami\n"
-            "• Viloyat\n"
-            "• Tuman/shahar\n"
-            "• Maktab\n"
-            "• Sinf\n"
-            "• O'qish tili\n"
-            "• Foto\n\n"
-            "2. Vasiyingiz haqida\n"
-            "3. Ustozingiz haqida\n\n"
-            "Boshladikmi 😉\n\n"
-            "1-qadam: Ismingizni kiriting:"
-        )
+        await message.answer(GREETING_MESSAGE)
         await state.set_state(RegistrationStates.waiting_for_first_name)
         await BotStateService.set_state(telegram_id, "waiting_for_first_name")
         # Store referrer in state
@@ -148,7 +146,7 @@ async def handle_referral_menu(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     student = await StudentService.get_student(telegram_id)
     if not student or not student.first_name or not student.document_number:
-        await message.answer("❌ Avval ro'yxatdan o'ting!")
+        await message.answer(ERROR_NOT_REGISTERED)
         return
 
     points = getattr(student, 'referral_points', 0) or 0
@@ -157,15 +155,7 @@ async def handle_referral_menu(message: Message, state: FSMContext):
     bot_username = bot_me.username if bot_me else ""
     referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
 
-    text = (
-        "👥 <b>Do'stlarni taklif qilish</b>\n\n"
-        f"📊 <b>Sizning ballaringiz:</b> {points} ball\n\n"
-        "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun siz <b>5 ball</b> olasiz.\n\n"
-        "<b>Sizning havolangiz:</b>\n"
-        f"<code>{referral_link}</code>\n\n"
-        "Reytingni ko'rish uchun asosiy menyuda <b>🏆 Reyting</b> tugmasini bosing."
-    )
-
+    text = REFERRAL_MENU_TITLE + REFERRAL_POINTS.format(points=points) + REFERRAL_DESC.format(referral_link=referral_link)
     await message.answer(text)
 
 
@@ -175,11 +165,11 @@ async def handle_leaderboard(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     student = await StudentService.get_student(telegram_id)
     if not student or not student.first_name or not student.document_number:
-        await message.answer("❌ Avval ro'yxatdan o'ting!")
+        await message.answer(ERROR_NOT_REGISTERED)
         return
 
     leaderboard = await StudentService.get_referral_leaderboard(limit=10)
-    text = "🏆 <b>Reyting</b> (referral ballari bo'yicha)\n\n"
+    text = LEADERBOARD_TITLE
 
     if leaderboard:
         for i, row in enumerate(leaderboard, 1):
@@ -189,13 +179,13 @@ async def handle_leaderboard(message: Message, state: FSMContext):
                 name = f"<b>{name}</b>"
             text += f"{i}. {name} — <b>{pts}</b> ball\n"
     else:
-        text += "Reyting hali bo'sh.\n"
+        text += LEADERBOARD_EMPTY
 
     rank = await StudentService.get_user_referral_rank(telegram_id)
     if rank is not None and rank > 10:
         text += "\n____\n\n"
         user_points = getattr(student, 'referral_points', 0) or 0
-        text += f"Sizning o'rningiz: <b>{rank}</b> — <b>{user_points}</b> ball"
+        text += LEADERBOARD_USER_RANK.format(rank=rank, user_points=user_points)
 
     await message.answer(text)
 
@@ -208,18 +198,14 @@ async def process_first_name(message: Message, state: FSMContext):
     first_name = message.text.strip()
     
     if len(first_name) < 2:
-        await message.answer("❌ Iltimos, to'g'ri ism kiriting (kamida 2 ta belgi):")
+        await message.answer(ERROR_NAME_LENGTH)
         return
     
     telegram_id = message.from_user.id
     await StudentService.update_student(telegram_id, first_name=first_name)
     await BotStateService.update_state_data(telegram_id, first_name=first_name)
     
-    # Updated Text: After Name -> Ask Surname
-    await message.answer(
-        f"Rahmat, {first_name} 🙌\n\n"
-        "Navbat 2-qadamga: Familiyangizni kiriting:"
-    )
+    await message.answer(STEP_2_ASK_SURNAME.format(first_name=first_name))
     await state.set_state(RegistrationStates.waiting_for_last_name)
 
 
@@ -231,19 +217,14 @@ async def process_last_name(message: Message, state: FSMContext):
     last_name = message.text.strip() if message.text else None
     
     if not last_name or len(last_name) < 2:
-        await message.answer("❌ Iltimos, to'g'ri familiya kiriting (kamida 2 ta belgi):")
+        await message.answer(ERROR_SURNAME_LENGTH)
         return
     
     telegram_id = message.from_user.id
     await StudentService.update_student(telegram_id, last_name=last_name)
     await BotStateService.update_state_data(telegram_id, last_name=last_name)
     
-    # Updated Text: After Surname -> Ask DOB
-    await message.answer(
-        "Familiyangiz ham muvaffaqiyatli saqlandi ✅\n\n"
-        "Endi, 3-qadam: Qaysi sanada tug'ilgansiz? 😊\n\n"
-        "Faqat bitta iltimos, tug'ilgan sanangizni YYYY-MM-DD formatida kiriting, ya'ni: 2010-05-15"
-    )
+    await message.answer(STEP_3_ASK_DOB)
     # Skipping Middle Name, going to DOB
     await state.set_state(RegistrationStates.waiting_for_date_of_birth)
 
@@ -258,22 +239,14 @@ async def process_date_of_birth(message: Message, state: FSMContext):
     try:
         date_of_birth = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
-        await message.answer(
-            "❌ Iltimos, to'g'ri formatda kiriting (YYYY-MM-DD):\n"
-            "Masalan: 2010-05-15"
-        )
+        await message.answer(ERROR_DATE_FORMAT)
         return
     
     telegram_id = message.from_user.id
     await StudentService.update_student(telegram_id, date_of_birth=date_of_birth)
     await BotStateService.update_state_data(telegram_id, date_of_birth=str(date_of_birth))
     
-    # Updated Text: After DOB -> Ask Metrika
-    await message.answer(
-        "Tug'ilgan sanangiz chiroyli sana ekan-a? 🙂\n\n"
-        f"✅ Muvaffaqiyatli saqlandi: {date_str}\n\n"
-        "Endigi navbat, 4-qadam: Tug'ilganlik haqida guvohnomangizning raqamiga:"
-    )
+    await message.answer(STEP_4_ASK_METRIKA.format(date_str=date_str))
     await state.set_state(RegistrationStates.waiting_for_document_number)
 
 
@@ -288,10 +261,8 @@ async def process_document_number(message: Message, state: FSMContext):
     await StudentService.update_student(telegram_id, document_number=document_number)
     await BotStateService.update_state_data(telegram_id, document_number=document_number)
     
-    # Updated Text: After Metrika -> Ask Region
     await message.answer(
-        f"✅ Metrika raqamingizni saqladik: <b>{document_number}</b>\n\n"
-        "Bizda 5-qadam: Viloyatingizni belgilang:",
+        STEP_5_ASK_REGION.format(document_number=document_number),
         reply_markup=get_region_keyboard()
     )
     await state.set_state(RegistrationStates.waiting_for_region)
@@ -310,11 +281,7 @@ async def process_region(callback: CallbackQuery, state: FSMContext):
     
     region_label = dict(Student.REGION_CHOICES)[region]
     
-    # Updated Text: After Region -> Ask District
-    await callback.message.edit_text(
-        f"{region_label}danmisiz? 🙃 Ajoyib-ku 🔥\n\n"
-        "6-qadamga ham yetib keldik: Qaysi tuman/shaharda istiqomat qilasiz?"
-    )
+    await callback.message.edit_text(STEP_6_ASK_DISTRICT.format(region_label=region_label))
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_district)
 
@@ -330,11 +297,7 @@ async def process_district(message: Message, state: FSMContext):
     await StudentService.update_student(telegram_id, district=district)
     await BotStateService.update_state_data(telegram_id, district=district)
     
-    # Updated Text: After District -> Ask School
-    await message.answer(
-        f"{district} saqlandi ⭐️\n\n"
-        "7-qadamga yetib keldik: Qaysi maktabda o'qiysiz? 🙃"
-    )
+    await message.answer(STEP_7_ASK_SCHOOL.format(district=district))
     await state.set_state(RegistrationStates.waiting_for_school_name)
 
 
@@ -349,11 +312,7 @@ async def process_school_name(message: Message, state: FSMContext):
     await StudentService.update_student(telegram_id, school_name=school_name)
     await BotStateService.update_state_data(telegram_id, school_name=school_name)
     
-    # Updated Text: After School -> Ask Grade
-    await message.answer(
-        f"8-qadam: {school_name}da nechanchi sinfsiz? 🙂",
-        reply_markup=get_grade_keyboard()
-    )
+    await message.answer(STEP_8_ASK_GRADE.format(school_name=school_name), reply_markup=get_grade_keyboard())
     await state.set_state(RegistrationStates.waiting_for_grade)
 
 
@@ -370,11 +329,7 @@ async def process_grade(callback: CallbackQuery, state: FSMContext):
     
     grade_label = dict(Student.GRADE_CHOICES)[grade]
     
-    # Updated Text: After Grade -> Ask Language
-    await callback.message.edit_text(
-        "👉 9-qadamga navbat — O'qish tilingizni kiriting:",
-        reply_markup=get_language_keyboard()
-    )
+    await callback.message.edit_text(STEP_9_ASK_LANGUAGE, reply_markup=get_language_keyboard())
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_language)
 
@@ -392,11 +347,7 @@ async def process_language(callback: CallbackQuery, state: FSMContext):
     
     language_label = dict(Student.LANGUAGE_CHOICES)[language]
     
-    # Updated Text: After Language -> Ask Photo
-    await callback.message.edit_text(
-        "✅ O'qish tilingiz saqlandi:\n\n"
-        "Endi, 10-qadam: Rasmingizni yuboring 🖼"
-    )
+    await callback.message.edit_text(STEP_10_ASK_PHOTO)
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_photo)
 
@@ -429,21 +380,14 @@ async def process_photo(message: Message, state: FSMContext):
     await StudentService.update_student(telegram_id, photo=relative_path)
     await BotStateService.update_state_data(telegram_id, photo=relative_path)
     
-    # Go to Step 11: Achievements
-    await message.answer(
-        "Rasmga gap yo'q 🔥\n\n"
-        "11-qadamimiz biroz uzunroq:\n\n"
-        "Avvalgi yutuqlaringiz haqida nima deyolasiz?\n\n"
-        "(Yutuqlaringiz bo'lmasa, \"O'tkazib yuborish\" tugmasini bosishingiz mumkin)",
-        reply_markup=get_skip_keyboard()
-    )
+    await message.answer(STEP_11_ASK_ACHIEVEMENTS, reply_markup=get_skip_keyboard())
     await state.set_state(RegistrationStates.waiting_for_achievements_description)
 
 
 @router.message(StateFilter(RegistrationStates.waiting_for_photo))
 async def process_photo_invalid(message: Message):
     """Handle invalid photo."""
-    await message.answer("❌ Iltimos, rasm yuboring (foto yoki rasm fayl):")
+    await message.answer(ERROR_INVALID_PHOTO)
 
 
 # ==================== STEP 11: ACHIEVEMENTS ====================
@@ -454,11 +398,7 @@ async def skip_achievements_description(callback: CallbackQuery, state: FSMConte
     telegram_id = callback.from_user.id
     await StudentService.update_student(telegram_id, achievements_description=None)
     
-    await callback.message.edit_text(
-        "✅ Avvalgi yutuqlar o'tkazib yuborildi.\n"
-        "12-qadamimizda yutuqlaringizning rasmini ham ulashib qo'ysangiz 👏",
-        reply_markup=get_skip_keyboard()
-    )
+    await callback.message.edit_text(STEP_12_ASK_ACHIEVEMENTS_FILE, reply_markup=get_skip_keyboard())
     await callback.answer()
     
     # Go to Step 12: Achievements File
@@ -474,10 +414,7 @@ async def process_achievements_description(message: Message, state: FSMContext):
     await StudentService.update_student(telegram_id, achievements_description=achievements_description)
     await BotStateService.update_state_data(telegram_id, achievements_description=achievements_description)
     
-    await message.answer(
-        "12-qadamimizda yutuqlaringizning rasmini ham ulashib qo'ysangiz 👏",
-        reply_markup=get_skip_keyboard()
-    )
+    await message.answer(STEP_12_ASK_ACHIEVEMENTS_FILE, reply_markup=get_skip_keyboard())
     # Go to Step 12: Achievements File
     await state.set_state(RegistrationStates.waiting_for_achievements_file)
 
@@ -490,13 +427,7 @@ async def skip_achievements_file(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
     await StudentService.update_student(telegram_id, achievements_file=None)
     
-    # Updated text and transition to Step 13
-    await callback.message.edit_text(
-        "✅ Avvalgi yutuqlar rasmi o'tkazib yuborildi.\n\n"
-        "✅ 13-qadamga keldik:\n\n"
-        "Endi vasiyingiz haqida ma'lumotlar so'raymiz 🙂\n\n"
-        "Vasiyingiz to'liq ismlarini yozing:"
-    )
+    await callback.message.edit_text(STEP_13_ASK_GUARDIAN_NAME)
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_guardian_name)
 
@@ -527,28 +458,20 @@ async def process_achievements_file(message: Message, state: FSMContext):
         await bot.download_file(file.file_path, file_path)
         relative_path = f"students/achievements/{telegram_id}_{message.document.file_id}_{message.document.file_name}"
     else:
-        await message.answer("❌ Iltimos, fayl yoki rasm yuboring:")
+        await message.answer(ERROR_INVALID_FILE)
         return
     
     await StudentService.update_student(telegram_id, achievements_file=relative_path)
     await BotStateService.update_state_data(telegram_id, achievements_file=relative_path)
     
-    # Transition to Step 13
-    await message.answer(
-        "✅ 13-qadamga keldik:\n\n"
-        "Endi vasiyingiz haqida ma'lumotlar so'raymiz 🙂\n\n"
-        "Vasiyingiz to'liq ismlarini yozing:"
-    )
+    await message.answer(STEP_13_ASK_GUARDIAN_NAME)
     await state.set_state(RegistrationStates.waiting_for_guardian_name)
 
 
 @router.message(StateFilter(RegistrationStates.waiting_for_achievements_file))
 async def process_achievements_file_invalid(message: Message):
     """Handle invalid achievements file."""
-    await message.answer(
-        "❌ Iltimos, fayl yoki rasm yuboring yoki 'O'tkazib yuborish' tugmasini bosing:",
-        reply_markup=get_skip_keyboard()
-    )
+    await message.answer(ERROR_INVALID_FILE_OR_SKIP, reply_markup=get_skip_keyboard())
 
 
 # ==================== STEP 13: GUARDIAN NAME ====================
@@ -562,8 +485,7 @@ async def process_guardian_name(message: Message, state: FSMContext):
     await BotStateService.update_state_data(telegram_id, guardian_name=guardian_name)
     
     await message.answer(
-        f"✅ Vasiy ismi saqlandi: <b>{guardian_name}</b>\n\n"
-        "✅ 14-qadam: Kiritilgan vasiy sizga kim? 🙃",
+        STEP_14_ASK_RELATIONSHIP,
         reply_markup=get_relationship_keyboard()
     )
     await state.set_state(RegistrationStates.waiting_for_guardian_relationship)
@@ -596,8 +518,7 @@ async def process_guardian_relationship(callback: CallbackQuery, state: FSMConte
     relation_text = RELATION_SUFFIX_MAP.get(relationship, 'Vasiyingiz')
     
     await callback.message.edit_text(
-        f"✅ Vasiy kimligi saqlandi: <b>{relationship_label}</b>\n\n"
-        f"15-qadam: {relation_text} nechi yoshdalar? 🙂"
+        STEP_15_ASK_GUARDIAN_AGE.format(relation_text=relation_text)
     )
     await callback.answer()
     
@@ -615,23 +536,19 @@ async def process_guardian_age(message: Message, state: FSMContext):
         if age < 18 or age > 120:
             raise ValueError
     except ValueError:
-        await message.answer("❌ Iltimos, to'g'ri yosh kiriting (18-120):")
+        await message.answer(ERROR_INVALID_AGE)
         return
-    
+
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_age=age)
-    
-    # RELATION_SUFFIX_MAP needs to be accessible here or re-defined/imported if used, 
-    # but for profession text we can use generic or from state.
-    # Let's get relationship to make it nicer if possible, but simplest is generic.
+
     state_data = await BotStateService.get_state(telegram_id)
     data = (state_data.state_data or {}) if state_data else {}
     relationship = data.get('guardian_relationship', 'vasiy')
     relation_text = RELATION_SUFFIX_MAP.get(relationship, 'Vasiyingiz')
 
     await message.answer(
-        f"✅ Vasiy yoshi saqlandi: <b>{age}</b>\n\n"
-        f"16-qadam: {relation_text} nima ish qiladilar? Kasblari nima?"
+        STEP_16_ASK_GUARDIAN_PROFESSION.format(relation_text=relation_text)
     )
     
     # Go to Step 16
@@ -655,8 +572,7 @@ async def process_guardian_profession(message: Message, state: FSMContext):
 
     # from bot.keyboards import get_phone_keyboard
     await message.answer(
-        f"✅ Kasblari saqlandi: <b>{profession}</b>\n\n"
-        f"17-qadam: {relation_text}ning telefon raqamini kirita olasizmi? 👇"
+        STEP_17_ASK_GUARDIAN_PHONE.format(relation_text=relation_text)
     )
     await state.set_state(RegistrationStates.waiting_for_guardian_phone)
 
@@ -682,12 +598,9 @@ async def process_guardian_phone(message: Message, state: FSMContext):
         clean_phone = re.sub(r'[^\d+]', '', phone)
         
         if not re.match(r'^(\+998|998)?\d{9}$', clean_phone):
-             await message.answer(
-                "❌ Iltimos, to'g'ri O'zbekiston telefon raqamini kiriting:\n"
-                "Masalan: +998901234567 yoki 901234567"
-            )
-             return
-        
+            await message.answer(ERROR_INVALID_PHONE_UZB)
+            return
+
         # Format consistently to +998...
         if len(clean_phone) == 9:
             phone = f"+998{clean_phone}"
@@ -701,8 +614,7 @@ async def process_guardian_phone(message: Message, state: FSMContext):
     await BotStateService.update_state_data(telegram_id, guardian_phone=phone)
     
     await message.answer(
-        f"✅ Telefon raqam saqlandi: <b>{phone}</b>\n\n"
-        "18-qadam: Agar bo'lsa, 2-raqamlarini ham kiritsangiz, bo'lmasa o'tkazib yuborishingiz mumkin 🙂",
+        STEP_18_ASK_GUARDIAN_PHONE_2,
         reply_markup=get_skip_keyboard()
     )
     await state.set_state(RegistrationStates.waiting_for_guardian_phone2)
@@ -716,13 +628,7 @@ async def skip_guardian_phone2(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_phone2=None)
     
-    # Updated text and transition to Step 13
-    await callback.message.edit_text(
-        "✅ 2-raqam o'tkazib yuborildi.\n\n"
-        "✅ 19-qadamga keldik:\n\n"
-        "Endi ustozingiz haqida ma'lumotlar so'raymiz 🙂\n\n"
-        "Ustozingiz to'liq ismlarini yozing:"
-    )
+    await callback.message.edit_text(STEP_18_PHONE2_SKIPPED_THEN_19)
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_teacher_name)
 
@@ -737,12 +643,9 @@ async def process_guardian_phone2(message: Message, state: FSMContext):
     clean_phone = re.sub(r'[^\d+]', '', phone)
     
     if not re.match(r'^(\+998|998)?\d{9}$', clean_phone):
-            await message.answer(
-            "❌ Iltimos, to'g'ri O'zbekiston telefon raqamini kiriting:\n"
-            "Masalan: +998901234567 yoki 901234567"
-        )
-            return
-    
+        await message.answer(ERROR_INVALID_PHONE_UZB)
+        return
+
     # Format
     if len(clean_phone) == 9:
         phone = f"+998{clean_phone}"
@@ -755,12 +658,7 @@ async def process_guardian_phone2(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_phone2=phone)
     
-    await message.answer(
-        f"✅ 2-raqam saqlandi: <b>{phone}</b>\n\n"
-        "✅ 19-qadamga keldik:\n\n"
-        "Endi ustozingiz haqida ma'lumotlar so'raymiz 🙂\n\n"
-        "Ustozingiz to'liq ismlarini yozing:"
-    )
+    await message.answer(STEP_18_PHONE2_SAVED_THEN_19)
     await state.set_state(RegistrationStates.waiting_for_teacher_name)
 
 
@@ -775,8 +673,7 @@ async def process_teacher_name(message: Message, state: FSMContext):
     await BotStateService.update_state_data(telegram_id, teacher_name=teacher_name)
     
     await message.answer(
-        f"✅ Ustoz ismi saqlandi: <b>{teacher_name}</b>\n\n"
-        "✅ 20-qadam: Qayerda ishlaydilar 🙃"
+        STEP_20_ASK_TEACHER_WORKPLACE
     )
     await state.set_state(RegistrationStates.waiting_for_teacher_workplace)
 
@@ -793,8 +690,7 @@ async def process_teacher_workplace(message: Message, state: FSMContext):
     
     # from bot.keyboards import get_phone_keyboard
     await message.answer(
-        f"✅ Ish joyi saqlandi: <b>{workplace}</b>\n\n"
-        "📞 21-qadam: Telefon raqamlarini yozsangiz"
+        STEP_21_ASK_TEACHER_PHONE
     )
     await state.set_state(RegistrationStates.waiting_for_teacher_phone)
 
@@ -813,11 +709,8 @@ async def process_teacher_phone(message: Message, state: FSMContext):
         clean_phone = re.sub(r'[^\d+]', '', phone)
         
         if not re.match(r'^(\+998|998)?\d{9}$', clean_phone):
-             await message.answer(
-                "❌ Iltimos, to'g'ri O'zbekiston telefon raqamini kiriting:\n"
-                "Masalan: +998901234567 yoki 901234567"
-            )
-             return
+            await message.answer(ERROR_INVALID_PHONE_UZB)
+            return
         
         # Format
         if len(clean_phone) == 9:
@@ -831,9 +724,7 @@ async def process_teacher_phone(message: Message, state: FSMContext):
     await BotStateService.update_state_data(telegram_id, teacher_phone=phone)
     
     await message.answer(
-        f"✅ Ustoz raqami saqlandi: <b>{phone}</b>\n\n"
-        "🙌 Oxiridan 1 ta oldingi qadamdamiz — 22-qadam:\n\n"
-        "Olimpiadamiz haqida qayerdan eshitdingiz? 🙃",
+        STEP_22_ASK_SOURCE,
         reply_markup=get_source_type_keyboard()
     )
     await state.set_state(RegistrationStates.waiting_for_source)
@@ -902,7 +793,7 @@ async def save_all_data_and_show_confirmation(message_or_callback, state: FSMCon
                 full_name=guardian_name,
                 relationship=guardian_relationship,
                 age=guardian_age,
-                profession=profession if 'profession' in locals() else guardian_profession, # handle scope
+                profession=guardian_profession,
                 phone_number=guardian_phone,
                 phone_number2=guardian_phone2
             )
@@ -1044,18 +935,7 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     """Confirm registration."""
     telegram_id = callback.from_user.id
     
-    # Send Success Message
-    await callback.message.edit_text(
-        "✅ Rasman! Siz Rahimov Matematika Olimpiadasi ishtirokchisisiz! 🔥\n\n"
-        "Bu hali hammasi emas! Sizga olimpiadamiz tomonidan eksklyuziv taklif bor: Olimpiadaga tengdoshlaringizni taklif qiling. Eng ko'p taklif qilgan n ta o'rin sohibiga quyidagi sovg'alarni va'da qilamiz:\n\n"
-        "🥇 1-o'rin: N\n"
-        "🥈 2-o'rin: N\n"
-        "🥉 3-o'ring: N\n"
-        "...\n"
-        "🎖 N-o'rin: N\n\n"
-        "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun 5 ball olasiz 🤩\n\n"
-        "Rozi bo'lsangiz, \"Ha 🔥\" tugmasini bosing. Biz do'stlaringizga yuborishingiz kerak bo'lgan tayyor xabarni yuboramiz ⚡"
-    )
+    await callback.message.edit_text(SUCCESS_MESSAGE)
     from bot.keyboards import get_post_reg_promo_keyboard
     await callback.message.edit_reply_markup(reply_markup=get_post_reg_promo_keyboard())
     
@@ -1092,12 +972,7 @@ async def accept_referral_promo(callback: CallbackQuery, state: FSMContext):
     ref_code = (student.referral_code or str(telegram_id)) if student else str(telegram_id)
     referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
     
-    promo_text = (
-        "👋 Assalomu alaykum! Sovg'asiga: N N N qo'yilgan \"Rahimov Matematika Olimpiadasi\"da qatnashishni istaysizmi?\n\n"
-        "Men ro'yxatdan o'tdim ✅ Va tayyorlanishni boshlayapman 🙂\n"
-        "Olimpiadaga haqida batafsil: [link]\n\n"
-        f"Siz ham quyidagi havola orqali ro'yxatdan o'ting: {referral_link}"
-    )
+    promo_text = PROMO_MESSAGE.format(referral_link=referral_link)
     
     # Send promo image with text
     from aiogram.types import FSInputFile
@@ -1113,21 +988,14 @@ async def accept_referral_promo(callback: CallbackQuery, state: FSMContext):
     else:
         await callback.message.edit_text(promo_text)
     
-    await callback.message.answer(
-        "Quyidagi menyudan kerakli bo'limni tanlang:",
-        reply_markup=get_main_menu_keyboard()
-    )
+    await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
     await callback.answer()
 
 
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_confirmation), F.data == "edit")
 async def start_editing(callback: CallbackQuery, state: FSMContext):
     """Start editing fields."""
-    await callback.message.edit_text(
-        "<b>✏️ Tahrirlash</b>\n\n"
-        "Qaysi maydonni o'zgartirmoqchisiz?",
-        reply_markup=get_edit_fields_keyboard()
-    )
+    await callback.message.edit_text(EDIT_TITLE, reply_markup=get_edit_fields_keyboard())
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_edit_field)
 
@@ -1141,33 +1009,8 @@ async def select_field_to_edit(callback: CallbackQuery, state: FSMContext):
     # Store which field we're editing
     await BotStateService.update_state_data(telegram_id, editing_field=field_name)
     
-    # Map field names to prompts and states
-    field_prompts = {
-        'first_name': "Iltimos, yangi ism kiriting:",
-        'last_name': "Iltimos, yangi familiya kiriting:",
-        'date_of_birth': "Iltimos, yangi tug'ilgan sana kiriting (dd.mm.YYYY):",
-        'document_number': "Iltimos, yangi metrika raqami kiriting:",
-        'region': "Iltimos, yangi viloyat tanlang:",
-        'district': "Iltimos, yangi tuman/shahar kiriting:",
-        'school_name': "Iltimos, yangi maktab nomi kiriting:",
-        'grade': "Iltimos, yangi sinf tanlang:",
-        'language': "Iltimos, yangi o'qish tili tanlang:",
-        'photo': "Iltimos, yangi rasm yuboring:",
-        'achievements_description': "Iltimos, yangi avvalgi yutuqlar haqida yozing:",
-        'achievements_file': "Iltimos, yangi yutuqlar rasmini yuboring:",
-        'guardian_name': "Iltimos, yangi vasiy ismini kiriting:",
-        'guardian_relationship': "Iltimos, yangi vasiy kimligini tanlang:",
-        'guardian_age': "Iltimos, yangi vasiy yoshini kiriting:",
-        'guardian_profession': "Iltimos, yangi vasiy kasbini kiriting:",
-        'guardian_phone': "Iltimos, yangi vasiy telefonini kiriting:",
-        'guardian_phone2': "Iltimos, yangi vasiy 2-telefonini kiriting:",
-        'teacher_name': "Iltimos, yangi o'qituvchi ismini kiriting:",
-        'teacher_workplace': "Iltimos, yangi o'qituvchi ish joyini kiriting:",
-        'teacher_phone': "Iltimos, yangi o'qituvchi telefonini kiriting:",
-        'source': "Iltimos, yangi manbani tanlang:",
-    }
-    
-    prompt = field_prompts.get(field_name, "Iltimos, yangi ma'lumot kiriting:")
+    suffix = EDIT_FIELD_SUFFIXES.get(field_name, "ma'lumot kiriting:")
+    prompt = f"{EDIT_PROMPT_PREFIX} {suffix}"
     
     # Handle special cases that need keyboards
     if field_name == 'region':
@@ -1199,7 +1042,7 @@ async def process_editing_field(message: Message, state: FSMContext):
     # Common update logic based on field
     if editing_field == 'photo':
         if not message.photo:
-            await message.answer("❌ Iltimos, rasm yuboring:")
+            await message.answer(ERROR_INVALID_PHOTO)
             return
         # Process photo same as before
         photo = message.photo[-1]
@@ -1228,19 +1071,19 @@ async def process_editing_field(message: Message, state: FSMContext):
             relative_path = f"students/achievements/{telegram_id}_{file_obj.file_id}.jpg"
             await StudentService.update_student(telegram_id, achievements_file=relative_path)
         else:
-             await message.answer("❌ Iltimos, rasm yuboring:")
-             return
-    
+            await message.answer(ERROR_INVALID_PHOTO)
+            return
+
     elif editing_field == 'date_of_birth':
         try:
             date_of_birth = datetime.strptime(message.text.strip(), "%d.%m.%Y").date()
             await StudentService.update_student(telegram_id, date_of_birth=date_of_birth)
         except ValueError:
-            await message.answer("❌ Noto'g'ri sana formati. (dd.mm.YYYY)")
+            await message.answer(ERROR_DATE_FORMAT_EDIT)
             return
-    
+
     elif editing_field in ['grade', 'region', 'language', 'guardian_relationship', 'source']:
-        await message.answer("❌ Iltimos, tugmalardan foydalaning.")
+        await message.answer(ERROR_USE_BUTTONS)
         return
         
     elif editing_field == 'guardian_name':
@@ -1254,8 +1097,8 @@ async def process_editing_field(message: Message, state: FSMContext):
                 raise ValueError
             await BotStateService.update_state_data(telegram_id, guardian_age=age)
         except ValueError:
-             await message.answer("❌ Iltimos, to'g'ri yosh kiriting (18-120):")
-             return
+            await message.answer(ERROR_INVALID_AGE)
+            return
 
     elif editing_field == 'guardian_profession':
         value = message.text.strip()

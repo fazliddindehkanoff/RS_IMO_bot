@@ -20,7 +20,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from bot.handlers import registration, test
-from exam_bot_admin.webhook import init_bot
+from exam_bot_admin.webhook import init_bot, dp as webhook_dp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,12 +37,11 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     
-    # Create dispatcher
-    dp = Dispatcher()
+    # Use existing dispatcher or create new one but DON'T re-include already included routers
+    # Since we import `test` and `registration`, their routers are objects.
+    # If `exam_bot_admin.webhook` already included them into `webhook.dp`, we can reuse that DP.
     
-    # Register routers
-    dp.include_router(registration.router)
-    dp.include_router(test.router)
+    dp = webhook_dp
     
     # Initialize bot (database, etc.)
     await init_bot()

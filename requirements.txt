@@ -15,11 +15,14 @@ django-unfold==0.30.0
 djangorestframework==3.15.1
 frozenlist==1.8.0
 greenlet==3.3.1
+gunicorn==25.0.1
 idna==3.11
 magic-filter==1.0.12
 multidict==6.7.1
+packaging==26.0
 pillow==11.0.0
 propcache==0.4.1
+psycopg2-binary==2.9.11
 pydantic==2.9.2
 pydantic-settings==2.5.2
 pydantic_core==2.23.4

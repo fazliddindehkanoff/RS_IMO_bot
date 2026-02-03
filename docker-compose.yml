@@ -1,31 +1,53 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-exam_bot}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   web:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: rs-telegram-bot-web
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    command: gunicorn exam_bot_admin.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 4
+    volumes:
+      - ./data:/app/data
+      - ./media:/app/media
+      - ./staticfiles:/app/staticfiles
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-exam_bot}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
     volumes:
-      # Persist database
-      - ./data:/app/data
-      # Persist media files
-      - ./media:/app/media
-      # Persist static files (optional, for development)
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./staticfiles:/app/staticfiles
-    command: python manage.py runserver 0.0.0.0:8000
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - ./media:/app/media
+    depends_on:
+      - web
+    restart: unless-stopped
 
 volumes:
+  postgres_data:
   data:
   media:
