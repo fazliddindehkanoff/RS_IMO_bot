@@ -108,7 +108,6 @@ def get_edit_fields_keyboard() -> InlineKeyboardMarkup:
     # Student fields
     builder.button(text="Ism", callback_data="edit_field:first_name")
     builder.button(text="Familiya", callback_data="edit_field:last_name")
-    builder.button(text="Sharif", callback_data="edit_field:middle_name")
     builder.button(text="Tug'ilgan sana", callback_data="edit_field:date_of_birth")
     builder.button(text="Metrika raqami", callback_data="edit_field:document_number")
     builder.button(text="Viloyat", callback_data="edit_field:region")
@@ -117,24 +116,35 @@ def get_edit_fields_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="Sinf", callback_data="edit_field:grade")
     builder.button(text="O'qish tili", callback_data="edit_field:language")
     builder.button(text="Foto", callback_data="edit_field:photo")
-    builder.button(text="Avvalgi yutuqlar izohi", callback_data="edit_field:achievements_description")
-    builder.button(text="Avvalgi yutuqlar fayli", callback_data="edit_field:achievements_file")
+    builder.button(text="Avvalgi yutuqlar", callback_data="edit_field:achievements_description")
+    builder.button(text="Yutuqlar rasmi", callback_data="edit_field:achievements_file")
+    
     # Guardian fields
-    builder.button(text="Vasiy: Ism, familiya", callback_data="edit_field:guardian_name")
-    builder.button(text="Vasiy: Kimligi", callback_data="edit_field:guardian_relationship")
-    builder.button(text="Vasiy: Yoshi", callback_data="edit_field:guardian_age")
-    builder.button(text="Vasiy: Farzandlar soni", callback_data="edit_field:guardian_children_count")
-    builder.button(text="Vasiy: Kasbi", callback_data="edit_field:guardian_profession")
-    builder.button(text="Vasiy: Tel1", callback_data="edit_field:guardian_phone1")
-    builder.button(text="Vasiy: Tel2", callback_data="edit_field:guardian_phone2")
+    builder.button(text="Vasiy ismi", callback_data="edit_field:guardian_name")
+    builder.button(text="Vasiy kimligi", callback_data="edit_field:guardian_relationship")
+    builder.button(text="Vasiy yoshi", callback_data="edit_field:guardian_age")
+    builder.button(text="Vasiy kasbi", callback_data="edit_field:guardian_profession")
+    builder.button(text="Vasiy tel 1", callback_data="edit_field:guardian_phone")
+    builder.button(text="Vasiy tel 2", callback_data="edit_field:guardian_phone2")
+    
     # Teacher fields
-    builder.button(text="Ustoz: Ism, familiya", callback_data="edit_field:teacher_name")
-    builder.button(text="Ustoz: Ish joyi", callback_data="edit_field:teacher_workplace")
-    builder.button(text="Ustoz: Telefon", callback_data="edit_field:teacher_phone")
-    # Source
+    builder.button(text="Ustoz ismi", callback_data="edit_field:teacher_name")
+    builder.button(text="Ustoz ish joyi", callback_data="edit_field:teacher_workplace")
+    builder.button(text="Ustoz tel", callback_data="edit_field:teacher_phone")
+    
+    # Other
     builder.button(text="Manba", callback_data="edit_field:source")
+    
     builder.button(text="⬅️ Ortga", callback_data="back_to_confirmation")
     builder.adjust(2)
+    return builder.as_markup()
+
+
+def get_post_reg_promo_keyboard() -> InlineKeyboardMarkup:
+    """Get post-registration promo keyboard."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Ha 🔥", callback_data="accept_promo")
+    builder.adjust(1)
     return builder.as_markup()
 
 
@@ -142,6 +152,7 @@ def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
     """Get main menu keyboard."""
     builder = ReplyKeyboardBuilder()
     builder.button(text="👥 Do'stlarni taklif qilish")
+    builder.button(text="🏆 Reyting")
     builder.button(text="📜 Sertifikatlar")
     builder.button(text="💬 Fikr bildirish")
     builder.adjust(2)
@@ -255,5 +266,14 @@ def get_test_completion_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="💡 Takliflar", callback_data="test_suggestions")
     builder.button(text="📢 Shikoyatlar", callback_data="test_complaints")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def get_feedback_type_keyboard() -> InlineKeyboardMarkup:
+    """Get feedback type keyboard."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="💡 Taklif", callback_data="feedback_suggestion")
+    builder.button(text="📢 Shikoyat", callback_data="feedback_complaint")
     builder.adjust(2)
     return builder.as_markup()

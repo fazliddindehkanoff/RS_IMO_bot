@@ -2,7 +2,7 @@
 URL configuration for exam_bot_admin project.
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 

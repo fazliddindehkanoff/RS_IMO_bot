@@ -47,7 +47,7 @@ class Student(models.Model):
     district = models.CharField(max_length=255, null=True, blank=True, verbose_name="Tuman/shahar")
     language = models.CharField(max_length=50, choices=LANGUAGE_CHOICES, null=True, blank=True, verbose_name="Til")
     photo = models.ImageField(upload_to='students/', null=True, blank=True, verbose_name="Rasm")
-    document_number = models.CharField(max_length=255, null=True, blank=True, verbose_name="Metrika raqami")
+    document_number = models.CharField(max_length=255, unique=True, null=True, blank=True, verbose_name="Metrika raqami")
     school_name = models.CharField(max_length=500, null=True, blank=True, verbose_name="Maktab nomi")
     referral_code = models.CharField(
         max_length=64,
@@ -79,8 +79,29 @@ class Student(models.Model):
             models.Index(fields=['grade']),
         ]
 
+    def save(self, *args, **kwargs):
+        """Override save to ensure uppercase fields."""
+        if self.first_name:
+            self.first_name = self.first_name.upper()
+        if self.last_name:
+            self.last_name = self.last_name.upper()
+        if self.middle_name:
+            self.middle_name = self.middle_name.upper()
+        if self.document_number:
+            self.document_number = self.document_number.upper()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.first_name} {self.last_name or ''} (ID: {self.telegram_id})"
+
+
+class StudentRating(Student):
+    """Proxy model for admin: referral leaderboard (list only, no detail view)."""
+    class Meta:
+        proxy = True
+        verbose_name = "Reyting"
+        verbose_name_plural = "Reyting"
+        ordering = ['-referral_points', '-created_at']
 
 
 class Parent(models.Model):
@@ -426,20 +447,18 @@ class Certificate(models.Model):
 
 class Feedback(models.Model):
     """Student feedback."""
+    TYPE_CHOICES = [
+        ('suggestion', 'Taklif'),
+        ('complaint', 'Shikoyat'),
+    ]
     student = models.ForeignKey(
         Student,
         on_delete=models.CASCADE,
         related_name='feedbacks',
         verbose_name="O'quvchi"
     )
-    message = models.TextField(verbose_name="Xabar")
-    rating = models.IntegerField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="1 dan 5 gacha baholash",
-        verbose_name="Baholash"
-    )
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='suggestion', verbose_name="Turi")
+    text = models.TextField(verbose_name="Matn")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
 
     class Meta:
@@ -453,7 +472,7 @@ class Feedback(models.Model):
         ]
 
     def __str__(self):
-        return f"Feedback from {self.student.first_name} - {self.created_at.strftime('%Y-%m-%d')}"
+        return f"{self.get_type_display()} form {self.student.first_name} - {self.created_at.strftime('%d.%m.%Y')}"
 
 
 class BotState(models.Model):
@@ -771,5 +790,81 @@ class TestAnswer(models.Model):
     def __str__(self):
         answer_display = self.answer_choice if self.answer_choice else "—"
         return f"Answer to Q{self.question.question_number}: {answer_display} - {'Correct' if self.is_correct else 'Incorrect'}"
+
+
+class MandatoryChannel(models.Model):
+    """Channels that users must join."""
+    title = models.CharField(max_length=255, verbose_name="Kanal nomi")
+    channel_id = models.CharField(max_length=255, unique=True, verbose_name="Kanal ID/Username")
+    channel_username = models.CharField(max_length=255, null=True, blank=True, verbose_name="Kanal havolasi (username)")
+    is_active = models.BooleanField(default=True, verbose_name="Faol")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
+
+    class Meta:
+        db_table = 'mandatory_channels'
+        verbose_name = "Majburiy kanal"
+        verbose_name_plural = "Majburiy kanallar"
+
+    def __str__(self):
+        return self.title
+
+    def clean(self):
+        """Validate that the bot is an admin in the channel."""
+        from django.core.exceptions import ValidationError
+        import requests
+        from django.conf import settings
+
+        if not self.channel_id:
+            return
+
+        token = settings.BOT_TOKEN
+        if not token:
+            return
+
+        # Prepare channel_id (add @ if it's a username)
+        chat_id = self.channel_id
+        if not chat_id.startswith('-') and not chat_id.startswith('@') and not chat_id.isdigit():
+            chat_id = f"@{chat_id}"
+
+        try:
+            # 1. Get Bot ID
+            get_me_url = f"https://api.telegram.org/bot{token}/getMe"
+            me_resp = requests.get(get_me_url, timeout=5).json()
+            if not me_resp.get('ok'):
+                raise ValidationError(f"Bot token xatosi: {me_resp.get('description')}")
+            
+            bot_id = me_resp['result']['id']
+            
+            # 2. Check Bot Status in Chat
+            member_url = f"https://api.telegram.org/bot{token}/getChatMember"
+            member_resp = requests.get(member_url, params={'chat_id': chat_id, 'user_id': bot_id}, timeout=5).json()
+            
+            if not member_resp.get('ok'):
+                raise ValidationError(f"Kanal topilmadi yoki bot kanal a'zosi emas: {member_resp.get('description')}")
+            
+            status = member_resp['result']['status']
+            if status != 'administrator':
+                raise ValidationError("Bot ushbu kanalda administrator emas. Iltimos, avval botni administrator qiling.")
+
+            # 3. Auto-fill title/username if empty
+            if not self.channel_username or not self.title:
+                chat_url = f"https://api.telegram.org/bot{token}/getChat"
+                chat_resp = requests.get(chat_url, params={'chat_id': chat_id}, timeout=5).json()
+                if chat_resp.get('ok'):
+                    chat = chat_resp['result']
+                    if not self.channel_username and chat.get('username'):
+                        self.channel_username = f"https://t.me/{chat['username']}"
+                    elif not self.channel_username and chat.get('invite_link'):
+                        self.channel_username = chat['invite_link']
+                    
+                    if not self.title and chat.get('title'):
+                        self.title = chat['title']
+                    
+        except requests.RequestException as e:
+             raise ValidationError(f"Telegram API bilan bog'lanishda xatolik: {str(e)}")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 

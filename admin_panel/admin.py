@@ -10,6 +10,7 @@ from unfold.decorators import display
 
 from .models import (
     Student,
+    StudentRating,
     Parent,
     Teacher,
     Certificate,
@@ -18,6 +19,8 @@ from .models import (
     TestAttempt,
     TestAnswer,
     Referral,
+    MandatoryChannel,
+    Feedback,
 )
 from .utils import send_test_assignment_message, send_certificate_message
 from .certificate_generator import generate_certificate
@@ -32,11 +35,9 @@ class LastTestAttemptScoreFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         return (
-            ('0-50', '0-50%'),
-            ('50-70', '50-70%'),
-            ('70-85', '70-85%'),
-            ('85-100', '85-100%'),
-            ('100', '100%'),
+            ('80-100', '80+'),
+            ('90-100', '90+'),
+            ('100', '100'),
         )
 
     def queryset(self, request, queryset):
@@ -44,14 +45,10 @@ class LastTestAttemptScoreFilter(admin.SimpleListFilter):
             return queryset
         
         # Get the score range
-        if self.value() == '0-50':
-            min_score, max_score = 0, 50
-        elif self.value() == '50-70':
-            min_score, max_score = 50, 70
-        elif self.value() == '70-85':
-            min_score, max_score = 70, 85
-        elif self.value() == '85-100':
-            min_score, max_score = 85, 100
+        if self.value() == '80-100':
+            min_score, max_score = 80, 100
+        elif self.value() == '90-100':
+            min_score, max_score = 90, 100
         elif self.value() == '100':
             min_score, max_score = 100, 100
         else:
@@ -159,6 +156,40 @@ class StudentAdmin(ModelAdmin):
         )
     
     send_certificate_action.short_description = "Sertifikat yuborish (oxirgi test bo'yicha)"
+
+
+@admin.register(StudentRating)
+class StudentRatingAdmin(ModelAdmin):
+    """Admin for referral leaderboard: list only, no add/change/delete/view."""
+    list_display = ['rank', 'first_name', 'last_name', 'telegram_id', 'referral_points']
+    list_display_links = []  # no link to detail view
+    ordering = ['-referral_points', '-created_at']
+    search_fields = ['first_name', 'last_name', 'telegram_id']
+    list_per_page = 50
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(is_active=True)
+
+    @display(description='#')
+    def rank(self, obj):
+        """1-based order number by referral_points, then created_at."""
+        if obj is None:
+            return ''
+        above = StudentRating.objects.filter(is_active=True).filter(
+            Q(referral_points__gt=obj.referral_points)
+            | Q(referral_points=obj.referral_points, created_at__lt=obj.created_at)
+        ).count()
+        return above + 1
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 
 @admin.register(Referral)
@@ -433,3 +464,25 @@ class TestAnswerAdmin(ModelAdmin):
     ]
     readonly_fields = ['answered_at', 'updated_at']
     ordering = ['-answered_at']
+
+
+@admin.register(MandatoryChannel)
+class MandatoryChannelAdmin(ModelAdmin):
+    """Admin for MandatoryChannel model."""
+    list_display = ['title', 'channel_id', 'channel_username', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['title', 'channel_id', 'channel_username']
+    readonly_fields = ['created_at']
+
+
+@admin.register(Feedback)
+class FeedbackAdmin(ModelAdmin):
+    """Admin for Feedback model."""
+    list_display = ['student', 'type', 'text_short', 'created_at']
+    list_filter = ['type', 'created_at']
+    search_fields = ['student__first_name', 'student__last_name', 'text']
+    readonly_fields = ['created_at']
+
+    @display(description='Matn')
+    def text_short(self, obj):
+        return obj.text[:50] + '...' if len(obj.text) > 50 else obj.text

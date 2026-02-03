@@ -1,3 +1,4 @@
+# Python 3.10–3.13 required (3.14 not supported: pydantic-core, Pillow)
 aiogram==3.13.1
 sqlalchemy[asyncio]==2.0.36
 aiosqlite==0.20.0

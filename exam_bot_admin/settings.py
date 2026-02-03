@@ -150,6 +150,7 @@ UNFOLD = {
                 "separator": False,
                 "items": [
                     {"title": "Bosh sahifa", "icon": "dashboard", "link": "/admin/"},
+                    {"title": "Reyting", "icon": "leaderboard", "link": "/admin/admin_panel/studentrating/"},
                     {"title": "O'quvchilar", "icon": "school", "link": "/admin/admin_panel/student/"},
                     {"title": "O'qituvchilar", "icon": "badge", "link": "/admin/admin_panel/teacher/"},
                     {"title": "Ota-onalar", "icon": "family_restroom", "link": "/admin/admin_panel/parent/"},
@@ -158,6 +159,7 @@ UNFOLD = {
                     {"title": "Test topshirishlar", "icon": "assignment_turned_in", "link": "/admin/admin_panel/testattempt/"},
                     {"title": "Test javoblari", "icon": "fact_check", "link": "/admin/admin_panel/testanswer/"},
                     {"title": "Sertifikatlar", "icon": "workspace_premium", "link": "/admin/admin_panel/certificate/"},
+                    {"title": "Majburiy kanallar", "icon": "campaign", "link": "/admin/admin_panel/mandatorychannel/"},
                 ],
             },
         ],

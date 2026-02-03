@@ -131,12 +131,20 @@ def send_certificate_message(telegram_id: int, certificate_image_path: str, dela
         if delay_seconds > 0:
             await asyncio.sleep(delay_seconds)
         bot = _get_bot()
-        photo = FSInputFile(str(image_path))
-        await bot.send_photo(
-            chat_id=telegram_id,
-            photo=photo,
-            caption=message_text,
-        )
+        file = FSInputFile(str(image_path))
+        
+        if image_path.suffix.lower() == '.pdf':
+            await bot.send_document(
+                chat_id=telegram_id,
+                document=file,
+                caption=message_text,
+            )
+        else:
+            await bot.send_photo(
+                chat_id=telegram_id,
+                photo=file,
+                caption=message_text,
+            )
         logger.info("Certificate sent to %s", telegram_id)
 
     loop = get_background_loop()

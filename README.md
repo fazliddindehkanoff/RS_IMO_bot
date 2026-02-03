@@ -15,7 +15,7 @@ Production-ready Telegram bot for conducting online grant exams for school stude
 
 ## Tech Stack
 
-- Python 3.10+
+- **Python 3.10–3.13** (use 3.12 or 3.13 recommended; **Python 3.14 is not supported** — pydantic-core and Pillow lack 3.14 wheels)
 - Aiogram 3 (Telegram Bot Framework)
 - SQLAlchemy Async ORM (SQLite for dev, ready for PostgreSQL/MongoDB)
 - Pillow + ReportLab (Certificate generation)
@@ -34,10 +34,27 @@ Clean Architecture with clear separation:
 
 ## Setup
 
+### Python version
+
+Use **Python 3.10, 3.11, 3.12, or 3.13**. Do not use Python 3.14 (pydantic-core and Pillow do not support it yet).
+
+If you see `Failed building wheel for pillow` or `pydantic-core` with Python 3.14:
+
+1. Install Python 3.12 (e.g. `brew install python@3.12` or [pyenv](https://github.com/pyenv/pyenv)).
+2. Create a new venv with that interpreter:
+   ```bash
+   rm -rf env
+   python3.12 -m venv env
+   source env/bin/activate   # Windows: env\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
 ### Quick Start
 
-1. **Install dependencies**:
+1. **Create venv and install dependencies**:
    ```bash
+   python3.12 -m venv env
+   source env/bin/activate
    pip install -r requirements.txt
    ```
 
