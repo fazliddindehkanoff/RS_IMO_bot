@@ -1,5 +1,10 @@
 import logging
+import os
+
 from datetime import datetime
+from aiogram.types import FSInputFile
+from django.conf import settings
+from aiogram.enums import ParseMode
 
 from bot.constants import (
     GREETING_MESSAGE, STEP_2_ASK_SURNAME, STEP_3_ASK_DOB, STEP_4_ASK_METRIKA,
@@ -973,17 +978,11 @@ async def accept_referral_promo(callback: CallbackQuery, state: FSMContext):
     referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
     
     promo_text = PROMO_MESSAGE.format(referral_link=referral_link)
-    
-    # Send promo image with text
-    from aiogram.types import FSInputFile
-    import os
-    from django.conf import settings
-    
     photo_path = os.path.join(settings.MEDIA_ROOT, 'rmo_logo.jpg')
     
     if os.path.exists(photo_path):
         photo = FSInputFile(photo_path)
-        await callback.message.answer_photo(photo, caption=promo_text)
+        await callback.message.answer_photo(photo, caption=promo_text, parse_mode=ParseMode.HTML)
         await callback.message.delete() # Delete the previous text message to avoid clutter
     else:
         await callback.message.edit_text(promo_text)
