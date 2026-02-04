@@ -58,6 +58,16 @@ class Student(models.Model):
         verbose_name="Referral kodi",
         help_text="Do'stlarni taklif qilish havolasida ishlatiladi (admin tomonidan tahrirlanmaydi)",
     )
+    
+    # New fields for Stage 1 Registration
+    PHONE_OWNER_CHOICES = [
+        ('ozimniki', "O'zimniki"),
+        ('turmush_ortogim', "Turmush o'rtog'im"),
+        ('boshqa', "Boshqa"),
+    ]
+    initial_full_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Ism-familiya (Registratsiya)")
+    phone_owner = models.CharField(max_length=50, choices=PHONE_OWNER_CHOICES, null=True, blank=True, verbose_name="Telefon egasi")
+
     referral_points = models.IntegerField(
         default=0,
         verbose_name="Referral ballari",

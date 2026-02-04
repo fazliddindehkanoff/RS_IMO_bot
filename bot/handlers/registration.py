@@ -7,7 +7,9 @@ from django.conf import settings
 from aiogram.enums import ParseMode
 
 from bot.constants import (
-    GREETING_MESSAGE, STEP_2_ASK_SURNAME, STEP_3_ASK_DOB, STEP_4_ASK_METRIKA,
+    GREETING_MESSAGE, STEP_INITIAL_PHONE, STEP_PHONE_OWNER, SUCCESS_INITIAL_REG,
+    PROMO_TEXT, OLYMPIAD_INTRO, OLYMPIAD_DECLINED,
+    STEP_2_ASK_SURNAME, STEP_3_ASK_DOB, STEP_4_ASK_METRIKA,
     STEP_5_ASK_REGION, STEP_6_ASK_DISTRICT, STEP_7_ASK_SCHOOL, STEP_8_ASK_GRADE,
     STEP_9_ASK_LANGUAGE, STEP_10_ASK_PHOTO, STEP_11_ASK_ACHIEVEMENTS,
     STEP_12_ASK_ACHIEVEMENTS_FILE, STEP_13_ASK_GUARDIAN_NAME, STEP_14_ASK_RELATIONSHIP,
@@ -37,7 +39,8 @@ from bot.keyboards import (
     get_grade_keyboard, get_region_keyboard, get_language_keyboard,
     get_main_menu_keyboard, get_confirmation_keyboard, get_edit_fields_keyboard,
     get_skip_keyboard, get_relationship_keyboard, get_source_type_keyboard,
-    get_post_reg_promo_keyboard
+    get_post_reg_promo_keyboard, get_phone_keyboard, get_phone_owner_keyboard,
+    get_olympiad_participation_keyboard
 )
 from bot.services import StudentService, BotStateService, SubscriptionService
 from admin_panel.models import Student, Parent, Teacher, RegistrationSource
@@ -126,23 +129,173 @@ async def cmd_start(message: Message, state: FSMContext):
     student, created = await StudentService.get_or_create_student(telegram_id, username)
 
     if student.first_name and student.last_name and student.date_of_birth and student.document_number:
-        # Student already registered
+        # Student already fully registered (Stage 2 complete)
         await message.answer(
             ALREADY_REGISTERED.format(first_name=student.first_name),
             reply_markup=get_main_menu_keyboard()
         )
         await state.clear()
+    
+    elif student.initial_full_name:
+        # Stage 1 completed, prompt for Stage 2
+        await message.answer(SUCCESS_INITIAL_REG.format(full_name=student.initial_full_name))
+        
+        # Send promo text
+        await message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
+        
+        await state.set_state(RegistrationStates.waiting_for_olympiad_participation)
+        await BotStateService.set_state(telegram_id, "waiting_for_olympiad_participation")
+
     else:
-        # Start registration
+        # Start Stage 1 registration
         await message.answer(GREETING_MESSAGE)
-        await state.set_state(RegistrationStates.waiting_for_first_name)
-        await BotStateService.set_state(telegram_id, "waiting_for_first_name")
+        await state.set_state(RegistrationStates.waiting_for_initial_full_name)
+        await BotStateService.set_state(telegram_id, "waiting_for_initial_full_name")
+        
         # Store referrer in state
         if ref_code and ref_code != str(telegram_id):
             referrer = await StudentService.get_student_by_referral_code(ref_code)
             if referrer and referrer.telegram_id != telegram_id:
                 if referrer.first_name and referrer.last_name and referrer.document_number:
                     await BotStateService.update_state_data(telegram_id, referrer_telegram_id=referrer.telegram_id)
+
+
+# ==================== STAGE 1: INITIAL REGISTRATION ====================
+
+@router.message(StateFilter(RegistrationStates.waiting_for_initial_full_name))
+async def process_initial_full_name(message: Message, state: FSMContext):
+    """Process initial full name."""
+    if not message.text:
+        await message.answer(ERROR_NAME_LENGTH)
+        return
+        
+    full_name = message.text.strip()
+    if len(full_name) < 3:
+        await message.answer(ERROR_NAME_LENGTH)
+        return
+
+    # Update state
+    telegram_id = message.from_user.id
+    await BotStateService.update_state_data(telegram_id, initial_full_name=full_name)
+    
+    # Move to next step
+    await state.set_state(RegistrationStates.waiting_for_initial_phone)
+    await BotStateService.set_state(telegram_id, "waiting_for_initial_phone")
+    
+    await message.answer(STEP_INITIAL_PHONE, reply_markup=get_phone_keyboard())
+
+
+@router.message(StateFilter(RegistrationStates.waiting_for_initial_phone))
+async def process_initial_phone(message: Message, state: FSMContext):
+    """Process initial phone number."""
+    phone = None
+    if message.contact:
+        phone = message.contact.phone_number
+    elif message.text:
+        phone = message.text.strip()
+    
+    # Basic validation
+    if not phone or len(phone) < 9: # Simple check
+         await message.answer(ERROR_INVALID_PHONE_UZB)
+         return
+
+    telegram_id = message.from_user.id
+    await BotStateService.update_state_data(telegram_id, initial_phone=phone)
+
+    # Move to next step
+    await state.set_state(RegistrationStates.waiting_for_phone_owner)
+    await BotStateService.set_state(telegram_id, "waiting_for_phone_owner")
+
+    await message.answer(STEP_PHONE_OWNER, reply_markup=get_phone_owner_keyboard())
+
+
+@router.callback_query(StateFilter(RegistrationStates.waiting_for_phone_owner))
+async def process_phone_owner(callback: CallbackQuery, state: FSMContext):
+    """Process phone owner selection."""
+    if not callback.data.startswith('phone_owner_'):
+        await callback.answer(ERROR_USE_BUTTONS)
+        return
+
+    owner_type = callback.data.replace('phone_owner_', '') # self/spouse/other
+    
+    # Map to model choices: 'ozimniki', 'turmush_ortogim', 'boshqa'
+    # Callback: self -> ozimniki, spouse -> turmush_ortogim, other -> boshqa
+    model_choice = 'boshqa'
+    if owner_type == 'self':
+        model_choice = 'ozimniki'
+    elif owner_type == 'spouse':
+        model_choice = 'turmush_ortogim'
+    
+    telegram_id = callback.from_user.id
+    state_data_obj = await BotStateService.get_state(telegram_id)
+    state_data = state_data_obj.state_data if state_data_obj else {}
+    
+    initial_full_name = state_data.get('initial_full_name', '')
+    initial_phone = state_data.get('initial_phone', '')
+    
+    # SAVE Stage 1 Data to Student Model
+    await StudentService.update_student(
+        telegram_id,
+        initial_full_name=initial_full_name,
+        phone_number=initial_phone, # Save to main phone until stage 2 potentially overrides it? Or just keep it.
+        phone_owner=model_choice
+    )
+    
+    await callback.answer()
+    
+    # Send Success + Image + Promo
+    # Image: logic to use media/rmo_logo.jpg if exists
+    try:
+        from aiogram.types import FSInputFile
+        # Using a fixed path or just skipping image if not critical. 
+        # User said "lyuboy bitta rasm bilan".
+        # We saw `media/rmo_logo.jpg`.
+        # Assuming running from project root.
+        photo_path = 'media/rmo_logo.jpg'
+        if os.path.exists(photo_path):
+             await callback.message.answer_photo(
+                FSInputFile(photo_path),
+                caption=SUCCESS_INITIAL_REG.format(full_name=initial_full_name)
+             )
+        else:
+             await callback.message.answer(SUCCESS_INITIAL_REG.format(full_name=initial_full_name))
+    except Exception as e:
+        logger.error(f"Error sending photo: {e}")
+        await callback.message.answer(SUCCESS_INITIAL_REG.format(full_name=initial_full_name))
+
+    # Send Promo Question
+    await callback.message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
+    
+    await state.set_state(RegistrationStates.waiting_for_olympiad_participation)
+    await BotStateService.set_state(telegram_id, "waiting_for_olympiad_participation")
+
+
+@router.callback_query(StateFilter(RegistrationStates.waiting_for_olympiad_participation))
+async def process_olympiad_choice(callback: CallbackQuery, state: FSMContext):
+    """Process olympiad participation choice."""
+    if callback.data == 'olympiad_yes':
+         await callback.answer()
+         await callback.message.answer(OLYMPIAD_INTRO)
+         
+         # Start Stage 2 (Step 1)
+         await state.set_state(RegistrationStates.waiting_for_first_name)
+         telegram_id = callback.from_user.id
+         await BotStateService.set_state(telegram_id, "waiting_for_first_name")
+    
+    elif callback.data == 'olympiad_no':
+         await callback.answer()
+         await callback.message.answer(OLYMPIAD_DECLINED)
+         # Maybe clear state or leave it? 
+         # Request says just send message. 
+         # User might want to join later.
+         
+         # Optionally clear state so they don't get stuck.
+         # But if they check /start again, logic should handle it.
+         # Logic checks student.initial_full_name, prompts Promo again.
+         # That works.
+         pass
+    else:
+        await callback.answer()
 
 
 @router.message(F.text == "👥 Do'stlarni taklif qilish")

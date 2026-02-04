@@ -4,6 +4,15 @@ from aiogram.fsm.state import State, StatesGroup
 
 class RegistrationStates(StatesGroup):
     """Registration flow states."""
+    # Stage 1: Initial Link
+    waiting_for_initial_full_name = State()
+    waiting_for_initial_phone = State()
+    waiting_for_phone_owner = State()
+    
+    # Post-Registration / Promo
+    waiting_for_olympiad_participation = State() # Yes/No
+
+    # Stage 2: Olympiad Registration (Steps 1-19)
     # Step 1-10: Student Information
     waiting_for_first_name = State()       # 1
     waiting_for_last_name = State()        # 2

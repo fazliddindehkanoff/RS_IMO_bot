@@ -2,12 +2,39 @@
 
 # ==================== GREETING & INTRO ====================
 
+# ==================== STAGE 1: INITIAL REGISTRATION ====================
+
 GREETING_MESSAGE = (
     "👋 Assalomu alaykum!\n\n"
     "Rahimov Matematika Olimpiadasi rasmiy botiga xush kelibsiz 😊\n\n"
-    "Olimpiadada ishtirok etish uchun 23 ta qadamlik ro'yxatdan o'tish jarayoni kutib turibdi 🤭\n\n"
-    "Har bir qadamda sizdan quyidagi ma'lumotlarni so'raymiz:\n\n"
-    "1. O'zingiz haqingizda:\n"
+    "Botdan foydalanish uchun, avvalo, ro'yxatdan o'tishingiz lozim ✅\n\n"
+    "1. Ism-familiyangiz:"
+)
+
+STEP_INITIAL_PHONE = (
+    "2. Telefon raqamingiz:"
+)
+
+STEP_PHONE_OWNER = (
+    "3. Ushbu telefon raqam:"
+)
+
+SUCCESS_INITIAL_REG = (
+    "Botdan muvaffaqiyatli ro'yxatdan o'tdingiz, {full_name} ✅"
+)
+
+PROMO_TEXT = (
+    "Toshkentdagi eng nufuzli maktablardan biri — Rahimov School xususiy maktabida mutlaqo bepul o'qish imkoniyatiga nima deysiz?\n\n"
+    "Viloyatdan bo'lsangiz, yeb-ichish va yotoqxonangizgacha ta'minlab beramiz 🔥\n\n"
+    "Maktabimiz haqiqiy vunderkindlarni qidirmoqda 🌟\n\n"
+    "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 15 ta grant sohibidan biri bo'ling.\n\n"
+    "Olimpiadada qatnashmoqchimisiz?"
+)
+
+OLYMPIAD_INTRO = (
+    "Olimpiadada ishtirok etish uchun oldinda sizni 18 (o'zgarishi mumkin) qadamlik ro'yxatdan o'tish jarayoni kutib turibdi 🤭\n\n"
+    "Bizga nomzodning quyidagi ma'lumotlari kerak bo'ladi:\n\n"
+    "1. Nomzod haqida:\n"
     "• Ism\n"
     "• Familiya\n"
     "• Tug'ilgan sana\n"
@@ -20,11 +47,17 @@ GREETING_MESSAGE = (
     "• Foto\n\n"
     "2. Vasiyingiz haqida\n"
     "3. Ustozingiz haqida\n\n"
-    "Boshladikmi 😉\n\n"
+    "Ko'p kuttirmasdan, boshlaylik unda😉\n\n"
     "1-qadam: Ismingizni kiriting:"
 )
 
-# ==================== STUDENT REGISTRATION STEPS ====================
+OLYMPIAD_DECLINED = (
+    "Botimizga xush kelibsiz, olimpiada jarayonlarini ushbu kanalda kuzatib borishingiz mumkin:\n\n"
+    "@rs_olimpiada / @RahimovSchool"
+)
+
+
+# ==================== STUDENT REGISTRATION STEPS (STAGE 2) ====================
 
 STEP_2_ASK_SURNAME = (
     "Rahmat, {first_name} 🙌\n\n"

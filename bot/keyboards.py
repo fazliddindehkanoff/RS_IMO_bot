@@ -40,6 +40,25 @@ def get_phone_keyboard() -> ReplyKeyboardMarkup:
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 
+def get_phone_owner_keyboard() -> InlineKeyboardMarkup:
+    """Get phone owner selection keyboard."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="O'zimniki", callback_data="phone_owner_self")
+    builder.button(text="Turmush o'rtog'im", callback_data="phone_owner_spouse")
+    builder.button(text="Boshqa", callback_data="phone_owner_other")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_olympiad_participation_keyboard() -> InlineKeyboardMarkup:
+    """Get olympiad participation keyboard."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Ha", callback_data="olympiad_yes")
+    builder.button(text="Yo'q", callback_data="olympiad_no")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
 def get_skip_keyboard() -> InlineKeyboardMarkup:
     """Get skip button keyboard."""
     builder = InlineKeyboardBuilder()
