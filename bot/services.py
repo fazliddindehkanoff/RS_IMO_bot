@@ -481,14 +481,46 @@ class TestService:
             attempt.save()
             return attempt
 
+
+import asyncio
+import time
+
 class SubscriptionService:
     """Service for checking channel subscriptions."""
+    
+    _CHANNEL_CACHE = None
+    _CACHE_TIMESTAMP = 0
+    _CACHE_TIMEOUT = 300  # 5 minutes
+
 
     @staticmethod
     @sync_to_async
     def get_mandatory_channels():
-        """Get list of active mandatory channels."""
-        return list(MandatoryChannel.objects.filter(is_active=True))
+        """Get list of active mandatory channels (cached)."""
+        now = time.time()
+        if (SubscriptionService._CHANNEL_CACHE is None or 
+            now - SubscriptionService._CACHE_TIMESTAMP > SubscriptionService._CACHE_TIMEOUT):
+            
+            SubscriptionService._CHANNEL_CACHE = list(MandatoryChannel.objects.filter(is_active=True))
+            SubscriptionService._CACHE_TIMESTAMP = now
+            
+        return SubscriptionService._CHANNEL_CACHE
+
+    @staticmethod
+    async def _check_single_channel(bot, user_id: int, channel) -> bool:
+        """Check subscription for a single channel. Returns True if subscribed/verified."""
+        try:
+            # Add @ if username and not numeric ID
+            chat_id = channel.channel_id
+            if not chat_id.startswith('-') and not chat_id.startswith('@') and not chat_id.isdigit():
+                chat_id = f"@{chat_id}"
+            
+            member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
+            return member.status not in ['left', 'kicked']
+        except Exception:
+            # On error (e.g. bot not admin, or temp network fail), assume subscribed
+            # so we don't block the user unnecessarily. 
+            return True
 
     @staticmethod
     async def check_subscription(bot, user_id: int) -> dict:
@@ -500,28 +532,27 @@ class SubscriptionService:
         }
         """
         channels = await SubscriptionService.get_mandatory_channels()
-        missing = []
+        if not channels:
+            return {'subscribed': True, 'missing_channels': []}
+
+        # Create tasks for all channels
+        tasks = [SubscriptionService._check_single_channel(bot, user_id, ch) for ch in channels]
         
-        for channel in channels:
-            try:
-                # Add @ if username and not numeric ID
-                chat_id = channel.channel_id
-                if not chat_id.startswith('-') and not chat_id.startswith('@') and not chat_id.isdigit():
-                    chat_id = f"@{chat_id}"
+        # Run all checks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        missing = []
+        for channel, is_subscribed in zip(channels, results):
+            # is_subscribed is either bool (success) or Exception (failure)
+            # _check_single_channel catches most exceptions and returns True, 
+            # but asyncio.gather catches unhandled ones if return_exceptions=True
+            
+            if isinstance(is_subscribed, Exception):
+                # Critical failure in check logic, assume subscribed (safe fail)
+                continue
                 
-                member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
-                if member.status in ['left', 'kicked']:
-                    missing.append(channel)
-            except Exception:
-                # Log error or assume not subscribed if configured correctly?
-                # If bot is not admin, it will raise.
-                # If we assume subscribed on error, we avoid blocking.
-                # If we assume not subscribed, we block.
-                # Given strict requirements ("Enforcement"), we should probably block or handle gracefully.
-                # But if the channel is deleted, users can't join. 
-                # Let's count as missing if we can't verify, assuming admin configured it correctly.
-                # But safer to ignore if exception.
-                pass
+            if not is_subscribed:
+                missing.append(channel)
                 
         return {
             'subscribed': len(missing) == 0,
