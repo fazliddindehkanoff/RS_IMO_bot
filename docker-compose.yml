@@ -22,7 +22,7 @@ services:
       dockerfile: Dockerfile
     container_name: rs-telegram-bot-web
     restart: unless-stopped
-    command: gunicorn exam_bot_admin.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 4 --timeout 120
+    command: gunicorn exam_bot_admin.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - ./data:/app/data
       - ./media:/app/media
