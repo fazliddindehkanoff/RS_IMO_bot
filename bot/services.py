@@ -7,7 +7,7 @@ from asgiref.sync import sync_to_async
 from admin_panel.models import (
     Student, Parent, Teacher, RegistrationSource, BotState,
     Test, TestQuestion, TestAttempt, TestAnswer, Referral,
-    MandatoryChannel
+    MandatoryChannel, Feedback
 )
 from datetime import timedelta
 
@@ -558,3 +558,17 @@ class SubscriptionService:
             'subscribed': len(missing) == 0,
             'missing_channels': missing
         }
+
+class FeedbackService:
+    """Service for feedback operations."""
+
+    @staticmethod
+    @sync_to_async
+    def create_feedback(student: Student, feedback_type: str, text: str):
+        """Create feedback."""
+        with transaction.atomic():
+            return Feedback.objects.create(
+                student=student,
+                type=feedback_type,
+                text=text
+            )

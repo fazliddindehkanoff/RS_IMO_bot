@@ -55,7 +55,9 @@ STEP_6_ASK_DISTRICT = (
 
 STEP_7_ASK_SCHOOL = (
     "{district} saqlandi ⭐️\n\n"
-    "7-qadamga yetib keldik: Qaysi maktabda o'qiysiz? 🙃"
+    "7-qadamga yetib keldik: Qaysi maktabda o'qiysiz?\n\n"
+    "Javobingiz quyidagi formatda yuborsangiz:" 
+    "3-maktab/ixtisoslashtirilgan maktab"
 )
 
 STEP_8_ASK_GRADE = (

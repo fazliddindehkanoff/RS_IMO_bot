@@ -153,7 +153,6 @@ def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.button(text="👥 Do'stlarni taklif qilish")
     builder.button(text="🏆 Reyting")
-    builder.button(text="📜 Sertifikatlar")
     builder.button(text="💬 Fikr bildirish")
     builder.adjust(2)
     return builder.as_markup(resize_keyboard=True)

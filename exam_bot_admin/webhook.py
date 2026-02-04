@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from bot.handlers import registration, test
+from bot.handlers import registration, test, feedback
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ dp = Dispatcher()
 # Register routers
 dp.include_router(registration.router)
 dp.include_router(test.router)
+dp.include_router(feedback.router)
 
 # Track initialization status
 _initialized = False
