@@ -46,7 +46,7 @@ class Student(models.Model):
     region = models.CharField(max_length=255, choices=REGION_CHOICES, null=True, blank=True, verbose_name="Viloyat")
     district = models.CharField(max_length=255, null=True, blank=True, verbose_name="Tuman/shahar")
     language = models.CharField(max_length=50, choices=LANGUAGE_CHOICES, null=True, blank=True, verbose_name="Til")
-    photo = models.ImageField(upload_to='students/', null=True, blank=True, verbose_name="Rasm")
+    photo = models.ImageField(upload_to='students/', max_length=500, null=True, blank=True, verbose_name="Rasm")
     document_number = models.CharField(max_length=255, unique=True, null=True, blank=True, verbose_name="Metrika raqami")
     school_name = models.CharField(max_length=500, null=True, blank=True, verbose_name="Maktab nomi")
     referral_code = models.CharField(
@@ -64,7 +64,7 @@ class Student(models.Model):
         help_text="Har bir taklif qilingan do'st uchun 5 ball (admin tomonidan tahrirlanmaydi)",
     )
     achievements_description = models.TextField(null=True, blank=True, verbose_name="Avvalgi yutuqlar izohi")
-    achievements_file = models.FileField(upload_to='students/achievements/', null=True, blank=True, verbose_name="Avvalgi yutuqlar fayli/rasmi")
+    achievements_file = models.FileField(upload_to='students/achievements/', max_length=500, null=True, blank=True, verbose_name="Avvalgi yutuqlar fayli/rasmi")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan vaqt")
     is_active = models.BooleanField(default=True, verbose_name="Faol")
