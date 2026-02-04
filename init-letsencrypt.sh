@@ -8,7 +8,7 @@ fi
 domains=(rs.nomean.uz)
 rsa_key_size=4096
 data_path="./certbot"
-email="fazliddindehqonov@gmail.com" # Adding email for urgent renewal and security notices
+email="${1:-fazliddindehqonov@gmail.com}" # Use first arg as email, or default
 staging=0 # Set to 1 if you're testing your setup to avoid hitting request limits
 
 if [ -d "$data_path" ]; then
