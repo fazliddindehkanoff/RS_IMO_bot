@@ -488,7 +488,11 @@ async def process_grade(callback: CallbackQuery, state: FSMContext):
     if callback.data == "grade_other":
         await callback.answer()
         # 1. Send explanation message
-        await callback.message.edit_text(OTHER_GRADE_MESSAGE, disable_web_page_preview=True)
+        await callback.message.edit_text(
+            OTHER_GRADE_MESSAGE, 
+            disable_web_page_preview=True, 
+            parse_mode=ParseMode.HTML
+        )
         
         # 2. Wait 5 seconds
         await asyncio.sleep(5)
@@ -1117,10 +1121,11 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
     
     await callback.message.edit_text(SUCCESS_MESSAGE)
-    from bot.keyboards import get_post_reg_promo_keyboard
-    await callback.message.edit_reply_markup(reply_markup=get_post_reg_promo_keyboard())
+    # Registration complete - show main menu
+    await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
     
-    await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+    await state.clear()
+    await BotStateService.clear_state(telegram_id)
     await callback.answer()
 
 

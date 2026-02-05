@@ -185,15 +185,8 @@ STEP_23_CONFIRMATION_HEADER = (
 
 SUCCESS_MESSAGE = (
     "✅ Rasman! Siz Rahimov Matematika Olimpiadasi ishtirokchisisiz! 🔥\n\n"
-    "Bu hali hammasi emas! Sizga olimpiadamiz tomonidan eksklyuziv taklif bor 🤩\n\n"
-    "Olimpiadaga tengdoshlaringizni taklif qiling. Eng ko'p taklif qilgan 20 ta o'rin sohibiga quyidagi sovg'alarni va'da qilamiz:\n\n"
-    "🥇 1-o'rin: 1 ta mutolaa premium, 1 ta telegram premium va kitoblar to'plami\n"
-    "🥈 2-o'rin: 1 ta mutolaa premium, 1 ta telegram premium\n"
-    "🥉 3-o'ring: Kitoblar to'plami\n"
-    "🎖 4-11-o'rinlarga: 1 ta telegram premium\n"
-    "🎖 12-20-o'rinlarga: 1 ta mutolaa premium\n\n"
-    "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun 5 ball olasiz 🤩\n\n"
-    "Rozi bo'lsangiz, \"Ha 🔥\" tugmasini bosing. Biz do'stlaringizga yuborishingiz kerak bo'lgan tayyor xabarni yuboramiz ⚡"
+    "Olimpiada jarayonlarini ushbu kanalda kuzatib borishingiz mumkin:\n"
+    "@rs_olimpiada / @RahimovSchool"
 )
 
 PROMO_MESSAGE = (
@@ -303,7 +296,7 @@ OTHER_GRADE_MESSAGE = (
     "Ushbu olimpiadamiz faqat 5-8-sinflar uchun tashkillanmoqda.\n\n"
     "Boshqa sinflar uchun grant imtihonlari yoz oyida bo'lib o'tadi 😊\n\n"
     "Ijtimoiy tarmoqlarimizni kuzatib boring:\n\n"
-    "Telegram(http://t.me/RahimovSchool) | Instagram(https://www.instagram.com/rahimovschool/) | YouTube(https://www.youtube.com/@RahimovSchool)"
+    "<a href=\"http://t.me/RahimovSchool\">Telegram</a> | <a href=\"https://www.instagram.com/rahimovschool/\">Instagram</a> | <a href=\"https://www.youtube.com/@RahimovSchool\">YouTube</a>"
 )
 
 OTHER_GRADE_PROMO_MESSAGE = (
