@@ -278,9 +278,9 @@ async def process_phone_owner(callback: CallbackQuery, state: FSMContext):
 async def process_olympiad_choice(callback: CallbackQuery, state: FSMContext):
     """Process olympiad participation choice."""
     telegram_id = callback.from_user.id
+    await callback.message.delete()
     
     if callback.data == 'olympiad_yes':
-         await callback.answer()
          await callback.message.answer(OLYMPIAD_INTRO)
          
          # Start Stage 2 (Step 1)
@@ -288,15 +288,19 @@ async def process_olympiad_choice(callback: CallbackQuery, state: FSMContext):
          await BotStateService.set_state(telegram_id, "waiting_for_first_name")
     
     elif callback.data == 'olympiad_no':
-         await callback.answer()
+         # Auto-register with basic info for referral
+         first_name = callback.from_user.first_name
+         last_name = callback.from_user.last_name
+         await StudentService.update_student(telegram_id, first_name=first_name, last_name=last_name)
+         
          # Show Referral Promo Text + "Ha" button to get link
          await callback.message.answer(REFERRAL_ONLY_PROMO_TEXT, reply_markup=get_post_reg_promo_keyboard())
          
          # Wait for "accept_promo" (Ha)
          await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
          await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
-    else:
-        await callback.answer()
+    
+    await callback.answer()
 
 
 @router.message(F.text == "👥 Do'stlarni taklif qilish")
@@ -304,7 +308,8 @@ async def handle_referral_menu(message: Message, state: FSMContext):
     """Show referral stats, link and leaderboard (Uzbek)."""
     telegram_id = message.from_user.id
     student = await StudentService.get_student(telegram_id)
-    if not student or not student.first_name or not student.document_number:
+    # Relaxed check: allow if just first_name exists (referral agent)
+    if not student or not student.first_name:
         await message.answer(ERROR_NOT_REGISTERED)
         return
 
@@ -323,7 +328,7 @@ async def handle_leaderboard(message: Message, state: FSMContext):
     """Show referral leaderboard."""
     telegram_id = message.from_user.id
     student = await StudentService.get_student(telegram_id)
-    if not student or not student.first_name or not student.document_number:
+    if not student or not student.first_name:
         await message.answer(ERROR_NOT_REGISTERED)
         return
 

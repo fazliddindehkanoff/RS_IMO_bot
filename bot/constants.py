@@ -32,7 +32,7 @@ PROMO_TEXT = (
 )
 
 OLYMPIAD_INTRO = (
-    "Olimpiadada ishtirok etish uchun oldinda sizni 18 (o'zgarishi mumkin) qadamlik ro'yxatdan o'tish jarayoni kutib turibdi 🤭\n\n"
+    "Olimpiadada ishtirok etish uchun oldinda sizni 17 qadamlik ro'yxatdan o'tish jarayoni kutib turibdi 🤭\n\n"
     "Bizga nomzodning quyidagi ma'lumotlari kerak bo'ladi:\n\n"
     "1. Nomzod haqida:\n"
     "• Ism\n"
