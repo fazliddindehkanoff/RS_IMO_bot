@@ -139,21 +139,14 @@ async def cmd_start(message: Message, state: FSMContext):
         await state.clear()
     
     else:
-        # 1. Send Video Note
-        # Using File ID directly from forwarded message
-        VIDEO_NOTE_FILE_ID = "DQACAgIAAxkBAAEg6FZphStFMKn4PVUktI2CcwAB0xy9wisAAr-eAAKjGihIXvaBy1KftQE4BA"
-        try:
-            await message.answer_video_note(video_note=VIDEO_NOTE_FILE_ID)
-        except Exception as e:
-            logger.error(f"Failed to send welcome video note by ID: {e}")
-            # Fallback to local file if ID fails (backup)
-            video_note_path = os.path.join(settings.MEDIA_ROOT, 'welcome_video.mp4')
-            if os.path.exists(video_note_path):
-                try:
-                    from aiogram.types import FSInputFile
-                    await message.answer_video_note(FSInputFile(video_note_path))
-                except Exception as e2:
-                    logger.error(f"Failed to send welcome video note by file: {e2}")
+        # 1. Send Video Note (from local file)
+        video_note_path = os.path.join(settings.MEDIA_ROOT, 'welcome_video.mp4')
+        if os.path.exists(video_note_path):
+            try:
+                from aiogram.types import FSInputFile
+                await message.answer_video_note(FSInputFile(video_note_path))
+            except Exception as e:
+                logger.error(f"Failed to send welcome video note: {e}")
 
         # 2. Start immediately with Promo + Buttons (New Flow)
         await message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
