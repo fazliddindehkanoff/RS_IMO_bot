@@ -161,6 +161,7 @@ UNFOLD = {
                     {"title": "Test topshirishlar", "icon": "assignment_turned_in", "link": "/admin/admin_panel/testattempt/"},
                     {"title": "Test javoblari", "icon": "fact_check", "link": "/admin/admin_panel/testanswer/"},
                     {"title": "Taklif Va Shikoyatlar", "icon": "feedback", "link": "/admin/admin_panel/feedback/"},
+                    {"title": "Xabarnomalar", "icon": "send", "link": "/admin/admin_panel/broadcastmessage/"},
                     {"title": "Majburiy kanallar", "icon": "campaign", "link": "/admin/admin_panel/mandatorychannel/"},
                 ],
             },

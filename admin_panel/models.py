@@ -34,7 +34,7 @@ class Student(models.Model):
     first_name = models.CharField(max_length=255, verbose_name="Ism")
     last_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Familiya")
     middle_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Sharif")
-    phone_number = models.CharField(max_length=20, null=True, blank=True, verbose_name="Telefon raqami")
+    # phone_number field removed as per requirement
     grade = models.IntegerField(
         validators=[MinValueValidator(5), MaxValueValidator(8)],
         null=True,
@@ -878,3 +878,43 @@ class MandatoryChannel(models.Model):
         super().save(*args, **kwargs)
 
 
+
+class BroadcastMessage(models.Model):
+    """Message to broadcast to users."""
+    STATUS_CHOICES = [
+        ('draft', 'Qoralama'),
+        ('sending', 'Yuborilmoqda'),
+        ('completed', 'Yakunlandi'),
+        ('failed', 'Xatolik'),
+    ]
+
+    target_grade_5 = models.BooleanField(default=False, verbose_name="5-sinf")
+    target_grade_6 = models.BooleanField(default=False, verbose_name="6-sinf")
+    target_grade_7 = models.BooleanField(default=False, verbose_name="7-sinf")
+    target_grade_8 = models.BooleanField(default=False, verbose_name="8-sinf")
+    
+    message = models.TextField(
+        verbose_name="Xabar matni",
+        help_text="Markdown formatini qo'llab quvvatlaydi. {student_name} - o'quvchi ismi o'rniga tushadi."
+    )
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Holat")
+    
+    # Statistics
+    recipient_count = models.IntegerField(default=0, verbose_name="Qabul qiluvchilar")
+    sent_count = models.IntegerField(default=0, verbose_name="Yuborildi")
+    blocked_count = models.IntegerField(default=0, verbose_name="Bloklaganlar")
+    failed_count = models.IntegerField(default=0, verbose_name="Xatoliklar")
+    
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="Boshlangan vaqt")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Tugallangan vaqt")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
+
+    class Meta:
+        db_table = 'broadcast_messages'
+        verbose_name = "Xabarnoma"
+        verbose_name_plural = "Xabarnomalar"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.created_at.strftime('%d.%m.%Y %H:%M')} - {self.get_status_display()}"

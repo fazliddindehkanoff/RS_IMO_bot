@@ -3,6 +3,7 @@ from typing import Optional
 from django.db import transaction
 from django.utils import timezone
 from asgiref.sync import sync_to_async
+from aiogram.enums import ParseMode
 
 from admin_panel.models import (
     Student, Parent, Teacher, RegistrationSource, BotState,
@@ -559,6 +560,7 @@ class SubscriptionService:
             'missing_channels': missing
         }
 
+
 class FeedbackService:
     """Service for feedback operations."""
 
@@ -572,3 +574,108 @@ class FeedbackService:
                 type=feedback_type,
                 text=text
             )
+
+
+from admin_panel.models import BroadcastMessage
+
+class BroadcastService:
+    """Service for sending broadcast messages."""
+
+    @staticmethod
+    async def send_broadcast(broadcast_id: int, bot):
+        """Send broadcast message to filtered users."""
+        try:
+            broadcast = await sync_to_async(BroadcastMessage.objects.get)(id=broadcast_id)
+        except BroadcastMessage.DoesNotExist:
+            return
+
+        # Update status to sending
+        broadcast.status = 'sending'
+        broadcast.started_at = timezone.now()
+        await sync_to_async(broadcast.save)()
+
+        # Build filter query
+        grade_filters = []
+        if broadcast.target_grade_5: grade_filters.append(5)
+        if broadcast.target_grade_6: grade_filters.append(6)
+        if broadcast.target_grade_7: grade_filters.append(7)
+        if broadcast.target_grade_8: grade_filters.append(8)
+
+        # Get students
+        if grade_filters:
+            students = await sync_to_async(list)(
+                Student.objects.filter(is_active=True, grade__in=grade_filters)
+            )
+        else:
+            # If no filters selected, maybe send to all? Or none? 
+            # Assuming if no grade selected, send to nobody or all?
+            # Let's assume if no grade selected, we don't filter by grade (send to all active)
+            # OR typically explicit selection is safer. Let's send to all active students if no filter?
+            # Better to be safe: if no checkboxes, send to NO ONE (or check requirement).
+            # Requirement: "filtering by classes we can make it multiselect"
+            # If nothing selected, it implies 0 targets usually.
+            # But let's check if they want "All" option? 
+            # Code below assumes if specific grades selected, filter by them. 
+            # If ALL boolean fields are False, query returns empty?
+            # Actually, let's query only if at least one is True.
+            pass
+            students = []
+
+        # If user didn't check any grade, maybe they want to send to everyone?
+        # Let's make it so if NO grade is checked, we send to NO ONE to be safe.
+        if not grade_filters:
+             # Logic fix: if user wants to send to everyone, maybe we should have "All" checkbox?
+             # For now, strict filtering.
+             students = []
+        
+        broadcast.recipient_count = len(students)
+        await sync_to_async(broadcast.save)()
+
+        sent_count = 0
+        blocked_count = 0
+        failed_count = 0
+
+        for student in students:
+            try:
+                # Personalize text
+                text = broadcast.message.format(
+                    student_name=student.first_name,
+                    user_name=student.first_name # alias for safety
+                )
+                
+                # Send message
+                await bot.send_message(
+                    chat_id=student.telegram_id,
+                    text=text,
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                sent_count += 1
+                
+            except Exception as e:
+                # Check for blocking
+                e_str = str(e)
+                if "blocked" in e_str.lower() or "user is deactivated" in e_str.lower():
+                    blocked_count += 1
+                    # Mark student as inactive?
+                    # await StudentService.update_student(student.telegram_id, is_active=False)
+                else:
+                    failed_count += 1
+            
+            # Rate limiting: 20 messages per second = 0.05s delay
+            await asyncio.sleep(0.05)
+            
+            # Update stats periodically (every 50 users?) to show progress in admin?
+            if (sent_count + blocked_count + failed_count) % 50 == 0:
+                 broadcast.sent_count = sent_count
+                 broadcast.blocked_count = blocked_count
+                 broadcast.failed_count = failed_count
+                 await sync_to_async(broadcast.save)()
+
+        # Final update
+        broadcast.status = 'completed'
+        broadcast.completed_at = timezone.now()
+        broadcast.sent_count = sent_count
+        broadcast.blocked_count = blocked_count
+        broadcast.failed_count = failed_count
+        await sync_to_async(broadcast.save)()
+

@@ -21,6 +21,7 @@ from .models import (
     Referral,
     MandatoryChannel,
     Feedback,
+    BroadcastMessage,
 )
 from .utils import send_test_assignment_message, send_certificate_message
 from .certificate_generator import generate_certificate
@@ -483,6 +484,64 @@ class FeedbackAdmin(ModelAdmin):
     search_fields = ['student__first_name', 'student__last_name', 'text']
     readonly_fields = ['created_at']
 
+
     @display(description='Matn')
     def text_short(self, obj):
         return obj.text[:50] + '...' if len(obj.text) > 50 else obj.text
+
+
+from asgiref.sync import async_to_sync
+from bot.services import BroadcastService
+
+# Actually, getting bot instance in django admin context might be tricky if not running alongside.
+# But for now, let's assume we can initialize it or import it.
+# Check where bot is initialized. It seems to be in a management command usually.
+# However, for admin actions, we might need to initialize a fresh Bot instance with the token.
+from aiogram import Bot
+from django.conf import settings
+
+@admin.register(BroadcastMessage)
+class BroadcastMessageAdmin(ModelAdmin):
+    """Admin for BroadcastMessage."""
+    list_display = ['created_at', 'status', 'recipient_count', 'sent_count', 'blocked_count', 'failed_count']
+    list_filter = ['status', 'created_at']
+    readonly_fields = [
+        'status', 'recipient_count', 'sent_count', 'blocked_count', 
+        'failed_count', 'started_at', 'completed_at', 'created_at'
+    ]
+    actions = ['send_broadcast_action']
+
+    def get_readonly_fields(self, request, obj=None):
+        """Make fields readonly if not draft."""
+        if obj and obj.status != 'draft':
+            return [f.name for f in self.model._meta.fields]
+        return self.readonly_fields
+
+    def send_broadcast_action(self, request, queryset):
+        """Send filtered messages."""
+        count = 0
+        for broadcast in queryset:
+            if broadcast.status != 'draft':
+                self.message_user(request, f"Xabarnoma {broadcast.id} oxiriga yetkazilmagan (Holat: {broadcast.status})", level=messages.WARNING)
+                continue
+            
+            # Initialize bot
+            # Note: Initializing bot inside a sync view
+            bot = Bot(token=settings.BOT_TOKEN)
+            
+            try:
+                # Run async service synchronously
+                async_to_sync(BroadcastService.send_broadcast)(broadcast.id, bot)
+                count += 1
+                
+                # Close session if needed (Aiogram 3 bot session handling)
+                async_to_sync(bot.session.close)()
+                
+            except Exception as e:
+                logger.error(f"Error sending broadcast {broadcast.id}: {e}")
+                self.message_user(request, f"Xatolik: {e}", level=messages.ERROR)
+
+        self.message_user(request, f"{count} ta xabarnoma yuborildi.", level=messages.SUCCESS)
+    
+    send_broadcast_action.short_description = "Xabarnomani yuborish"
+

@@ -1,5 +1,6 @@
 import logging
 import os
+import asyncio
 
 from datetime import datetime
 from aiogram.types import FSInputFile
@@ -8,7 +9,7 @@ from aiogram.enums import ParseMode
 
 from bot.constants import (
     GREETING_MESSAGE, STEP_INITIAL_PHONE, STEP_PHONE_OWNER, SUCCESS_INITIAL_REG,
-    PROMO_TEXT, OLYMPIAD_INTRO, OLYMPIAD_DECLINED,
+    PROMO_TEXT, OLYMPIAD_INTRO, OLYMPIAD_DECLINED, REFERRAL_ONLY_PROMO_TEXT,
     STEP_2_ASK_SURNAME, STEP_3_ASK_DOB, STEP_4_ASK_METRIKA,
     STEP_5_ASK_REGION, STEP_6_ASK_DISTRICT, STEP_7_ASK_SCHOOL, STEP_8_ASK_GRADE,
     STEP_9_ASK_LANGUAGE, STEP_10_ASK_PHOTO, STEP_11_ASK_ACHIEVEMENTS,
@@ -24,7 +25,8 @@ from bot.constants import (
     CHECK_SUBS_START, CHECK_SUBS_CONFIRMED_ANSWER, CHECK_SUBS_NOT_CONFIRMED,
     EDIT_TITLE, EDIT_PROMPT_PREFIX, EDIT_PROMPT_DEFAULT, EDIT_FIELD_SUFFIXES,
     ERROR_NOT_REGISTERED, ERROR_DATE_FORMAT_EDIT, ERROR_INVALID_FILE_OR_SKIP,
-    MENU_PROMPT,     STEP_19_ASK_TEACHER_NAME_AFTER_PHONE, STEP_18_PHONE2_SKIPPED_THEN_19, STEP_18_PHONE2_SAVED_THEN_19
+    MENU_PROMPT,     STEP_19_ASK_TEACHER_NAME_AFTER_PHONE, STEP_18_PHONE2_SKIPPED_THEN_19, STEP_18_PHONE2_SAVED_THEN_19,
+    OTHER_GRADE_MESSAGE, OTHER_GRADE_PROMO_MESSAGE
 )
 
 
@@ -136,21 +138,22 @@ async def cmd_start(message: Message, state: FSMContext):
         )
         await state.clear()
     
-    elif student.initial_full_name:
-        # Stage 1 completed, prompt for Stage 2
-        await message.answer(SUCCESS_INITIAL_REG.format(full_name=student.initial_full_name))
-        
-        # Send promo text
+    else:
+        # 1. Send Video Note (if exists)
+        video_note_path = os.path.join(settings.MEDIA_ROOT, 'welcome_video.mp4')
+        if os.path.exists(video_note_path):
+            try:
+                # Note: FSInputFile needs absolute path usually, or relative to CWD.
+                # settings.MEDIA_ROOT should be absolute.
+                await message.answer_video_note(FSInputFile(video_note_path))
+            except Exception as e:
+                logger.error(f"Failed to send welcome video note: {e}")
+
+        # 2. Start immediately with Promo + Buttons (New Flow)
         await message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
         
         await state.set_state(RegistrationStates.waiting_for_olympiad_participation)
         await BotStateService.set_state(telegram_id, "waiting_for_olympiad_participation")
-
-    else:
-        # Start Stage 1 registration
-        await message.answer(GREETING_MESSAGE)
-        await state.set_state(RegistrationStates.waiting_for_initial_full_name)
-        await BotStateService.set_state(telegram_id, "waiting_for_initial_full_name")
         
         # Store referrer in state
         if ref_code and ref_code != str(telegram_id):
@@ -161,6 +164,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
 
 # ==================== STAGE 1: INITIAL REGISTRATION ====================
+# (Skipped in new flow, keeping handlers just in case or we can remove them)
 
 @router.message(StateFilter(RegistrationStates.waiting_for_initial_full_name))
 async def process_initial_full_name(message: Message, state: FSMContext):
@@ -273,27 +277,24 @@ async def process_phone_owner(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_olympiad_participation))
 async def process_olympiad_choice(callback: CallbackQuery, state: FSMContext):
     """Process olympiad participation choice."""
+    telegram_id = callback.from_user.id
+    
     if callback.data == 'olympiad_yes':
          await callback.answer()
          await callback.message.answer(OLYMPIAD_INTRO)
          
          # Start Stage 2 (Step 1)
          await state.set_state(RegistrationStates.waiting_for_first_name)
-         telegram_id = callback.from_user.id
          await BotStateService.set_state(telegram_id, "waiting_for_first_name")
     
     elif callback.data == 'olympiad_no':
          await callback.answer()
-         await callback.message.answer(OLYMPIAD_DECLINED)
-         # Maybe clear state or leave it? 
-         # Request says just send message. 
-         # User might want to join later.
+         # Show Referral Promo Text + "Ha" button to get link
+         await callback.message.answer(REFERRAL_ONLY_PROMO_TEXT, reply_markup=get_post_reg_promo_keyboard())
          
-         # Optionally clear state so they don't get stuck.
-         # But if they check /start again, logic should handle it.
-         # Logic checks student.initial_full_name, prompts Promo again.
-         # That works.
-         pass
+         # Wait for "accept_promo" (Ha)
+         await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+         await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
     else:
         await callback.answer()
 
@@ -479,13 +480,30 @@ async def process_school_name(message: Message, state: FSMContext):
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_grade), F.data.startswith("grade_"))
 async def process_grade(callback: CallbackQuery, state: FSMContext):
     """Process grade selection."""
+    if callback.data == "grade_other":
+        await callback.answer()
+        # 1. Send explanation message
+        await callback.message.edit_text(OTHER_GRADE_MESSAGE, disable_web_page_preview=True)
+        
+        # 2. Wait 5 seconds
+        await asyncio.sleep(5)
+        
+        # 3. Send Promo Message with "Ha" button
+        await callback.message.answer(OTHER_GRADE_PROMO_MESSAGE, reply_markup=get_post_reg_promo_keyboard())
+        
+        # Transition to new state to handle Promo acceptance
+        await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+        telegram_id = callback.from_user.id
+        await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
+        return
+
     grade = int(callback.data.split("_")[1])
     
     telegram_id = callback.from_user.id
     await StudentService.update_student(telegram_id, grade=grade)
     await BotStateService.update_state_data(telegram_id, grade=grade)
     
-    grade_label = dict(Student.GRADE_CHOICES)[grade]
+    # grade_label = dict(Student.GRADE_CHOICES)[grade] # Unused variable
     
     await callback.message.edit_text(STEP_9_ASK_LANGUAGE, reply_markup=get_language_keyboard())
     await callback.answer()

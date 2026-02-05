@@ -10,6 +10,7 @@ def get_grade_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for value, label in Student.GRADE_CHOICES:
         builder.button(text=label, callback_data=f"grade_{value}")
+    builder.button(text="Boshqa sinf", callback_data="grade_other")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -53,9 +54,9 @@ def get_phone_owner_keyboard() -> InlineKeyboardMarkup:
 def get_olympiad_participation_keyboard() -> InlineKeyboardMarkup:
     """Get olympiad participation keyboard."""
     builder = InlineKeyboardBuilder()
-    builder.button(text="Ha", callback_data="olympiad_yes")
-    builder.button(text="Yo'q", callback_data="olympiad_no")
-    builder.adjust(2)
+    builder.button(text="Ha, ro'yxatdan o'tmoqchiman 🔥", callback_data="olympiad_yes")
+    builder.button(text="Yo'q, tarqatmoqchiman ⚡️", callback_data="olympiad_no")
+    builder.adjust(1)
     return builder.as_markup()
 
 

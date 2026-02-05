@@ -205,9 +205,21 @@ PROMO_MESSAGE = (
     "Men ro'yxatdan o'tdim ✅\n\n"
     "Va tayyorlanishni boshlayapman 🙂\n\n"
     "Olimpiadaga haqida batafsil:\n"
-    "[link]\n\n"
+    "https://telegra.ph/Rahimov-Matematika-Olimpiadasi-02-05\n\n"
     "Siz ham quyidagi havola orqali ro'yxatdan o'tishingiz mumkin:\n"
     "{referral_link}"
+)
+
+REFERRAL_ONLY_PROMO_TEXT = (
+    "Vunderkind o'quvchilarga yordam berishga qaror qilganingizdan xursandmiz! 😊\n\n"
+    "Olimpiadaga 5-8-sinflarni taklif qiling. Eng ko'p taklif qilgan 20 ta o'rin sohibiga quyidagi sovg'alarni va'da qilamiz:\n\n"
+    "🥇 1-o'rin: 1 ta mutolaa premium, 1 ta telegram premium va kitoblar to'plami\n"
+    "🥈 2-o'rin: 1 ta mutolaa premium, 1 ta telegram premium\n"
+    "🥉 3-o'ring: Kitoblar to'plami\n"
+    "🎖 4-11-o'rinlarga: 1 ta telegram premium\n"
+    "🎖 12-20-o'rinlarga: 1 ta mutolaa premium\n\n"
+    "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun 5 ball olasiz 🤩\n\n"
+    "Rozi bo'lsangiz, \"Ha 🔥\" tugmasini bosing. Biz do'stlaringizga yuborishingiz kerak bo'lgan tayyor xabarni yuboramiz ⚡"
 )
 
 # ==================== ERROR MESSAGES ====================
@@ -286,3 +298,23 @@ EDIT_FIELD_SUFFIXES = {
     "teacher_phone": "o'qituvchi telefonini kiriting:",
     "source": "manbani tanlang:",
 }
+
+OTHER_GRADE_MESSAGE = (
+    "Ushbu olimpiadamiz faqat 5-8-sinflar uchun tashkillanmoqda.\n\n"
+    "Boshqa sinflar uchun grant imtihonlari yoz oyida bo'lib o'tadi 😊\n\n"
+    "Ijtimoiy tarmoqlarimizni kuzatib boring:\n\n"
+    "Telegram(http://t.me/RahimovSchool) | Instagram(https://www.instagram.com/rahimovschool/) | YouTube(https://www.youtube.com/@RahimovSchool)"
+)
+
+OTHER_GRADE_PROMO_MESSAGE = (
+    "Kanalga ulanib oldingizmi?\n\n"
+    "Bu hali hammasi emas! Sizga olimpiadamiz tomonidan eksklyuziv taklif bor 🤩\n\n"
+    "Olimpiadaga tengdoshlaringizni taklif qiling. Eng ko'p taklif qilgan 20 ta o'rin sohibiga quyidagi sovg'alarni va'da qilamiz:\n\n"
+    "🥇 1-o'rin: 1 ta mutolaa premium, 1 ta telegram premium va kitoblar to'plami\n"
+    "🥈 2-o'rin: 1 ta mutolaa premium, 1 ta telegram premium\n"
+    "🥉 3-o'ring: Kitoblar to'plami\n"
+    "🎖 4-11-o'rinlarga: 1 ta telegram premium\n"
+    "🎖 12-20-o'rinlarga: 1 ta mutolaa premium\n\n"
+    "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun 5 ball olasiz 🤩\n\n"
+    "Rozi bo'lsangiz, \"Ha 🔥\" tugmasini bosing. Biz do'stlaringizga yuborishingiz kerak bo'lgan tayyor xabarni yuboramiz ⚡"
+)
