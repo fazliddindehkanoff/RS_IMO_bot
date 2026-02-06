@@ -168,7 +168,7 @@ PROMO_MESSAGE = (
     "Viloyatdan bo'lsangiz, yeb-ichish va yotoqxonangizgacha ta'minlab berisharkan 🔥\n\n"
     "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 12 ta grant sohibidan biri bo'ling.\n\n"
     "Maktab vunderkindlarni qidirmoqda 🔥\n\n"
-    "Olimpiadaga haqida batafsil:\n"
+    "Olimpiada haqida batafsil:\n"
     "https://telegra.ph/Rahimov-Matematika-Olimpiadasi-02-05\n\n"
     "Siz ham quyidagi havola orqali ro'yxatdan o'tishingiz mumkin:\n"
     "{referral_link}"
@@ -247,18 +247,12 @@ EDIT_FIELD_SUFFIXES = {
     "district": "tuman/shahar kiriting:",
     "school_name": "maktab nomi kiriting:",
     "grade": "sinf tanlang:",
-    "language": "o'qish tili tanlang:",
     "photo": "rasm yuboring:",
     "achievements_description": "avvalgi yutuqlar haqida yozing:",
-    "achievements_file": "yutuqlar rasmini yuboring:",
     "guardian_name": "vasiy ismini kiriting:",
     "guardian_relationship": "vasiy kimligini tanlang:",
-    "guardian_age": "vasiy yoshini kiriting:",
-    "guardian_profession": "vasiy kasbini kiriting:",
     "guardian_phone": "vasiy telefonini kiriting:",
-    "guardian_phone2": "vasiy 2-telefonini kiriting:",
     "teacher_name": "o'qituvchi ismini kiriting:",
-    "teacher_workplace": "o'qituvchi ish joyini kiriting:",
     "teacher_phone": "o'qituvchi telefonini kiriting:",
     "source": "manbani tanlang:",
 }
