@@ -36,9 +36,9 @@ from bot.keyboards import (
     get_post_reg_promo_keyboard, get_phone_keyboard, get_phone_owner_keyboard,
     get_olympiad_participation_keyboard, get_back_reply_keyboard
 )
-from bot.services import BotStateService, StudentService
+from bot.services import BotStateService, StudentService, SubscriptionService
 from bot.states import RegistrationStates
-from admin_panel.models import RegistrationSource, Student
+from admin_panel.models import RegistrationSource, Student, Parent, Teacher
 
 logger = logging.getLogger(__name__)
 router = Router()
