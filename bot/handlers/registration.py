@@ -34,7 +34,7 @@ from bot.keyboards import (
     get_main_menu_keyboard, get_confirmation_keyboard, get_edit_fields_keyboard,
     get_skip_keyboard, get_relationship_keyboard, get_source_type_keyboard,
     get_post_reg_promo_keyboard, get_phone_keyboard, get_phone_owner_keyboard,
-    get_olympiad_participation_keyboard, get_back_reply_keyboard
+    get_olympiad_participation_keyboard, get_back_reply_keyboard, get_back_keyboard
 )
 from bot.services import BotStateService, StudentService, SubscriptionService
 from bot.states import RegistrationStates
@@ -98,7 +98,7 @@ async def process_back_message(message: Message, state: FSMContext):
         await state.set_state(RegistrationStates.waiting_for_district)
         
     elif current_state == RegistrationStates.waiting_for_achievements_description:
-        await message.answer(STEP_10_ASK_PHOTO)
+        await message.answer(STEP_9_ASK_PHOTO)
         await state.set_state(RegistrationStates.waiting_for_photo)
         
     elif current_state == RegistrationStates.waiting_for_guardian_name:
