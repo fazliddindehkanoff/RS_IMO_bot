@@ -183,6 +183,7 @@ def get_post_reg_promo_keyboard() -> InlineKeyboardMarkup:
     """Get post-registration promo keyboard."""
     builder = InlineKeyboardBuilder()
     builder.button(text="Ha 🔥", callback_data="accept_promo")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(1)
     return builder.as_markup()
 

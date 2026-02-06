@@ -174,6 +174,20 @@ async def process_back_callback(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer(STEP_16_ASK_SOURCE, reply_markup=get_source_type_keyboard())
         await state.set_state(RegistrationStates.waiting_for_source)
 
+    elif current_state == RegistrationStates.waiting_for_post_reg_promo:
+        # Determine origin (Other Grade vs No, Share)
+        school_name = data.get('school_name')
+        if school_name:
+             # Back to Grade
+             await callback.message.delete()
+             await callback.message.answer(STEP_8_ASK_GRADE.format(school_name=school_name), reply_markup=get_grade_keyboard())
+             await state.set_state(RegistrationStates.waiting_for_grade)
+        else:
+             # Back to Promo
+             await callback.message.delete()
+             await callback.message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
+             await state.set_state(RegistrationStates.waiting_for_olympiad_participation)
+
     new_state = await state.get_state()
     await BotStateService.set_state(telegram_id, new_state)
     await callback.answer()
@@ -617,7 +631,7 @@ async def process_grade(callback: CallbackQuery, state: FSMContext):
     await BotStateService.update_state_data(telegram_id, grade=grade)
     
     # Skip Language, go to Photo
-    await callback.message.edit_text(STEP_10_ASK_PHOTO)
+    await callback.message.edit_text(STEP_9_ASK_PHOTO, reply_markup=get_back_keyboard())
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_photo)
 
