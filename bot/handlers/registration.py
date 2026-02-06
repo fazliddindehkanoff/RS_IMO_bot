@@ -1,11 +1,15 @@
 import logging
 import os
 import asyncio
-
 from datetime import datetime
-from aiogram.types import FSInputFile
-from django.conf import settings
+
+from aiogram import Router, F
 from aiogram.enums import ParseMode
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.types import FSInputFile, Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from asgiref.sync import sync_to_async
+from django.conf import settings
 
 from bot.constants import (
     GREETING_MESSAGE, STEP_INITIAL_PHONE, STEP_PHONE_OWNER, SUCCESS_INITIAL_REG,
@@ -21,45 +25,24 @@ from bot.constants import (
     REFERRAL_MENU_TITLE, REFERRAL_POINTS, REFERRAL_DESC, LEADERBOARD_TITLE,
     LEADERBOARD_EMPTY, LEADERBOARD_USER_RANK, CHECK_SUBS_FAIL, CHECK_SUBS_SUCCESS,
     CHECK_SUBS_START, CHECK_SUBS_CONFIRMED_ANSWER, CHECK_SUBS_NOT_CONFIRMED,
-    EDIT_TITLE, EDIT_PROMPT_PREFIX, EDIT_PROMPT_DEFAULT, EDIT_FIELD_SUFFIXES,
+    EDIT_TITLE, EDIT_PROMPT_PREFIX, EDIT_FIELD_SUFFIXES,
     ERROR_NOT_REGISTERED, ERROR_DATE_FORMAT_EDIT, ERROR_INVALID_FILE_OR_SKIP,
-    MENU_PROMPT, OTHER_GRADE_MESSAGE, OTHER_GRADE_PROMO_MESSAGE
+    MENU_PROMPT, STEP_18_PHONE2_SKIPPED_THEN_19, STEP_18_PHONE2_SAVED_THEN_19,
+    OTHER_GRADE_MESSAGE, OTHER_GRADE_PROMO_MESSAGE
 )
-
-
-from asgiref.sync import sync_to_async
-from aiogram import Router, F
-from aiogram.filters import Command, StateFilter
-from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, Contact, InlineKeyboardMarkup, InlineKeyboardButton
-
-from bot.states import RegistrationStates, FeedbackStates
 from bot.keyboards import (
     get_grade_keyboard, get_region_keyboard, get_language_keyboard,
     get_main_menu_keyboard, get_confirmation_keyboard, get_edit_fields_keyboard,
     get_skip_keyboard, get_relationship_keyboard, get_source_type_keyboard,
     get_post_reg_promo_keyboard, get_phone_keyboard, get_phone_owner_keyboard,
-    get_olympiad_participation_keyboard, get_back_reply_keyboard, get_back_keyboard
+    get_olympiad_participation_keyboard, get_back_reply_keyboard
 )
-from bot.constants import (
-    GREETING_MESSAGE, STEP_INITIAL_PHONE, STEP_PHONE_OWNER, SUCCESS_INITIAL_REG,
-    PROMO_TEXT, OLYMPIAD_INTRO, OLYMPIAD_DECLINED, REFERRAL_ONLY_PROMO_TEXT,
-    STEP_1_ASK_NAME, STEP_2_ASK_SURNAME, STEP_3_ASK_DOB, STEP_4_ASK_METRIKA,
-    STEP_5_ASK_REGION, STEP_6_ASK_DISTRICT, STEP_7_ASK_SCHOOL, STEP_8_ASK_GRADE,
-    STEP_9_ASK_PHOTO, STEP_10_ASK_ACHIEVEMENTS, STEP_11_ASK_GUARDIAN_NAME,
-    STEP_12_ASK_RELATIONSHIP, STEP_13_ASK_GUARDIAN_PHONE, STEP_14_ASK_TEACHER_NAME,
-    STEP_15_ASK_TEACHER_PHONE, STEP_16_ASK_SOURCE, STEP_17_CONFIRMATION_HEADER,
-    SUCCESS_MESSAGE, PROMO_MESSAGE, ERROR_NAME_LENGTH, ERROR_SURNAME_LENGTH,
-    ERROR_DATE_FORMAT, ERROR_INVALID_PHOTO, ERROR_INVALID_FILE, ERROR_INVALID_AGE,
-    ERROR_INVALID_PHONE_UZB, ERROR_USE_BUTTONS, ALREADY_REGISTERED,
-    REFERRAL_MENU_TITLE, REFERRAL_POINTS, REFERRAL_DESC, LEADERBOARD_TITLE,
-    LEADERBOARD_EMPTY, LEADERBOARD_USER_RANK, CHECK_SUBS_FAIL, CHECK_SUBS_SUCCESS,
-    CHECK_SUBS_START, CHECK_SUBS_CONFIRMED_ANSWER, CHECK_SUBS_NOT_CONFIRMED,
-    EDIT_TITLE, EDIT_PROMPT_PREFIX, EDIT_PROMPT_DEFAULT, EDIT_FIELD_SUFFIXES,
-    ERROR_NOT_REGISTERED, ERROR_DATE_FORMAT_EDIT, ERROR_INVALID_FILE_OR_SKIP,
-    MENU_PROMPT,     STEP_19_ASK_TEACHER_NAME_AFTER_PHONE, STEP_18_PHONE2_SKIPPED_THEN_19, STEP_18_PHONE2_SAVED_THEN_19,
-    OTHER_GRADE_MESSAGE, OTHER_GRADE_PROMO_MESSAGE
-)
+from bot.services import BotStateService, StudentService
+from bot.states import RegistrationStates
+from admin_panel.models import RegistrationSource, Student
+
+logger = logging.getLogger(__name__)
+router = Router()
 
 
 def _parse_start_referral(message_text: str) -> str | None:
@@ -269,7 +252,6 @@ async def cmd_start(message: Message, state: FSMContext):
     video_note_path = os.path.join(settings.MEDIA_ROOT, 'welcome_video.mp4')
     if os.path.exists(video_note_path):
         try:
-            from aiogram.types import FSInputFile
             await message.answer_video_note(FSInputFile(video_note_path))
         except Exception as e:
             logger.error(f"Failed to send welcome video note: {e}")
