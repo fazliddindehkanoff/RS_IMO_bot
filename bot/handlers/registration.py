@@ -563,7 +563,8 @@ async def process_region(callback: CallbackQuery, state: FSMContext):
     
     region_label = dict(Student.REGION_CHOICES)[region]
     
-    await callback.message.edit_text(STEP_6_ASK_DISTRICT.format(region_label=region_label))
+    await callback.message.delete()
+    await callback.message.answer(STEP_6_ASK_DISTRICT.format(region_label=region_label), reply_markup=get_back_reply_keyboard())
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_district)
 
@@ -715,7 +716,8 @@ async def skip_achievements_file(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
     await StudentService.update_student(telegram_id, achievements_file=None)
     
-    await callback.message.edit_text(STEP_13_ASK_GUARDIAN_NAME)
+    await callback.message.delete()
+    await callback.message.answer(STEP_13_ASK_GUARDIAN_NAME, reply_markup=get_back_reply_keyboard())
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_guardian_name)
 
@@ -804,7 +806,8 @@ async def process_guardian_relationship(callback: CallbackQuery, state: FSMConte
     relation_text = RELATION_SUFFIX_MAP.get(relationship, 'Vasiyingiz')
     
     # Skip Age/Profession, go to Phone
-    await callback.message.edit_text(
+    await callback.message.delete()
+    await callback.message.answer(
         STEP_13_ASK_GUARDIAN_PHONE.format(relation_text=relation_text),
         reply_markup=get_back_reply_keyboard()
     )
@@ -918,7 +921,8 @@ async def skip_guardian_phone2(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_phone2=None)
     
-    await callback.message.edit_text(STEP_14_ASK_TEACHER_NAME)
+    await callback.message.delete()
+    await callback.message.answer(STEP_14_ASK_TEACHER_NAME, reply_markup=get_back_reply_keyboard())
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_teacher_name)
 
