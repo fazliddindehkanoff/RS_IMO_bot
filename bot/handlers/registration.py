@@ -39,6 +39,7 @@ from bot.keyboards import (
 from bot.services import BotStateService, StudentService, SubscriptionService
 from bot.states import RegistrationStates
 from admin_panel.models import RegistrationSource, Student, Parent, Teacher
+from admin_panel.utils import send_referral_notification
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -652,7 +653,7 @@ async def process_photo(message: Message, state: FSMContext):
     await StudentService.update_student(telegram_id, photo=relative_path)
     await BotStateService.update_state_data(telegram_id, photo=relative_path)
     
-    await message.answer(STEP_11_ASK_ACHIEVEMENTS, reply_markup=get_skip_keyboard())
+    await message.answer(STEP_10_ASK_ACHIEVEMENTS, reply_markup=get_skip_keyboard())
     await state.set_state(RegistrationStates.waiting_for_achievements_description)
 
 
@@ -757,7 +758,7 @@ async def process_guardian_name(message: Message, state: FSMContext):
     await BotStateService.update_state_data(telegram_id, guardian_name=guardian_name)
     
     await message.answer(
-        STEP_14_ASK_RELATIONSHIP,
+        STEP_12_ASK_RELATIONSHIP,
         reply_markup=get_relationship_keyboard()
     )
     await state.set_state(RegistrationStates.waiting_for_guardian_relationship)
@@ -821,7 +822,7 @@ async def process_guardian_age(message: Message, state: FSMContext):
     relation_text = RELATION_SUFFIX_MAP.get(relationship, 'Vasiyingiz')
 
     await message.answer(
-        STEP_16_ASK_GUARDIAN_PROFESSION.format(relation_text=relation_text)
+        STEP_13_ASK_GUARDIAN_PHONE.format(relation_text=relation_text)
     )
     
     # Go to Step 16
@@ -845,7 +846,7 @@ async def process_guardian_profession(message: Message, state: FSMContext):
 
     # from bot.keyboards import get_phone_keyboard
     await message.answer(
-        STEP_17_ASK_GUARDIAN_PHONE.format(relation_text=relation_text)
+        STEP_13_ASK_GUARDIAN_PHONE.format(relation_text=relation_text)
     )
     await state.set_state(RegistrationStates.waiting_for_guardian_phone)
 
@@ -902,7 +903,7 @@ async def skip_guardian_phone2(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_phone2=None)
     
-    await callback.message.edit_text(STEP_18_PHONE2_SKIPPED_THEN_19)
+    await callback.message.edit_text(STEP_14_ASK_TEACHER_NAME)
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_teacher_name)
 
@@ -932,7 +933,7 @@ async def process_guardian_phone2(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_phone2=phone)
     
-    await message.answer(STEP_18_PHONE2_SAVED_THEN_19)
+    await message.answer(STEP_14_ASK_TEACHER_NAME)
     await state.set_state(RegistrationStates.waiting_for_teacher_name)
 
 
@@ -966,7 +967,7 @@ async def process_teacher_workplace(message: Message, state: FSMContext):
     
     # from bot.keyboards import get_phone_keyboard
     await message.answer(
-        STEP_21_ASK_TEACHER_PHONE
+        STEP_15_ASK_TEACHER_PHONE
     )
     await state.set_state(RegistrationStates.waiting_for_teacher_phone)
 
@@ -1000,7 +1001,7 @@ async def process_teacher_phone(message: Message, state: FSMContext):
     await BotStateService.update_state_data(telegram_id, teacher_phone=phone)
     
     await message.answer(
-        STEP_22_ASK_SOURCE,
+        STEP_16_ASK_SOURCE,
         reply_markup=get_source_type_keyboard()
     )
     await state.set_state(RegistrationStates.waiting_for_source)
