@@ -686,7 +686,8 @@ async def skip_achievements_description(callback: CallbackQuery, state: FSMConte
     await StudentService.update_student(telegram_id, achievements_description=None)
     
     # Skip File, go to Guardian Name
-    await callback.message.edit_text(STEP_11_ASK_GUARDIAN_NAME, reply_markup=get_back_reply_keyboard())
+    await callback.message.delete()
+    await callback.message.answer(STEP_11_ASK_GUARDIAN_NAME, reply_markup=get_back_reply_keyboard())
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_guardian_name)
 
