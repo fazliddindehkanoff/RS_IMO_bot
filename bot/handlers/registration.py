@@ -130,6 +130,15 @@ async def cmd_start(message: Message, state: FSMContext):
     # Get or create student
     student, created = await StudentService.get_or_create_student(telegram_id, username)
 
+    # 1. Send Video Note (if exists)
+    video_note_path = os.path.join(settings.MEDIA_ROOT, 'welcome_video.mp4')
+    if os.path.exists(video_note_path):
+        try:
+            from aiogram.types import FSInputFile
+            await message.answer_video_note(FSInputFile(video_note_path))
+        except Exception as e:
+            logger.error(f"Failed to send welcome video note: {e}")
+
     if student.first_name and student.last_name and student.date_of_birth and student.document_number:
         # Student already fully registered (Stage 2 complete)
         await message.answer(
@@ -137,22 +146,18 @@ async def cmd_start(message: Message, state: FSMContext):
             reply_markup=get_main_menu_keyboard()
         )
         await state.clear()
-    
-    else:
-        # 1. Send Video Note (from local file)
-        video_note_path = os.path.join(settings.MEDIA_ROOT, 'welcome_video.mp4')
-        if os.path.exists(video_note_path):
-            try:
-                from aiogram.types import FSInputFile
-                await message.answer_video_note(FSInputFile(video_note_path))
-            except Exception as e:
-                logger.error(f"Failed to send welcome video note: {e}")
-
-        # 2. Start immediately with Promo + Buttons (New Flow)
-        await message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
         
+    elif student.initial_full_name:
+        # Stage 1 completed, prompt for Stage 2 (Promo)
+        await message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
         await state.set_state(RegistrationStates.waiting_for_olympiad_participation)
         await BotStateService.set_state(telegram_id, "waiting_for_olympiad_participation")
+    
+    else:
+        # Start Stage 1 registration (Name -> Phone -> Owner)
+        await message.answer(GREETING_MESSAGE)
+        await state.set_state(RegistrationStates.waiting_for_initial_full_name)
+        await BotStateService.set_state(telegram_id, "waiting_for_initial_full_name")
         
         # Store referrer in state
         if ref_code and ref_code != str(telegram_id):
@@ -163,7 +168,6 @@ async def cmd_start(message: Message, state: FSMContext):
 
 
 # ==================== STAGE 1: INITIAL REGISTRATION ====================
-# (Skipped in new flow, keeping handlers just in case or we can remove them)
 
 @router.message(StateFilter(RegistrationStates.waiting_for_initial_full_name))
 async def process_initial_full_name(message: Message, state: FSMContext):
@@ -173,7 +177,7 @@ async def process_initial_full_name(message: Message, state: FSMContext):
         return
         
     full_name = message.text.strip()
-    if len(full_name) < 3:
+    if len(full_name) < 2:
         await message.answer(ERROR_NAME_LENGTH)
         return
 
@@ -219,6 +223,9 @@ async def process_phone_owner(callback: CallbackQuery, state: FSMContext):
         await callback.answer(ERROR_USE_BUTTONS)
         return
 
+    # Delete message
+    await callback.message.delete()
+
     owner_type = callback.data.replace('phone_owner_', '') # self/spouse/other
     
     # Map to model choices: 'ozimniki', 'turmush_ortogim', 'boshqa'
@@ -240,32 +247,12 @@ async def process_phone_owner(callback: CallbackQuery, state: FSMContext):
     await StudentService.update_student(
         telegram_id,
         initial_full_name=initial_full_name,
-        phone_number=initial_phone, # Save to main phone until stage 2 potentially overrides it? Or just keep it.
+        phone_number=initial_phone, 
         phone_owner=model_choice
     )
     
     await callback.answer()
     
-    # Send Success + Image + Promo
-    # Image: logic to use media/rmo_logo.jpg if exists
-    try:
-        from aiogram.types import FSInputFile
-        # Using a fixed path or just skipping image if not critical. 
-        # User said "lyuboy bitta rasm bilan".
-        # We saw `media/rmo_logo.jpg`.
-        # Assuming running from project root.
-        photo_path = 'media/rmo_logo.jpg'
-        if os.path.exists(photo_path):
-             await callback.message.answer_photo(
-                FSInputFile(photo_path),
-                caption=SUCCESS_INITIAL_REG.format(full_name=initial_full_name)
-             )
-        else:
-             await callback.message.answer(SUCCESS_INITIAL_REG.format(full_name=initial_full_name))
-    except Exception as e:
-        logger.error(f"Error sending photo: {e}")
-        await callback.message.answer(SUCCESS_INITIAL_REG.format(full_name=initial_full_name))
-
     # Send Promo Question
     await callback.message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
     

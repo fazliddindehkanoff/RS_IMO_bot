@@ -34,7 +34,7 @@ class Student(models.Model):
     first_name = models.CharField(max_length=255, verbose_name="Ism")
     last_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Familiya")
     middle_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Sharif")
-    # phone_number field removed as per requirement
+    phone_number = models.CharField(max_length=20, null=True, blank=True, verbose_name="Telefon raqami")
     grade = models.IntegerField(
         validators=[MinValueValidator(5), MaxValueValidator(8)],
         null=True,

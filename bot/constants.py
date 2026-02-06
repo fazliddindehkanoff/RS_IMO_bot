@@ -7,8 +7,9 @@
 GREETING_MESSAGE = (
     "👋 Assalomu alaykum!\n\n"
     "Rahimov Matematika Olimpiadasi rasmiy botiga xush kelibsiz 😊\n\n"
-    "Botdan foydalanish uchun, avvalo, ro'yxatdan o'tishingiz lozim ✅\n\n"
-    "1. Ism-familiyangiz:"
+    "Yuqoridagi videoni siz uchun tayyorladik, diqqat bilan tomosha qiling.\n\n"
+    "Botdan foydalanish uchun esa, ro'yxatdan o'tishingiz lozim ✅\n\n"
+    "📝 Ismingizni kiriting:"
 )
 
 STEP_INITIAL_PHONE = (
