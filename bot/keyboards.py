@@ -11,6 +11,7 @@ def get_grade_keyboard() -> InlineKeyboardMarkup:
     for value, label in Student.GRADE_CHOICES:
         builder.button(text=label, callback_data=f"grade_{value}")
     builder.button(text="Boshqa sinf", callback_data="grade_other")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -20,6 +21,7 @@ def get_region_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for value, label in Student.REGION_CHOICES:
         builder.button(text=label, callback_data=f"region_{value}")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -29,6 +31,7 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for value, label in Student.LANGUAGE_CHOICES:
         builder.button(text=label, callback_data=f"language_{value}")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(1)
     return builder.as_markup()
 
@@ -37,6 +40,7 @@ def get_phone_keyboard() -> ReplyKeyboardMarkup:
     """Get phone number sharing keyboard."""
     builder = ReplyKeyboardBuilder()
     builder.button(text="📱 Telefon raqamini yuborish", request_contact=True)
+    builder.button(text="⬅️ Ortga")
     builder.adjust(1)
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
@@ -47,6 +51,7 @@ def get_phone_owner_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="O'zimniki", callback_data="phone_owner_self")
     builder.button(text="Turmush o'rtog'im", callback_data="phone_owner_spouse")
     builder.button(text="Boshqa", callback_data="phone_owner_other")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(1)
     return builder.as_markup()
 
@@ -56,6 +61,7 @@ def get_olympiad_participation_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="Ha, ro'yxatdan o'tmoqchiman 🔥", callback_data="olympiad_yes")
     builder.button(text="Yo'q, tarqatmoqchiman ⚡️", callback_data="olympiad_no")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(1)
     return builder.as_markup()
 
@@ -64,6 +70,8 @@ def get_skip_keyboard() -> InlineKeyboardMarkup:
     """Get skip button keyboard."""
     builder = InlineKeyboardBuilder()
     builder.button(text="⏭️ O'tkazib yuborish", callback_data="skip")
+    builder.button(text="⬅️ Ortga", callback_data="back")
+    builder.adjust(1)
     return builder.as_markup()
 
 
@@ -82,6 +90,7 @@ def get_relationship_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for value, label in Parent.RELATIONSHIP_CHOICES:
         builder.button(text=label, callback_data=f"relationship_{value}")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -92,6 +101,7 @@ def get_children_count_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for value, label in Parent.CHILDREN_COUNT_CHOICES:
         builder.button(text=label, callback_data=f"children_{value}")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(3)
     return builder.as_markup()
 
@@ -102,15 +112,24 @@ def get_source_type_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for value, label in RegistrationSource.SOURCE_TYPE_CHOICES:
         builder.button(text=label, callback_data=f"source_{value}")
+    builder.button(text="⬅️ Ortga", callback_data="back")
     builder.adjust(2)
     return builder.as_markup()
 
 
 def get_back_keyboard() -> InlineKeyboardMarkup:
-    """Get back button keyboard."""
+    """Get back button keyboard (Inline)."""
     builder = InlineKeyboardBuilder()
     builder.button(text="⬅️ Ortga", callback_data="back")
     return builder.as_markup()
+
+
+def get_back_reply_keyboard() -> ReplyKeyboardMarkup:
+    """Get back button keyboard (Reply)."""
+    builder = ReplyKeyboardBuilder()
+    builder.button(text="⬅️ Ortga")
+    builder.adjust(1)
+    return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 
 def get_confirmation_keyboard() -> InlineKeyboardMarkup:

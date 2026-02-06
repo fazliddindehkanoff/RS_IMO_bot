@@ -60,6 +60,10 @@ OLYMPIAD_DECLINED = (
 
 # ==================== STUDENT REGISTRATION STEPS (STAGE 2) ====================
 
+STEP_1_ASK_NAME = (
+    "1-qadam: Ismingizni kiriting:"
+)
+
 STEP_2_ASK_SURNAME = (
     "Rahmat, {first_name} 🙌\n\n"
     "Navbat 2-qadamga: Familiyangizni kiriting:"
@@ -68,7 +72,7 @@ STEP_2_ASK_SURNAME = (
 STEP_3_ASK_DOB = (
     "Familiyangiz ham muvaffaqiyatli saqlandi ✅\n\n"
     "Endi, 3-qadam: Qaysi sanada tug'ilgansiz? 😊\n\n"
-    "Faqat bitta iltimos, tug'ilgan sanangizni YYYY-MM-DD formatida kiriting, ya'ni: 2010-05-15"
+    "Faqat bitta iltimos, tug'ilgan sanangizni DD-MM-YYYY formatida kiriting, ya'ni: 15-05-2010"
 )
 
 STEP_4_ASK_METRIKA = (
@@ -98,89 +102,57 @@ STEP_8_ASK_GRADE = (
     "8-qadam: {school_name}da nechanchi sinfsiz? 🙂"
 )
 
-STEP_9_ASK_LANGUAGE = (
-    "👉 9-qadamga navbat — O'qish tilingizni kiriting:"
-)
-
-STEP_10_ASK_PHOTO = (
-    "✅ O'qish tilingiz saqlandi:\n\n"
-    "Endi, 10-qadam: Rasmingizni yuboring 🖼"
+STEP_9_ASK_PHOTO = (
+    "✅ Sinifingiz saqlandi:\n\n"
+    "Endi, 9-qadam: Rasmingizni yuboring 🖼"
 )
 
 # ==================== ACHIEVEMENTS ====================
 
-STEP_11_ASK_ACHIEVEMENTS = (
+STEP_10_ASK_ACHIEVEMENTS = (
     "Rasmga gap yo'q 🔥\n\n"
-    "11-qadamimiz biroz uzunroq:\n\n"
+    "10-qadamimiz biroz uzunroq:\n\n"
     "Avvalgi yutuqlaringiz haqida nima deyolasiz?\n\n"
     "(Yutuqlaringiz bo'lmasa, \"O'tkazib yuborish\" tugmasini bosishingiz mumkin)"
 )
 
-STEP_12_ASK_ACHIEVEMENTS_FILE = (
-    "12-qadamimizda yutuqlaringizning rasmini ham ulashib qo'ysangiz 👏"
-)
-
 # ==================== GUARDIAN INFO ====================
 
-STEP_13_ASK_GUARDIAN_NAME = (
-    "✅ 13-qadamga keldik:\n\n"
+STEP_11_ASK_GUARDIAN_NAME = (
+    "✅ 11-qadamga keldik:\n\n"
     "Endi vasiyingiz haqida ma'lumotlar so'raymiz 🙂\n\n"
     "Vasiyingiz to'liq ismlarini yozing:"
 )
 
-STEP_14_ASK_RELATIONSHIP = (
-    "✅ 14-qadam: Kiritilgan vasiy sizga kim? 🙃"
+STEP_12_ASK_RELATIONSHIP = (
+    "✅ 12-qadam: Kiritilgan vasiy sizga kim? 🙃"
 )
 
-STEP_15_ASK_GUARDIAN_AGE = (
-    "15-qadam: {relation_text} nechi yoshdalar? 🙂"
-)
-
-STEP_16_ASK_GUARDIAN_PROFESSION = (
-    "✅ 16-qadam: {relation_text} nima ish qiladilar? Kasblari nima?"
-)
-
-STEP_17_ASK_GUARDIAN_PHONE = (
-    "17-qadam: {relation_text}ning telefon raqamini kirita olasizmi? 👇"
-)
-
-STEP_18_ASK_GUARDIAN_PHONE_2 = (
-    "18-qadam: Agar bo'lsa, 2-raqamlarini ham kiritsangiz, bo'lmasa o'tkazib yuborishingiz mumkin 🙂"
+STEP_13_ASK_GUARDIAN_PHONE = (
+    "13-qadam: {relation_text}ning telefon raqamini kirita olasizmi? 👇"
 )
 
 # ==================== TEACHER INFO ====================
 
-STEP_19_ASK_TEACHER_NAME = (
-    "✅ 19-qadamga keldik:\n\n"
+STEP_14_ASK_TEACHER_NAME = (
+    "✅ 14-qadamga keldik:\n\n"
     "Endi ustozingiz haqida ma'lumotlar so'raymiz 🙂\n\n"
     "Ustozingiz to'liq ismlarini yozing:"
 )
-# Note: Reuse this text logic for when phone 2 is entered vs skipped
-STEP_19_ASK_TEACHER_NAME_AFTER_PHONE = (
-    "✅ 19-qadamga keldik:\n\n"
-    "Endi ustozingiz haqida ma'lumotlar so'raymiz 🙂\n\n"
-    "Ustozingiz to'liq ismlarini yozing:"
-)
-STEP_18_PHONE2_SKIPPED_THEN_19 = STEP_19_ASK_TEACHER_NAME_AFTER_PHONE
-STEP_18_PHONE2_SAVED_THEN_19 = STEP_19_ASK_TEACHER_NAME_AFTER_PHONE
 
-STEP_20_ASK_TEACHER_WORKPLACE = (
-    "✅ 20-qadam: Qayerda ishlaydilar 🙃"
-)
-
-STEP_21_ASK_TEACHER_PHONE = (
-    "📞 21-qadam: Telefon raqamlarini yozsangiz"
+STEP_15_ASK_TEACHER_PHONE = (
+    "📞 15-qadam: Telefon raqamlarini yozsangiz"
 )
 
 # ==================== SOURCE & CONFIRMATION ====================
 
-STEP_22_ASK_SOURCE = (
-    "🙌 Oxiridan 1 ta oldingi qadamdamiz — 22-qadam:\n\n"
+STEP_16_ASK_SOURCE = (
+    "🙌 Oxiridan 1 ta oldingi qadamdamiz — 16-qadam:\n\n"
     "Olimpiadamiz haqida qayerdan eshitdingiz? 🙃"
 )
 
-STEP_23_CONFIRMATION_HEADER = (
-    "🥳 Nihoyat, eng so'nggi qadam:\n\n"
+STEP_17_CONFIRMATION_HEADER = (
+    "🥳 Nihoyat, eng so'nggi qadam (17-qadam):\n\n"
     "📝 Ushbu ma'lumotlarni tasdiqlaysizmi? 👇\n\n"
 )
 
