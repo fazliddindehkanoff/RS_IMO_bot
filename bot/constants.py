@@ -28,7 +28,7 @@ PROMO_TEXT = (
     "Toshkentdagi eng nufuzli maktablardan biri — Rahimov School xususiy maktabida mutlaqo bepul o'qish imkoniyatiga nima deysiz?\n\n"
     "Viloyatdan bo'lsangiz, yeb-ichish va yotoqxonangizgacha ta'minlab beramiz 🔥\n\n"
     "Maktabimiz haqiqiy vunderkindlarni qidirmoqda 🌟\n\n"
-    "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 15 ta grant sohibidan biri bo'ling.\n\n"
+    "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 12 ta grant sohibidan biri bo'ling.\n\n"
     "Olimpiadada qatnashmoqchimisiz?"
 )
 
@@ -194,7 +194,7 @@ PROMO_MESSAGE = (
     "👋 Assalomu alaykum!\n\n"
     "Toshkentdagi eng nufuzli maktablardan biri — <a href=\"http://t.me/rahimovschool\">Rahimov School</a> xususiy maktabida mutlaqo bepul o'qishni istaysizmi?\n\n"
     "Viloyatdan bo'lsangiz, yeb-ichish va yotoqxonangizgacha ta'minlab berisharkan 🔥\n\n"
-    "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 15 ta grant sohibidan biri bo'ling.\n\n"
+    "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 12 ta grant sohibidan biri bo'ling.\n\n"
     "Maktab vunderkindlarni qidirmoqda 🔥\n\n"
     "Men ro'yxatdan o'tdim ✅\n\n"
     "Va tayyorlanishni boshlayapman 🙂\n\n"

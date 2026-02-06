@@ -134,22 +134,22 @@ def get_edit_fields_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="Tuman/shahar", callback_data="edit_field:district")
     builder.button(text="Maktab", callback_data="edit_field:school_name")
     builder.button(text="Sinf", callback_data="edit_field:grade")
-    builder.button(text="O'qish tili", callback_data="edit_field:language")
+    # builder.button(text="O'qish tili", callback_data="edit_field:language") # Skipped
     builder.button(text="Foto", callback_data="edit_field:photo")
     builder.button(text="Avvalgi yutuqlar", callback_data="edit_field:achievements_description")
-    builder.button(text="Yutuqlar rasmi", callback_data="edit_field:achievements_file")
+    # builder.button(text="Yutuqlar rasmi", callback_data="edit_field:achievements_file") # Skipped
     
     # Guardian fields
     builder.button(text="Vasiy ismi", callback_data="edit_field:guardian_name")
     builder.button(text="Vasiy kimligi", callback_data="edit_field:guardian_relationship")
-    builder.button(text="Vasiy yoshi", callback_data="edit_field:guardian_age")
-    builder.button(text="Vasiy kasbi", callback_data="edit_field:guardian_profession")
-    builder.button(text="Vasiy tel 1", callback_data="edit_field:guardian_phone")
-    builder.button(text="Vasiy tel 2", callback_data="edit_field:guardian_phone2")
+    # builder.button(text="Vasiy yoshi", callback_data="edit_field:guardian_age") # Skipped
+    # builder.button(text="Vasiy kasbi", callback_data="edit_field:guardian_profession") # Skipped
+    builder.button(text="Vasiy tel", callback_data="edit_field:guardian_phone")
+    # builder.button(text="Vasiy tel 2", callback_data="edit_field:guardian_phone2") # Skipped
     
     # Teacher fields
     builder.button(text="Ustoz ismi", callback_data="edit_field:teacher_name")
-    builder.button(text="Ustoz ish joyi", callback_data="edit_field:teacher_workplace")
+    # builder.button(text="Ustoz ish joyi", callback_data="edit_field:teacher_workplace") # Skipped
     builder.button(text="Ustoz tel", callback_data="edit_field:teacher_phone")
     
     # Other

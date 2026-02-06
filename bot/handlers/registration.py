@@ -387,7 +387,8 @@ async def process_date_of_birth(message: Message, state: FSMContext):
     date_str = message.text.strip()
     
     try:
-        date_of_birth = datetime.strptime(date_str, "%Y-%m-%d").date()
+        # Changed format to DD-MM-YYYY
+        date_of_birth = datetime.strptime(date_str, "%d-%m-%Y").date()
     except ValueError:
         await message.answer(ERROR_DATE_FORMAT)
         return
@@ -498,30 +499,14 @@ async def process_grade(callback: CallbackQuery, state: FSMContext):
     await StudentService.update_student(telegram_id, grade=grade)
     await BotStateService.update_state_data(telegram_id, grade=grade)
     
-    # grade_label = dict(Student.GRADE_CHOICES)[grade] # Unused variable
-    
-    await callback.message.edit_text(STEP_9_ASK_LANGUAGE, reply_markup=get_language_keyboard())
-    await callback.answer()
-    await state.set_state(RegistrationStates.waiting_for_language)
-
-
-# ==================== STEP 9: LANGUAGE ====================
-
-@router.callback_query(StateFilter(RegistrationStates.waiting_for_language), F.data.startswith("language_"))
-async def process_language(callback: CallbackQuery, state: FSMContext):
-    """Process language selection."""
-    language = callback.data.split("_")[1]
-    
-    telegram_id = callback.from_user.id
-    await StudentService.update_student(telegram_id, language=language)
-    await BotStateService.update_state_data(telegram_id, language=language)
-    
-    language_label = dict(Student.LANGUAGE_CHOICES)[language]
-    
+    # Skip Language, go to Photo
     await callback.message.edit_text(STEP_10_ASK_PHOTO)
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_photo)
 
+
+# ==================== STEP 9: LANGUAGE (SKIPPED) ====================
+# Handlers removed/bypassed
 
 # ==================== STEP 10: PHOTO ====================
 
@@ -569,11 +554,10 @@ async def skip_achievements_description(callback: CallbackQuery, state: FSMConte
     telegram_id = callback.from_user.id
     await StudentService.update_student(telegram_id, achievements_description=None)
     
-    await callback.message.edit_text(STEP_12_ASK_ACHIEVEMENTS_FILE, reply_markup=get_skip_keyboard())
+    # Skip File, go to Guardian Name
+    await callback.message.edit_text(STEP_13_ASK_GUARDIAN_NAME)
     await callback.answer()
-    
-    # Go to Step 12: Achievements File
-    await state.set_state(RegistrationStates.waiting_for_achievements_file)
+    await state.set_state(RegistrationStates.waiting_for_guardian_name)
 
 
 @router.message(StateFilter(RegistrationStates.waiting_for_achievements_description))
@@ -585,12 +569,13 @@ async def process_achievements_description(message: Message, state: FSMContext):
     await StudentService.update_student(telegram_id, achievements_description=achievements_description)
     await BotStateService.update_state_data(telegram_id, achievements_description=achievements_description)
     
-    await message.answer(STEP_12_ASK_ACHIEVEMENTS_FILE, reply_markup=get_skip_keyboard())
-    # Go to Step 12: Achievements File
-    await state.set_state(RegistrationStates.waiting_for_achievements_file)
+    # Skip File, go to Guardian Name
+    await message.answer(STEP_13_ASK_GUARDIAN_NAME)
+    await state.set_state(RegistrationStates.waiting_for_guardian_name)
 
 
-# ==================== STEP 12: ACHIEVEMENTS FILE ====================
+# ==================== STEP 12: ACHIEVEMENTS FILE (SKIPPED) ====================
+# Handlers removed/bypassed
 
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_achievements_file), F.data == "skip")
 async def skip_achievements_file(callback: CallbackQuery, state: FSMContext):
@@ -684,20 +669,20 @@ async def process_guardian_relationship(callback: CallbackQuery, state: FSMConte
     await BotStateService.update_state_data(telegram_id, guardian_relationship=relationship)
     
     relationship_label = dict(Parent.RELATIONSHIP_CHOICES)[relationship]
-    
-    # Prepare text for Step 15
     relation_text = RELATION_SUFFIX_MAP.get(relationship, 'Vasiyingiz')
     
+    # Skip Age/Profession, go to Phone
     await callback.message.edit_text(
-        STEP_15_ASK_GUARDIAN_AGE.format(relation_text=relation_text)
+        STEP_17_ASK_GUARDIAN_PHONE.format(relation_text=relation_text)
     )
     await callback.answer()
-    
-    # Go to Step 15
-    await state.set_state(RegistrationStates.waiting_for_guardian_age)
+    await state.set_state(RegistrationStates.waiting_for_guardian_phone)
 
 
-# ==================== STEP 15: GUARDIAN AGE ====================
+# ==================== STEP 15 & 16: GUARDIAN AGE/PROFESSION (SKIPPED) ====================
+# Handlers removed/bypassed
+
+# ==================== STEP 17: GUARDIAN PHONE 1 ====================
 
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_age))
 async def process_guardian_age(message: Message, state: FSMContext):
@@ -784,14 +769,15 @@ async def process_guardian_phone(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_phone=phone)
     
-    await message.answer(
-        STEP_18_ASK_GUARDIAN_PHONE_2,
-        reply_markup=get_skip_keyboard()
-    )
-    await state.set_state(RegistrationStates.waiting_for_guardian_phone2)
+    # Skip Phone 2, go to Teacher Name
+    await message.answer(STEP_19_ASK_TEACHER_NAME)
+    await state.set_state(RegistrationStates.waiting_for_teacher_name)
 
 
-# ==================== STEP 18: GUARDIAN PHONE 2 ====================
+# ==================== STEP 18: GUARDIAN PHONE 2 (SKIPPED) ====================
+# Handlers removed/bypassed
+
+# ==================== STEP 19: TEACHER NAME ====================
 
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_guardian_phone2), F.data == "skip")
 async def skip_guardian_phone2(callback: CallbackQuery, state: FSMContext):
@@ -843,13 +829,15 @@ async def process_teacher_name(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, teacher_name=teacher_name)
     
-    await message.answer(
-        STEP_20_ASK_TEACHER_WORKPLACE
-    )
-    await state.set_state(RegistrationStates.waiting_for_teacher_workplace)
+    # Skip Workplace, go to Phone
+    await message.answer(STEP_21_ASK_TEACHER_PHONE)
+    await state.set_state(RegistrationStates.waiting_for_teacher_phone)
 
 
-# ==================== STEP 20: TEACHER WORKPLACE ====================
+# ==================== STEP 20: TEACHER WORKPLACE (SKIPPED) ====================
+# Handlers removed/bypassed
+
+# ==================== STEP 21: TEACHER PHONE ====================
 
 @router.message(StateFilter(RegistrationStates.waiting_for_teacher_workplace))
 async def process_teacher_workplace(message: Message, state: FSMContext):
@@ -953,37 +941,25 @@ async def save_all_data_and_show_confirmation(message_or_callback, state: FSMCon
         if parent:
             parent.full_name = guardian_name
             parent.relationship = guardian_relationship
-            parent.age = guardian_age
-            parent.profession = guardian_profession
+            # parent.age = guardian_age
+            # parent.profession = guardian_profession
             parent.phone_number = guardian_phone
-            parent.phone_number2 = guardian_phone2
+            # parent.phone_number2 = guardian_phone2
             await sync_to_async(parent.save)()
         else:
-            await StudentService.create_parent(
-                student,
-                full_name=guardian_name,
-                relationship=guardian_relationship,
-                age=guardian_age,
-                profession=guardian_profession,
-                phone_number=guardian_phone,
-                phone_number2=guardian_phone2
-            )
-            # Fix: create_parent might not accept all args if not updated in service, 
-            # so safest is create then update or ensure service supports it. 
-            # Let's assume standard django create or service method.
-            # Actually StudentService.create_parent might be custom.
-            # Let's do raw create for safety if service is limited, or update after create.
-            if not parent:
-                 # Re-fetch
-                 try:
-                    parent = await sync_to_async(lambda: student.parent)()
-                 except:
-                    pass
-            if parent:
-                parent.profession = guardian_profession
-                parent.phone_number = guardian_phone
-                parent.phone_number2 = guardian_phone2
-                await sync_to_async(parent.save)()
+            # Create
+            try:
+                await StudentService.create_parent(
+                    student,
+                    full_name=guardian_name,
+                    relationship=guardian_relationship,
+                    phone_number=guardian_phone,
+                    # age=guardian_age,
+                    # profession=guardian_profession,
+                    # phone_number2=guardian_phone2
+                )
+            except Exception as e:
+                logger.error(f"Error creating parent: {e}")
         
     # Save Teacher
     if teacher_name:
@@ -994,22 +970,19 @@ async def save_all_data_and_show_confirmation(message_or_callback, state: FSMCon
             
         if teacher:
             teacher.full_name = teacher_name
-            teacher.workplace = teacher_workplace
+            # teacher.workplace = teacher_workplace
             teacher.phone_number = teacher_phone
             await sync_to_async(teacher.save)()
         else:
-            await StudentService.create_teacher(
-                student,
-                full_name=teacher_name
-            )
-            # Update fields
             try:
-                teacher = await sync_to_async(lambda: student.teacher)()
-                teacher.workplace = teacher_workplace
-                teacher.phone_number = teacher_phone
-                await sync_to_async(teacher.save)()
-            except:
-                pass
+                await StudentService.create_teacher(
+                    student,
+                    full_name=teacher_name,
+                    phone_number=teacher_phone
+                    # workplace=teacher_workplace
+                )
+            except Exception as e:
+                logger.error(f"Error creating teacher: {e}")
 
     # Save Source
     if source_type:
@@ -1055,26 +1028,28 @@ async def save_all_data_and_show_confirmation(message_or_callback, state: FSMCon
     confirmation_text += f"• Tuman/shahar: {student.district or '—'}\n"
     confirmation_text += f"• Maktab: {student.school_name or '—'}\n"
     confirmation_text += f"• Sinf: {dict(Student.GRADE_CHOICES).get(student.grade, '—')}\n"
-    confirmation_text += f"• Til: {dict(Student.LANGUAGE_CHOICES).get(student.language, '—')}\n"
+    # confirmation_text += f"• Til: {dict(Student.LANGUAGE_CHOICES).get(student.language, '—')}\n"
     confirmation_text += f"• Foto: {'✅ Yuklangan' if student.photo else '❌'}\n"
     confirmation_text += f"• Yutuqlar: {student.achievements_description or 'Yo\'q'}\n"
-    confirmation_text += f"• Yutuq rasmi: {'✅ Yuklangan' if student.achievements_file else '❌'}\n\n"
+    # confirmation_text += f"• Yutuq rasmi: {'✅ Yuklangan' if student.achievements_file else '❌'}\n\n"
+    confirmation_text += "\n"
     
     confirmation_text += "<b>👤 Vasiy ma'lumotlari:</b>\n"
     if parent:
         confirmation_text += f"• Ism: {parent.full_name}\n"
         confirmation_text += f"• Kimligi: {dict(Parent.RELATIONSHIP_CHOICES).get(parent.relationship, '—')}\n"
-        confirmation_text += f"• Yoshi: {parent.age or '—'}\n"
-        confirmation_text += f"• Kasbi: {parent.profession or '—'}\n"
-        confirmation_text += f"• Tel 1: {parent.phone_number or '—'}\n"
-        confirmation_text += f"• Tel 2: {parent.phone_number2 or '—'}\n\n"
+        # confirmation_text += f"• Yoshi: {parent.age or '—'}\n"
+        # confirmation_text += f"• Kasbi: {parent.profession or '—'}\n"
+        confirmation_text += f"• Tel: {parent.phone_number or '—'}\n"
+        # confirmation_text += f"• Tel 2: {parent.phone_number2 or '—'}\n\n"
+        confirmation_text += "\n"
     else:
         confirmation_text += "Kiritilmadi\n\n"
         
     confirmation_text += "<b>🧑‍🏫 Ustoz ma'lumotlari:</b>\n"
     if teacher:
         confirmation_text += f"• Ism: {teacher.full_name}\n"
-        confirmation_text += f"• Ish joyi: {teacher.workplace or '—'}\n"
+        # confirmation_text += f"• Ish joyi: {teacher.workplace or '—'}\n"
         confirmation_text += f"• Tel: {teacher.phone_number or '—'}\n\n"
     else:
         confirmation_text += "Kiritilmadi\n\n"
