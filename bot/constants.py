@@ -168,8 +168,6 @@ PROMO_MESSAGE = (
     "Viloyatdan bo'lsangiz, yeb-ichish va yotoqxonangizgacha ta'minlab berisharkan 🔥\n\n"
     "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 12 ta grant sohibidan biri bo'ling.\n\n"
     "Maktab vunderkindlarni qidirmoqda 🔥\n\n"
-    "Men ro'yxatdan o'tdim ✅\n\n"
-    "Va tayyorlanishni boshlayapman 🙂\n\n"
     "Olimpiadaga haqida batafsil:\n"
     "https://telegra.ph/Rahimov-Matematika-Olimpiadasi-02-05\n\n"
     "Siz ham quyidagi havola orqali ro'yxatdan o'tishingiz mumkin:\n"
