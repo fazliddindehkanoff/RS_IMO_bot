@@ -227,7 +227,7 @@ LEADERBOARD_USER_RANK = "Sizning o'rningiz: <b>{rank}</b> — <b>{user_points}</
 
 CHECK_SUBS_FAIL = "❌ <b>Siz hali quyidagi kanallarga obuna bo'lmadingiz:</b>"
 CHECK_SUBS_SUCCESS = "✅ <b>Obuna tasdiqlandi!</b>\n\n/start buyrug'ini bosing."
-CHECK_SUBS_START = "❌ <b>Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling:</b>"
+CHECK_SUBS_START = "🌟 Olimpiadaga bog'liq barcha yangiliklardan boxabar bo'lish uchun quyidagi kanallarni ulanib oling:"
 CHECK_SUBS_CONFIRMED_ANSWER = "✅ Obuna tasdiqlandi!"
 CHECK_SUBS_NOT_CONFIRMED = "❌ Obuna tasdiqlanmadi"
 
