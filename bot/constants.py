@@ -191,8 +191,8 @@ REFERRAL_ONLY_PROMO_TEXT = (
 ERROR_NAME_LENGTH = "❌ Iltimos, to'g'ri ism kiriting (kamida 2 ta belgi):"
 ERROR_SURNAME_LENGTH = "❌ Iltimos, to'g'ri familiya kiriting (kamida 2 ta belgi):"
 ERROR_DATE_FORMAT = (
-    "❌ Iltimos, to'g'ri formatda kiriting (YYYY-MM-DD):\n"
-    "Masalan: 2010-05-15"
+    "❌ Iltimos, to'g'ri formatda kiriting (DD-MM-YYYY):\n"
+    "Masalan: 15-05-2010"
 )
 ERROR_INVALID_PHOTO = "❌ Iltimos, rasm yuboring (foto yoki rasm fayl):"
 ERROR_INVALID_FILE = "❌ Iltimos, fayl yoki rasm yuboring:"
