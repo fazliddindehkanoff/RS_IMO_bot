@@ -476,6 +476,10 @@ async def handle_leaderboard(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_first_name))
 async def process_first_name(message: Message, state: FSMContext):
     """Process first name."""
+    if not message.text:
+        await message.answer(ERROR_NAME_LENGTH)
+        return
+    
     first_name = message.text.strip()
     
     if len(first_name) < 2:
@@ -515,6 +519,10 @@ async def process_last_name(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_date_of_birth))
 async def process_date_of_birth(message: Message, state: FSMContext):
     """Process date of birth."""
+    if not message.text:
+        await message.answer(ERROR_DATE_FORMAT)
+        return
+    
     date_str = message.text.strip()
     
     try:
@@ -537,6 +545,10 @@ async def process_date_of_birth(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_document_number))
 async def process_document_number(message: Message, state: FSMContext):
     """Process document number."""
+    if not message.text:
+        await message.answer("Iltimos, tug'ilganlik haqidagi guvohnoma raqamini kiriting.")
+        return
+    
     document_number = message.text.strip()
     
     telegram_id = message.from_user.id
@@ -574,6 +586,10 @@ async def process_region(callback: CallbackQuery, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_district))
 async def process_district(message: Message, state: FSMContext):
     """Process district."""
+    if not message.text:
+        await message.answer("Iltimos, tuman nomini kiriting.")
+        return
+    
     district = message.text.strip()
     
     telegram_id = message.from_user.id
@@ -589,6 +605,10 @@ async def process_district(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_school_name))
 async def process_school_name(message: Message, state: FSMContext):
     """Process school name."""
+    if not message.text:
+        await message.answer("Iltimos, maktab nomini kiriting.")
+        return
+    
     school_name = message.text.strip()
     
     telegram_id = message.from_user.id
@@ -769,6 +789,10 @@ async def process_achievements_file_invalid(message: Message):
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_name))
 async def process_guardian_name(message: Message, state: FSMContext):
     """Process guardian name."""
+    if not message.text:
+        await message.answer("Iltimos, vasiy ismini kiriting.")
+        return
+    
     guardian_name = message.text.strip()
     
     telegram_id = message.from_user.id
@@ -823,6 +847,10 @@ async def process_guardian_relationship(callback: CallbackQuery, state: FSMConte
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_age))
 async def process_guardian_age(message: Message, state: FSMContext):
     """Process guardian age."""
+    if not message.text:
+        await message.answer(ERROR_INVALID_AGE)
+        return
+    
     try:
         age = int(message.text.strip())
         if age < 18 or age > 120:
@@ -852,6 +880,10 @@ async def process_guardian_age(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_profession))
 async def process_guardian_profession(message: Message, state: FSMContext):
     """Process guardian profession."""
+    if not message.text:
+        await message.answer("Iltimos, kasb nomini kiriting.")
+        return
+    
     profession = message.text.strip()
     
     telegram_id = message.from_user.id
@@ -930,6 +962,10 @@ async def skip_guardian_phone2(callback: CallbackQuery, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_phone2))
 async def process_guardian_phone2(message: Message, state: FSMContext):
     """Process guardian phone 2."""
+    if not message.text:
+        await message.answer(ERROR_INVALID_PHONE_UZB)
+        return
+    
     phone = message.text.strip()
     
     # Validate Uzbekistan phone number regex
@@ -961,6 +997,10 @@ async def process_guardian_phone2(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_teacher_name))
 async def process_teacher_name(message: Message, state: FSMContext):
     """Process teacher name."""
+    if not message.text:
+        await message.answer("Iltimos, ustoz ismini kiriting.")
+        return
+    
     teacher_name = message.text.strip()
     
     telegram_id = message.from_user.id
@@ -979,6 +1019,10 @@ async def process_teacher_name(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_teacher_workplace))
 async def process_teacher_workplace(message: Message, state: FSMContext):
     """Process teacher workplace."""
+    if not message.text:
+        await message.answer("Iltimos, ish joyini kiriting.")
+        return
+    
     workplace = message.text.strip()
     
     telegram_id = message.from_user.id
@@ -1353,6 +1397,9 @@ async def process_editing_field(message: Message, state: FSMContext):
             return
 
     elif editing_field == 'date_of_birth':
+        if not message.text:
+            await message.answer(ERROR_DATE_FORMAT_EDIT)
+            return
         try:
             date_of_birth = datetime.strptime(message.text.strip(), "%d.%m.%Y").date()
             await StudentService.update_student(telegram_id, date_of_birth=date_of_birth)
@@ -1365,10 +1412,16 @@ async def process_editing_field(message: Message, state: FSMContext):
         return
         
     elif editing_field == 'guardian_name':
+        if not message.text:
+            await message.answer("Iltimos, vasiy ismini kiriting.")
+            return
         value = message.text.strip()
         await BotStateService.update_state_data(telegram_id, guardian_name=value)
         
     elif editing_field == 'guardian_age':
+        if not message.text:
+            await message.answer(ERROR_INVALID_AGE)
+            return
         try:
             age = int(message.text.strip())
             if age < 18 or age > 120:
@@ -1379,18 +1432,30 @@ async def process_editing_field(message: Message, state: FSMContext):
             return
 
     elif editing_field == 'guardian_profession':
+        if not message.text:
+            await message.answer("Iltimos, kasb nomini kiriting.")
+            return
         value = message.text.strip()
         await BotStateService.update_state_data(telegram_id, guardian_profession=value)
 
     elif editing_field == 'guardian_phone':
+        if not message.text:
+            await message.answer(ERROR_INVALID_PHONE_UZB)
+            return
         value = message.text.strip()
         await BotStateService.update_state_data(telegram_id, guardian_phone=value)
 
     elif editing_field == 'guardian_phone2':
+        if not message.text:
+            await message.answer(ERROR_INVALID_PHONE_UZB)
+            return
         value = message.text.strip()
         await BotStateService.update_state_data(telegram_id, guardian_phone2=value)
 
     elif editing_field == 'teacher_name':
+        if not message.text:
+            await message.answer("Iltimos, ustoz ismini kiriting.")
+            return
         value = message.text.strip()
         await BotStateService.update_state_data(telegram_id, teacher_name=value)
 
