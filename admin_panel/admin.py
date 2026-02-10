@@ -1,10 +1,13 @@
 """Django admin configuration with django-unfold."""
+import csv
+import io
 import time
 import logging
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q, Max, F, FloatField, OuterRef, Subquery
 from django.db.models.functions import Coalesce
+from django.http import HttpResponse
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from unfold.decorators import display
 
@@ -79,8 +82,8 @@ class StudentAdmin(ModelAdmin):
     search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name', 'referral_code']
     readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code']
     ordering = ['-created_at']
-    actions = ['send_certificate_action']
-    
+    actions = ['send_certificate_action', 'export_students_csv']
+
     def get_queryset(self, request):
         """Annotate queryset with last test attempt score."""
         qs = super().get_queryset(request)
@@ -157,6 +160,75 @@ class StudentAdmin(ModelAdmin):
         )
     
     send_certificate_action.short_description = "Sertifikat yuborish (oxirgi test bo'yicha)"
+
+    def export_students_csv(self, request, queryset):
+        """Export selected students to CSV."""
+        if not queryset.exists():
+            self.message_user(request, "Eksport qilish uchun kamida bitta o'quvchini tanlang.", level=messages.WARNING)
+            return
+
+        # Re-annotate with last_test_score for export
+        last_attempt_subquery = TestAttempt.objects.filter(
+            student=OuterRef('pk'),
+            score__isnull=False
+        ).order_by('-submitted_at', '-created_at').values('score')[:1]
+        qs = queryset.annotate(
+            last_test_score=Coalesce(
+                Subquery(last_attempt_subquery),
+                None,
+                output_field=FloatField()
+            )
+        ).order_by('-created_at')
+
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        # Header row
+        headers = [
+            'telegram_id', 'username', 'first_name', 'last_name', 'middle_name',
+            'grade', 'last_test_score', 'referral_points', 'school_name', 'region', 'district',
+            'phone_number', 'document_number', 'date_of_birth', 'language',
+            'initial_full_name', 'phone_owner', 'achievements_description',
+            'referral_code', 'is_active', 'created_at', 'updated_at',
+        ]
+        writer.writerow(headers)
+
+        for obj in qs:
+            last_score = getattr(obj, 'last_test_score', None)
+            last_score_str = f"{last_score:.1f}" if last_score is not None else ""
+            row = [
+                obj.telegram_id,
+                obj.username or "",
+                obj.first_name or "",
+                obj.last_name or "",
+                obj.middle_name or "",
+                obj.grade if obj.grade is not None else "",
+                last_score_str,
+                obj.referral_points or 0,
+                obj.school_name or "",
+                obj.region or "",
+                obj.district or "",
+                obj.phone_number or "",
+                obj.document_number or "",
+                obj.date_of_birth.isoformat() if obj.date_of_birth else "",
+                obj.language or "",
+                obj.initial_full_name or "",
+                obj.phone_owner or "",
+                (obj.achievements_description or "")[:500],
+                obj.referral_code or "",
+                obj.is_active,
+                obj.created_at.strftime("%Y-%m-%d %H:%M") if obj.created_at else "",
+                obj.updated_at.strftime("%Y-%m-%d %H:%M") if obj.updated_at else "",
+            ]
+            writer.writerow(row)
+
+        response = HttpResponse(
+            buffer.getvalue().encode('utf-8-sig'),
+            content_type='text/csv; charset=utf-8-sig'
+        )
+        response['Content-Disposition'] = 'attachment; filename="students.csv"'
+        return response
+
+    export_students_csv.short_description = "Tanlanganlarni CSV ga eksport qilish"
 
 
 @admin.register(StudentRating)

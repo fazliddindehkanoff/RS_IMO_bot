@@ -16,6 +16,7 @@ class Student(models.Model):
         ('Sirdaryo', 'Sirdaryo viloyati'),
         ('Surxondaryo', 'Surxondaryo viloyati'),
         ('Toshkent', 'Toshkent viloyati'),
+        ('Toshkent shahar', 'Toshkent shahar'),
         ('Xorazm', 'Xorazm viloyati'),
     ]
     GRADE_CHOICES = [
@@ -229,11 +230,11 @@ class Referral(models.Model):
 class RegistrationSource(models.Model):
     """Source of registration (e.g., referral, advertisement)."""
     SOURCE_TYPE_CHOICES = [
-        ('telegram', 'Telegram kanal/guruh'),
-        ('maktab', 'Maktab orqali'),
-        ('ustoz', 'Ustoz tavsiyasi'),
-        ('dost', 'Do\'st/tanish'),
-        ('instagram', 'Instagram/TikTok'),
+        ('by_rahimov_school', 'Rahimov School sahifalaridan'),
+        ('instagram', 'Instagram'),
+        ('telegram_ads', 'Telegram Ads'),
+        ('telegram_channel', 'Telegram kanal'),
+        ('by_friend', 'Tanish orqali'),
         ('boshqa', 'Boshqa'),
     ]
     student = models.OneToOneField(
