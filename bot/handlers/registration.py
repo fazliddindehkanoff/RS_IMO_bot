@@ -45,6 +45,20 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
+def _build_channel_keyboard(missing_channels):
+    """Build inline keyboard for mandatory channels + check button."""
+    keyboard = []
+    for ch in missing_channels:
+        link = ch.channel_username
+        if not link and ch.channel_id.startswith('@'):
+            link = f"https://t.me/{ch.channel_id[1:]}"
+        if not link:
+            link = "https://t.me/"
+        keyboard.append([InlineKeyboardButton(text=f"📢 {ch.title}", url=link)])
+    keyboard.append([InlineKeyboardButton(text="✅ Obunani tekshirish", callback_data="check_subs")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
 def _parse_start_referral(message_text: str) -> str | None:
     """Parse /start payload: /start REF_CODE -> return REF_CODE or None."""
     if not message_text or not message_text.strip().startswith("/start"):
@@ -195,34 +209,39 @@ async def process_back_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "check_subs")
 async def check_subs(callback: CallbackQuery, state: FSMContext):
-    """Check subscription callback."""
+    """Check subscription callback. When in waiting_for_channels and subscribed, continue registration flow."""
     telegram_id = callback.from_user.id
     subscription_status = await SubscriptionService.check_subscription(callback.bot, telegram_id)
-    
+
     if not subscription_status['subscribed']:
         channels = subscription_status['missing_channels']
-        keyboard = []
-        for ch in channels:
-            link = ch.channel_username
-            if not link and ch.channel_id.startswith('@'):
-                link = f"https://t.me/{ch.channel_id[1:]}"
-            if not link:
-                link = "https://t.me/"
-            keyboard.append([InlineKeyboardButton(text=f"📢 {ch.title}", url=link)])
-        
-        keyboard.append([InlineKeyboardButton(text="✅ Obunani tekshirish", callback_data="check_subs")])
-        
+        keyboard = _build_channel_keyboard(channels)
         try:
-            await callback.message.edit_text(
-                CHECK_SUBS_FAIL,
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
-            )
+            await callback.message.edit_text(CHECK_SUBS_FAIL, reply_markup=keyboard)
         except Exception:
-            await callback.message.answer(
-                CHECK_SUBS_FAIL,
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
-            )
+            await callback.message.answer(CHECK_SUBS_FAIL, reply_markup=keyboard)
         await callback.answer(CHECK_SUBS_NOT_CONFIRMED)
+        return
+
+    current_state = await state.get_state()
+    if current_state == RegistrationStates.waiting_for_channels:
+        state_obj = await BotStateService.get_state(telegram_id)
+        data = (state_obj.state_data or {}) if state_obj else {}
+        after_channels = data.get("after_channels")
+        await callback.message.delete()
+        await callback.answer(CHECK_SUBS_CONFIRMED_ANSWER)
+
+        if after_channels == "full_reg":
+            await callback.message.answer(SUCCESS_MESSAGE)
+            await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
+            await state.clear()
+            await BotStateService.clear_state(telegram_id)
+        elif after_channels == "other_grade":
+            await callback.message.answer(OTHER_GRADE_PROMO_MESSAGE, reply_markup=get_post_reg_promo_keyboard())
+            await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+            await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
+        else:
+            await callback.message.answer(CHECK_SUBS_SUCCESS)
         return
 
     await callback.message.delete()
@@ -232,29 +251,8 @@ async def check_subs(callback: CallbackQuery, state: FSMContext):
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    """Handle /start command. Supports referral: /start REF_CODE."""
+    """Handle /start command. Supports referral: /start REF_CODE. Channel join is asked at end of registration."""
     telegram_id = message.from_user.id
-
-    # Check mandatory channels
-    subscription_status = await SubscriptionService.check_subscription(message.bot, telegram_id)
-    if not subscription_status['subscribed']:
-        channels = subscription_status['missing_channels']
-        keyboard = []
-        for ch in channels:
-            link = ch.channel_username
-            if not link and ch.channel_id.startswith('@'):
-                link = f"https://t.me/{ch.channel_id[1:]}"
-            if not link:
-                link = "https://t.me/"
-            keyboard.append([InlineKeyboardButton(text=f"📢 {ch.title}", url=link)])
-        
-        keyboard.append([InlineKeyboardButton(text="✅ Obunani tekshirish", callback_data="check_subs")])
-        
-        await message.answer(
-            CHECK_SUBS_START,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
-        )
-        return
 
     username = message.from_user.username
     ref_code = _parse_start_referral(message.text or "")
@@ -626,23 +624,29 @@ async def process_grade(callback: CallbackQuery, state: FSMContext):
     """Process grade selection."""
     if callback.data == "grade_other":
         await callback.answer()
+        telegram_id = callback.from_user.id
         # 1. Send explanation message
         await callback.message.edit_text(
-            OTHER_GRADE_MESSAGE, 
-            disable_web_page_preview=True, 
+            OTHER_GRADE_MESSAGE,
+            disable_web_page_preview=True,
             parse_mode=ParseMode.HTML
         )
-        
         # 2. Wait 5 seconds
         await asyncio.sleep(5)
-        
-        # 3. Send Promo Message with "Ha" button
-        await callback.message.answer(OTHER_GRADE_PROMO_MESSAGE, reply_markup=get_post_reg_promo_keyboard())
-        
-        # Transition to new state to handle Promo acceptance
-        await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
-        telegram_id = callback.from_user.id
-        await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
+        # 3. Ask to join channels first (if any); after join show referral promo
+        subscription_status = await SubscriptionService.check_subscription(callback.bot, telegram_id)
+        if subscription_status['subscribed']:
+            await callback.message.answer(OTHER_GRADE_PROMO_MESSAGE, reply_markup=get_post_reg_promo_keyboard())
+            await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+            await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
+        else:
+            await callback.message.answer(
+                CHECK_SUBS_START,
+                reply_markup=_build_channel_keyboard(subscription_status['missing_channels'])
+            )
+            await state.set_state(RegistrationStates.waiting_for_channels)
+            await BotStateService.set_state(telegram_id, "waiting_for_channels")
+            await BotStateService.update_state_data(telegram_id, after_channels="other_grade")
         return
 
     grade = int(callback.data.split("_")[1])
@@ -1259,15 +1263,22 @@ async def save_all_data_and_show_confirmation(message_or_callback, state: FSMCon
 
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_confirmation), F.data == "confirm")
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
-    """Confirm registration."""
+    """Confirm registration. Then ask to join channels (if any); after join show success + menu."""
     telegram_id = callback.from_user.id
-    
-    await callback.message.edit_text(SUCCESS_MESSAGE)
-    # Registration complete - show main menu
-    await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
-    
-    await state.clear()
-    await BotStateService.clear_state(telegram_id)
+    subscription_status = await SubscriptionService.check_subscription(callback.bot, telegram_id)
+
+    if subscription_status['subscribed']:
+        await callback.message.edit_text(SUCCESS_MESSAGE)
+        await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
+        await state.clear()
+        await BotStateService.clear_state(telegram_id)
+        await callback.answer()
+        return
+
+    await callback.message.edit_text(CHECK_SUBS_START, reply_markup=_build_channel_keyboard(subscription_status['missing_channels']))
+    await state.set_state(RegistrationStates.waiting_for_channels)
+    await BotStateService.set_state(telegram_id, "waiting_for_channels")
+    await BotStateService.update_state_data(telegram_id, after_channels="full_reg")
     await callback.answer()
 
 

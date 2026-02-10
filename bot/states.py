@@ -39,7 +39,8 @@ class RegistrationStates(StatesGroup):
     
     # Confirmation and Editing
     waiting_for_confirmation = State()
-    waiting_for_post_reg_promo = State()           # Post-registration
+    waiting_for_channels = State()                 # Join channels at end of registration
+    waiting_for_post_reg_promo = State()            # Post-registration
     waiting_for_edit_field = State()
     editing_field = State()
 
