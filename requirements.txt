@@ -20,7 +20,7 @@ idna==3.11
 magic-filter==1.0.12
 multidict==6.7.1
 packaging==26.0
-pillow==11.0.0
+pillow==12.1.1
 propcache==0.4.1
 psycopg2-binary==2.9.11
 pydantic==2.9.2
