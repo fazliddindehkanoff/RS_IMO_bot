@@ -33,7 +33,11 @@ router = Router()
 
 async def send_test_to_user(message: Message, student, test):
     """Send test notification message to user."""
-    grade_label = dict(test.GRADE_CHOICES)[test.grade]
+    grade_label = (
+        dict(test.GRADE_CHOICES).get(test.grade, "Test")
+        if test.grade is not None
+        else "Test"
+    )
 
     text = (
         f"Hurmatli {student.first_name}, sizga {grade_label} grant imtihoni savollari yuborildi.\n\n"

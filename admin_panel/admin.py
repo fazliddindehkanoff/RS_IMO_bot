@@ -514,9 +514,10 @@ class TestAdmin(ModelAdmin):
     ordering = ['grade', 'title', 'version']
     inlines = [TestQuestionInline]
     actions = ['send_test_to_students_action']
+    filter_horizontal = ['target_students']
     fieldsets = (
         ('Asosiy ma\'lumotlar', {
-            'fields': ('title', 'grade', 'language', 'version', 'duration_minutes', 'is_active')
+            'fields': ('title', 'grade', 'target_students', 'language', 'version', 'duration_minutes', 'is_active')
         }),
         ('Statistika', {
             'fields': ('questions_count',),
@@ -553,11 +554,20 @@ class TestAdmin(ModelAdmin):
             )
             return
 
-        query = Q(grade=test.grade, is_active=True)
-        if test.language:
-            query &= Q(language=test.language)
-
-        students = Student.objects.filter(query)
+        if test.grade is not None:
+            query = Q(grade=test.grade, is_active=True)
+            if test.language:
+                query &= Q(language=test.language)
+            students = Student.objects.filter(query)
+        else:
+            students = test.target_students.filter(is_active=True)
+            if not students.exists():
+                self.message_user(
+                    request,
+                    "Sinf bo'sh. Iltimos, tanlangan o'quvchilarni qo'shing yoki sinfni tanlang.",
+                    level=messages.ERROR
+                )
+                return
         sent_count = 0
         skip_count = 0
         error_count = 0

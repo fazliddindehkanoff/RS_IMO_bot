@@ -548,8 +548,17 @@ class Test(models.Model):
     title = models.CharField(max_length=255, verbose_name="Nomi")
     grade = models.IntegerField(
         choices=GRADE_CHOICES,
+        null=True,
+        blank=True,
         verbose_name="Sinf",
-        help_text="Majburiy: test qaysi sinf uchun"
+        help_text="Ixtiyoriy. Bo'sh qoldirsangiz, testni faqat tanlangan o'quvchilarga yuborishingiz mumkin."
+    )
+    target_students = models.ManyToManyField(
+        Student,
+        related_name='targeted_tests',
+        blank=True,
+        verbose_name="Tanlangan o'quvchilar",
+        help_text="Sinf bo'sh bo'lsa, test shu o'quvchilarga yuboriladi."
     )
     language = models.CharField(
         max_length=50,
@@ -587,7 +596,8 @@ class Test(models.Model):
 
     def __str__(self):
         version_str = f" ({self.version})" if self.version else ""
-        return f"{self.title} - {self.get_grade_display()}{version_str}"
+        grade_str = self.get_grade_display() if self.grade is not None else "Maxsus"
+        return f"{self.title} - {grade_str}{version_str}"
 
     def get_questions_count(self):
         """Return the number of questions in this test."""
