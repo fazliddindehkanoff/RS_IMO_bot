@@ -39,9 +39,18 @@ class StudentService:
     @staticmethod
     @sync_to_async
     def update_student(telegram_id: int, **kwargs):
-        """Update student fields."""
+        """Update student fields. Creates the student if missing (e.g. resume after DB reset or deleted record)."""
         with transaction.atomic():
-            student = Student.objects.get(telegram_id=telegram_id)
+            student, _ = Student.objects.get_or_create(
+                telegram_id=telegram_id,
+                defaults={
+                    'first_name': '',
+                    'is_active': True,
+                    'referral_code': str(telegram_id),
+                }
+            )
+            if not student.referral_code:
+                student.referral_code = str(telegram_id)
             for key, value in kwargs.items():
                 if value is not None:
                     setattr(student, key, value)
