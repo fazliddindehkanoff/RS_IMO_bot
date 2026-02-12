@@ -1,6 +1,7 @@
 """Service layer for database operations."""
 from typing import Optional
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from asgiref.sync import sync_to_async
 from aiogram.enums import ParseMode
@@ -600,34 +601,33 @@ class BroadcastService:
         if broadcast.target_grade_6: grade_filters.append(6)
         if broadcast.target_grade_7: grade_filters.append(7)
         if broadcast.target_grade_8: grade_filters.append(8)
+        target_not_fully_registered = getattr(broadcast, 'target_not_fully_registered', False)
 
-        # Get students
-        if grade_filters:
-            students = await sync_to_async(list)(
-                Student.objects.filter(is_active=True, grade__in=grade_filters)
-            )
-        else:
-            # If no filters selected, maybe send to all? Or none? 
-            # Assuming if no grade selected, send to nobody or all?
-            # Let's assume if no grade selected, we don't filter by grade (send to all active)
-            # OR typically explicit selection is safer. Let's send to all active students if no filter?
-            # Better to be safe: if no checkboxes, send to NO ONE (or check requirement).
-            # Requirement: "filtering by classes we can make it multiselect"
-            # If nothing selected, it implies 0 targets usually.
-            # But let's check if they want "All" option? 
-            # Code below assumes if specific grades selected, filter by them. 
-            # If ALL boolean fields are False, query returns empty?
-            # Actually, let's query only if at least one is True.
-            pass
-            students = []
+        def _get_broadcast_students():
+            base = Student.objects.filter(is_active=True)
+            if grade_filters:
+                base = base.filter(grade__in=grade_filters)
+            elif not target_not_fully_registered:
+                base = base.none()
+            if target_not_fully_registered:
+                fully_registered = Student.objects.filter(
+                    Q(first_name__gt=''),
+                    Q(last_name__isnull=False) & ~Q(last_name=''),
+                    date_of_birth__isnull=False,
+                    document_number__isnull=False,
+                    document_number__gt='',
+                ).filter(
+                    parent__isnull=False,
+                ).filter(
+                    Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt=''),
+                ).filter(
+                    teacher__isnull=False,
+                    teacher__phone_number__gt='',
+                )
+                base = base.exclude(pk__in=fully_registered.values_list('pk', flat=True))
+            return list(base)
 
-        # If user didn't check any grade, maybe they want to send to everyone?
-        # Let's make it so if NO grade is checked, we send to NO ONE to be safe.
-        if not grade_filters:
-             # Logic fix: if user wants to send to everyone, maybe we should have "All" checkbox?
-             # For now, strict filtering.
-             students = []
-        
+        students = await sync_to_async(_get_broadcast_students)()
         broadcast.recipient_count = len(students)
         await sync_to_async(broadcast.save)()
 

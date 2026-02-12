@@ -59,6 +59,156 @@ def _build_channel_keyboard(missing_channels):
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
+# All registration state names stored in BotStateService (used for /start resume)
+REGISTRATION_STATE_NAMES = {
+    "waiting_for_initial_full_name", "waiting_for_initial_phone", "waiting_for_phone_owner",
+    "waiting_for_olympiad_participation",
+    "waiting_for_first_name", "waiting_for_last_name", "waiting_for_date_of_birth",
+    "waiting_for_document_number", "waiting_for_region", "waiting_for_district",
+    "waiting_for_school_name", "waiting_for_grade", "waiting_for_language",
+    "waiting_for_photo", "waiting_for_achievements_description", "waiting_for_achievements_file",
+    "waiting_for_guardian_name", "waiting_for_guardian_relationship", "waiting_for_guardian_age",
+    "waiting_for_guardian_profession", "waiting_for_guardian_phone", "waiting_for_guardian_phone2",
+    "waiting_for_teacher_name", "waiting_for_teacher_workplace", "waiting_for_teacher_phone",
+    "waiting_for_source", "waiting_for_confirmation", "waiting_for_channels",
+    "waiting_for_post_reg_promo", "waiting_for_edit_field", "editing_field",
+}
+
+
+def _build_confirmation_text(student, parent, teacher, source):
+    """Build confirmation screen text from student, parent, teacher, source (for resume and save_all_data)."""
+    text = "🥳 Nihoyat, eng so'nggi qadam:\n\n"
+    text += "📝 Ushbu ma'lumotlarni tasdiqlaysizmi? 👇\n\n"
+    text += "<b>📋 O'quvchi ma'lumotlari:</b>\n"
+    text += f"• Ism: {student.first_name}\n"
+    text += f"• Familiya: {student.last_name or '—'}\n"
+    text += f"• Tug'ilgan sana: {student.date_of_birth or '—'}\n"
+    text += f"• Metrika: {student.document_number or '—'}\n"
+    text += f"• Viloyat: {dict(Student.REGION_CHOICES).get(student.region, '—')}\n"
+    text += f"• Tuman/shahar: {student.district or '—'}\n"
+    text += f"• Maktab: {student.school_name or '—'}\n"
+    text += f"• Sinf: {dict(Student.GRADE_CHOICES).get(student.grade, '—')}\n"
+    text += f"• Foto: {'✅ Yuklangan' if student.photo else '❌'}\n"
+    text += f"• Yutuqlar: {student.achievements_description or 'Yo\'q'}\n\n"
+    text += "<b>👤 Vasiy ma'lumotlari:</b>\n"
+    if parent:
+        text += f"• Ism: {parent.full_name}\n"
+        text += f"• Kimligi: {dict(Parent.RELATIONSHIP_CHOICES).get(parent.relationship, '—')}\n"
+        text += f"• Tel: {parent.phone_number or '—'}\n\n"
+    else:
+        text += "Kiritilmadi\n\n"
+    text += "<b>🧑‍🏫 Ustoz ma'lumotlari:</b>\n"
+    if teacher:
+        text += f"• Ism: {teacher.full_name}\n"
+        text += f"• Tel: {teacher.phone_number or '—'}\n\n"
+    else:
+        text += "Kiritilmadi\n\n"
+    text += "<b>📊 Manba:</b>\n"
+    if source:
+        text += f"• {dict(RegistrationSource.SOURCE_TYPE_CHOICES).get(source.source_type, '—')}\n"
+    else:
+        text += "Kiritilmadi\n"
+    return text
+
+
+async def _get_continuation_for_state(telegram_id: int, state_name: str, data: dict, bot=None):
+    """Return (text, reply_markup) to re-send when user hits /start in the middle of registration. None if not resumable."""
+    d = data
+    if state_name == "waiting_for_initial_full_name":
+        return (GREETING_MESSAGE, None)
+    if state_name == "waiting_for_initial_phone":
+        return (STEP_INITIAL_PHONE, get_phone_keyboard())
+    if state_name == "waiting_for_phone_owner":
+        return (STEP_PHONE_OWNER, get_phone_owner_keyboard())
+    if state_name == "waiting_for_olympiad_participation":
+        return (PROMO_TEXT, get_olympiad_participation_keyboard())
+    if state_name == "waiting_for_first_name":
+        return (STEP_1_ASK_NAME, get_back_reply_keyboard())
+    if state_name == "waiting_for_last_name":
+        first_name = d.get("first_name", "")
+        return (STEP_2_ASK_SURNAME.format(first_name=first_name), get_back_reply_keyboard())
+    if state_name == "waiting_for_date_of_birth":
+        return (STEP_3_ASK_DOB, get_back_reply_keyboard())
+    if state_name == "waiting_for_document_number":
+        date_str = d.get("date_of_birth", "")
+        return (STEP_4_ASK_METRIKA.format(date_str=date_str), get_back_reply_keyboard())
+    if state_name == "waiting_for_region":
+        doc = d.get("document_number", "")
+        return (STEP_5_ASK_REGION.format(document_number=doc), get_region_keyboard())
+    if state_name == "waiting_for_district":
+        region = d.get("region", "")
+        region_label = dict(Student.REGION_CHOICES).get(region, "")
+        return (STEP_6_ASK_DISTRICT.format(region_label=region_label), get_back_reply_keyboard())
+    if state_name == "waiting_for_school_name":
+        return (STEP_7_ASK_SCHOOL.format(district=d.get("district", "")), get_back_reply_keyboard())
+    if state_name == "waiting_for_grade":
+        return (STEP_8_ASK_GRADE.format(school_name=d.get("school_name", "")), get_grade_keyboard())
+    if state_name == "waiting_for_photo":
+        return (STEP_9_ASK_PHOTO, get_back_keyboard())
+    if state_name in ("waiting_for_achievements_description", "waiting_for_achievements_file"):
+        return (STEP_10_ASK_ACHIEVEMENTS, get_skip_keyboard())
+    if state_name == "waiting_for_guardian_name":
+        return (STEP_11_ASK_GUARDIAN_NAME, get_back_reply_keyboard())
+    if state_name == "waiting_for_guardian_relationship":
+        return (STEP_12_ASK_RELATIONSHIP, get_relationship_keyboard())
+    if state_name in ("waiting_for_guardian_phone", "waiting_for_guardian_age", "waiting_for_guardian_profession"):
+        relation_text = RELATION_SUFFIX_MAP.get(d.get("guardian_relationship", ""), "Vasiyingiz")
+        return (STEP_13_ASK_GUARDIAN_PHONE.format(relation_text=relation_text), get_back_reply_keyboard())
+    if state_name == "waiting_for_guardian_phone2":
+        relation_text = RELATION_SUFFIX_MAP.get(d.get("guardian_relationship", ""), "Vasiyingiz")
+        return (STEP_13_ASK_GUARDIAN_PHONE.format(relation_text=relation_text), get_back_reply_keyboard())
+    if state_name in ("waiting_for_teacher_name", "waiting_for_teacher_workplace"):
+        return (STEP_14_ASK_TEACHER_NAME, get_back_reply_keyboard())
+    if state_name == "waiting_for_teacher_phone":
+        return (STEP_15_ASK_TEACHER_PHONE, get_back_reply_keyboard())
+    if state_name == "waiting_for_source":
+        return (STEP_16_ASK_SOURCE, get_source_type_keyboard())
+    if state_name == "waiting_for_confirmation":
+        student = await StudentService.get_student(telegram_id)
+        parent = await sync_to_async(lambda: getattr(student, "parent", None))()
+        try:
+            if parent is None:
+                parent = await sync_to_async(lambda: student.parent)()
+        except Exception:
+            parent = None
+        teacher = await sync_to_async(lambda: getattr(student, "teacher", None))()
+        try:
+            if teacher is None:
+                teacher = await sync_to_async(lambda: student.teacher)()
+        except Exception:
+            teacher = None
+        source = await sync_to_async(lambda: getattr(student, "registration_source", None))()
+        try:
+            if source is None:
+                source = await sync_to_async(lambda: student.registration_source)()
+        except Exception:
+            source = None
+        text = _build_confirmation_text(student, parent, teacher, source)
+        return (text, get_confirmation_keyboard())
+    if state_name == "waiting_for_channels":
+        if not bot:
+            return (CHECK_SUBS_START, None)
+        subscription_status = await SubscriptionService.check_subscription(bot, telegram_id)
+        if subscription_status["subscribed"]:
+            after = d.get("after_channels")
+            if after == "full_reg":
+                return (SUCCESS_MESSAGE, get_main_menu_keyboard())
+            if after == "other_grade":
+                return (OTHER_GRADE_PROMO_MESSAGE, get_post_reg_promo_keyboard())
+            return (CHECK_SUBS_SUCCESS, None)
+        kb = _build_channel_keyboard(subscription_status["missing_channels"])
+        return (CHECK_SUBS_START, kb)
+    if state_name == "waiting_for_post_reg_promo":
+        if d.get("school_name"):
+            return (OTHER_GRADE_PROMO_MESSAGE, get_post_reg_promo_keyboard())
+        return (REFERRAL_ONLY_PROMO_TEXT, get_post_reg_promo_keyboard())
+    if state_name in ("waiting_for_edit_field", "editing_field"):
+        return (EDIT_TITLE, get_edit_fields_keyboard())
+    if state_name == "waiting_for_language":
+        return (STEP_9_ASK_PHOTO, get_back_keyboard())
+    return (None, None)
+
+
 def _parse_start_referral(message_text: str) -> str | None:
     """Parse /start payload: /start REF_CODE -> return REF_CODE or None."""
     if not message_text or not message_text.strip().startswith("/start"):
@@ -251,11 +401,40 @@ async def check_subs(callback: CallbackQuery, state: FSMContext):
 
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
-    """Handle /start command. Supports referral: /start REF_CODE. Channel join is asked at end of registration."""
+    """Handle /start command. Supports referral: /start REF_CODE. Channel join is asked at end of registration.
+    If user is in the middle of registration, resume from that step."""
     telegram_id = message.from_user.id
-
     username = message.from_user.username
     ref_code = _parse_start_referral(message.text or "")
+
+    # If user has a saved registration state, resume from there (re-send current step)
+    state_obj = await BotStateService.get_state(telegram_id)
+    if state_obj and state_obj.state in REGISTRATION_STATE_NAMES:
+        resume_state = state_obj.state
+        # When resuming from editing_field, show "which field to edit" so user can pick again
+        if resume_state == "editing_field":
+            resume_state = "waiting_for_edit_field"
+        reg_state = getattr(RegistrationStates, resume_state, None)
+        if reg_state is not None:
+            await state.set_state(reg_state)
+            data = state_obj.state_data or {}
+            text, reply_markup = await _get_continuation_for_state(
+                telegram_id, resume_state, data, message.bot
+            )
+            if text is not None:
+                if state_obj.state == "waiting_for_channels" and data.get("after_channels") == "full_reg" and text == SUCCESS_MESSAGE:
+                    await message.answer(SUCCESS_MESSAGE)
+                    await message.answer(MENU_PROMPT, reply_markup=reply_markup)
+                    await state.clear()
+                    await BotStateService.clear_state(telegram_id)
+                elif state_obj.state == "waiting_for_channels" and data.get("after_channels") == "other_grade":
+                    await message.answer(text, reply_markup=reply_markup)
+                    await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+                    await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
+                else:
+                    await message.answer(text, reply_markup=reply_markup)
+                return
+            # Fall through if continuation returned None
 
     # Get or create student
     student, created = await StudentService.get_or_create_student(telegram_id, username)
@@ -1186,65 +1365,22 @@ async def save_all_data_and_show_confirmation(message_or_callback, state: FSMCon
             )
 
     # Re-fetch for display
-    student = await StudentService.get_student(telegram_id) # Refresh
+    student = await StudentService.get_student(telegram_id)
     try:
         parent = await sync_to_async(lambda: student.parent)()
-    except:
+    except Exception:
         parent = None
     try:
         teacher = await sync_to_async(lambda: student.teacher)()
-    except:
+    except Exception:
         teacher = None
     try:
         source = await sync_to_async(lambda: student.registration_source)()
-    except:
+    except Exception:
         source = None
 
-    # Build confirmation message
-    confirmation_text = "🥳 Nihoyat, eng so'nggi qadam:\n\n"
-    confirmation_text += "📝 Ushbu ma'lumotlarni tasdiqlaysizmi? 👇\n\n"
-    
-    confirmation_text += "<b>📋 O'quvchi ma'lumotlari:</b>\n"
-    confirmation_text += f"• Ism: {student.first_name}\n"
-    confirmation_text += f"• Familiya: {student.last_name or '—'}\n"
-    confirmation_text += f"• Tug'ilgan sana: {student.date_of_birth or '—'}\n"
-    confirmation_text += f"• Metrika: {student.document_number or '—'}\n"
-    confirmation_text += f"• Viloyat: {dict(Student.REGION_CHOICES).get(student.region, '—')}\n"
-    confirmation_text += f"• Tuman/shahar: {student.district or '—'}\n"
-    confirmation_text += f"• Maktab: {student.school_name or '—'}\n"
-    confirmation_text += f"• Sinf: {dict(Student.GRADE_CHOICES).get(student.grade, '—')}\n"
-    # confirmation_text += f"• Til: {dict(Student.LANGUAGE_CHOICES).get(student.language, '—')}\n"
-    confirmation_text += f"• Foto: {'✅ Yuklangan' if student.photo else '❌'}\n"
-    confirmation_text += f"• Yutuqlar: {student.achievements_description or 'Yo\'q'}\n"
-    # confirmation_text += f"• Yutuq rasmi: {'✅ Yuklangan' if student.achievements_file else '❌'}\n\n"
-    confirmation_text += "\n"
-    
-    confirmation_text += "<b>👤 Vasiy ma'lumotlari:</b>\n"
-    if parent:
-        confirmation_text += f"• Ism: {parent.full_name}\n"
-        confirmation_text += f"• Kimligi: {dict(Parent.RELATIONSHIP_CHOICES).get(parent.relationship, '—')}\n"
-        # confirmation_text += f"• Yoshi: {parent.age or '—'}\n"
-        # confirmation_text += f"• Kasbi: {parent.profession or '—'}\n"
-        confirmation_text += f"• Tel: {parent.phone_number or '—'}\n"
-        # confirmation_text += f"• Tel 2: {parent.phone_number2 or '—'}\n\n"
-        confirmation_text += "\n"
-    else:
-        confirmation_text += "Kiritilmadi\n\n"
-        
-    confirmation_text += "<b>🧑‍🏫 Ustoz ma'lumotlari:</b>\n"
-    if teacher:
-        confirmation_text += f"• Ism: {teacher.full_name}\n"
-        # confirmation_text += f"• Ish joyi: {teacher.workplace or '—'}\n"
-        confirmation_text += f"• Tel: {teacher.phone_number or '—'}\n\n"
-    else:
-        confirmation_text += "Kiritilmadi\n\n"
+    confirmation_text = _build_confirmation_text(student, parent, teacher, source)
 
-    confirmation_text += "<b>📊 Manba:</b>\n"
-    if source:
-        confirmation_text += f"• {dict(RegistrationSource.SOURCE_TYPE_CHOICES).get(source.source_type, '—')}\n"
-    else:
-        confirmation_text += "Kiritilmadi\n"
-    
     # Send confirmation message
     if isinstance(message_or_callback, CallbackQuery):
         await message_or_callback.message.edit_text(

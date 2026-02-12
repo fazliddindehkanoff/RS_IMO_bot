@@ -3,6 +3,7 @@ import csv
 import io
 import time
 import logging
+from django import forms
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q, Max, F, FloatField, OuterRef, Subquery
@@ -32,6 +33,11 @@ from .certificate_generator import generate_certificate
 logger = logging.getLogger(__name__)
 
 
+# Unused - kept so any stray reference (e.g. cached template/import) does not raise NameError
+class MinTestScoreFilterForm(forms.Form):
+    min_test_score = forms.IntegerField(required=False, min_value=0, max_value=100)
+
+
 class LastTestAttemptScoreFilter(admin.SimpleListFilter):
     """Filter students by their last TestAttempt score."""
     title = "Oxirgi test balli"
@@ -47,8 +53,7 @@ class LastTestAttemptScoreFilter(admin.SimpleListFilter):
     def queryset(self, request, queryset):
         if not self.value():
             return queryset
-        
-        # Get the score range
+
         if self.value() == '80-100':
             min_score, max_score = 80, 100
         elif self.value() == '90-100':
@@ -57,28 +62,199 @@ class LastTestAttemptScoreFilter(admin.SimpleListFilter):
             min_score, max_score = 100, 100
         else:
             return queryset
-        
-        # Get students with last test attempt scores in the range
-        # We'll filter by getting the latest TestAttempt for each student
+
         student_ids = []
         for student in queryset:
             last_attempt = TestAttempt.objects.filter(
                 student=student,
                 score__isnull=False
             ).order_by('-submitted_at', '-created_at').first()
-            
+
             if last_attempt and last_attempt.score is not None:
                 if min_score <= last_attempt.score <= max_score:
                     student_ids.append(student.pk)
-        
+
         return queryset.filter(pk__in=student_ids)
+
+
+class FullyRegisteredFilter(admin.SimpleListFilter):
+    """Filter students by full registration: core fields + parent and teacher with phone numbers."""
+    title = "To'liq ro'yxatdan o'tgan"
+    parameter_name = 'fully_registered'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', "Ha"),
+            ('no', "Yo'q"),
+        )
+
+    def queryset(self, request, queryset):
+        # Core student fields
+        base = queryset.filter(
+            Q(first_name__gt=''),
+            Q(last_name__isnull=False) & ~Q(last_name=''),
+            date_of_birth__isnull=False,
+            document_number__isnull=False,
+            document_number__gt='',
+        )
+        # Parent exists and has at least one phone
+        with_parent_phone = base.filter(
+            parent__isnull=False,
+        ).filter(
+            Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt=''),
+        )
+        # Teacher exists and has phone
+        fully_registered = with_parent_phone.filter(
+            teacher__isnull=False,
+            teacher__phone_number__gt='',
+        )
+        if self.value() == 'yes':
+            return fully_registered
+        if self.value() == 'no':
+            return queryset.exclude(pk__in=fully_registered.values_list('pk', flat=True))
+        return queryset
+
+
+class RegistrationStepFilter(admin.SimpleListFilter):
+    """Filter students by registration step (where they stopped in the flow)."""
+    title = "Ro'yxatdan o'tish bosqichi"
+    parameter_name = 'reg_step'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('not_started', "Boshlanmagan"),
+            ('stage1_only', "1-bosqich (ism-fon)"),
+            ('first_name', "Ism"),
+            ('last_name', "Familiya"),
+            ('date_of_birth', "Tug'ilgan sana"),
+            ('document_number', "Metrika"),
+            ('region', "Viloyat"),
+            ('district', "Tuman/shahar"),
+            ('school_name', "Maktab"),
+            ('grade', "Sinf (5-8)"),
+            ('photo', "Foto"),
+            ('guardian', "Vasiy (telefon bilan)"),
+            ('teacher', "Ustoz (telefon bilan)"),
+            ('source', "Manba"),
+            ('fully_registered', "To'liq ro'yxatdan o'tgan"),
+        )
+
+    def queryset(self, request, queryset):
+        v = self.value()
+        if not v:
+            return queryset
+
+        if v == 'not_started':
+            return queryset.filter(Q(initial_full_name__isnull=True) | Q(initial_full_name=''))
+
+        if v == 'stage1_only':
+            return queryset.filter(initial_full_name__gt='').filter(
+                Q(first_name__isnull=True) | Q(first_name='')
+            )
+
+        if v == 'first_name':
+            return queryset.filter(first_name__gt='').filter(
+                Q(last_name__isnull=True) | Q(last_name='')
+            )
+
+        if v == 'last_name':
+            return queryset.filter(first_name__gt='').filter(
+                Q(last_name__isnull=False) & ~Q(last_name='')
+            ).filter(date_of_birth__isnull=True)
+
+        if v == 'date_of_birth':
+            return queryset.filter(date_of_birth__isnull=False).filter(
+                Q(document_number__isnull=True) | Q(document_number='')
+            )
+
+        if v == 'document_number':
+            return queryset.filter(document_number__isnull=False).filter(
+                document_number__gt=''
+            ).filter(Q(region__isnull=True) | Q(region=''))
+
+        if v == 'region':
+            return queryset.filter(region__isnull=False).filter(
+                Q(district__isnull=True) | Q(district='')
+            )
+
+        if v == 'district':
+            return queryset.filter(district__isnull=False).filter(
+                Q(school_name__isnull=True) | Q(school_name='')
+            )
+
+        if v == 'school_name':
+            return queryset.filter(school_name__isnull=False).filter(
+                school_name__gt=''
+            ).filter(grade__isnull=True)
+
+        if v == 'grade':
+            return queryset.filter(grade__in=[5, 6, 7, 8]).filter(
+                Q(photo__isnull=True) | Q(photo='')
+            )
+
+        if v == 'photo':
+            has_grade_or_other = Q(grade__in=[5, 6, 7, 8]) | (
+                Q(school_name__gt='') & Q(grade__isnull=True)
+            )
+            return queryset.filter(has_grade_or_other).filter(
+                Q(photo__isnull=True) | Q(photo='')
+            )
+
+        if v == 'guardian':
+            has_photo = Q(photo__isnull=False) & ~Q(photo='')
+            has_grade_or_other = Q(grade__in=[5, 6, 7, 8]) | (
+                Q(school_name__gt='') & Q(grade__isnull=True)
+            )
+            with_photo = queryset.filter(has_grade_or_other).filter(has_photo)
+            with_parent = with_photo.filter(parent__isnull=False).filter(
+                Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
+            )
+            return with_photo.exclude(pk__in=with_parent.values_list('pk', flat=True))
+
+        if v == 'teacher':
+            with_parent = queryset.filter(parent__isnull=False).filter(
+                Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
+            )
+            with_teacher = with_parent.filter(teacher__isnull=False).filter(
+                teacher__phone_number__gt=''
+            )
+            return with_parent.exclude(pk__in=with_teacher.values_list('pk', flat=True))
+
+        if v == 'source':
+            with_teacher = queryset.filter(teacher__isnull=False).filter(
+                teacher__phone_number__gt=''
+            ).filter(parent__isnull=False).filter(
+                Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
+            )
+            fully = with_teacher.filter(
+                Q(first_name__gt=''),
+                Q(last_name__isnull=False) & ~Q(last_name=''),
+                date_of_birth__isnull=False,
+                document_number__isnull=False,
+                document_number__gt='',
+            )
+            return with_teacher.exclude(pk__in=fully.values_list('pk', flat=True))
+
+        if v == 'fully_registered':
+            base = queryset.filter(
+                Q(first_name__gt=''),
+                Q(last_name__isnull=False) & ~Q(last_name=''),
+                date_of_birth__isnull=False,
+                document_number__isnull=False,
+                document_number__gt='',
+            )
+            return base.filter(parent__isnull=False).filter(
+                Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
+            ).filter(teacher__isnull=False, teacher__phone_number__gt='')
+
+        return queryset
 
 
 @admin.register(Student)
 class StudentAdmin(ModelAdmin):
     """Admin for Student model."""
-    list_display = ['telegram_id', 'first_name', 'last_name', 'grade', 'last_test_score_display', 'referral_points', 'school_name', 'is_active', 'created_at']
-    list_filter = ['grade', 'is_active', LastTestAttemptScoreFilter, 'created_at']
+    list_display = ['telegram_id', 'first_name', 'last_name', 'grade', 'is_fully_registered_display', 'last_test_score_display', 'referral_points', 'school_name', 'is_active', 'created_at']
+    list_filter = ['grade', 'is_active', RegistrationStepFilter, FullyRegisteredFilter, LastTestAttemptScoreFilter, 'created_at']
     search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name', 'referral_code']
     readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code']
     ordering = ['-created_at']
@@ -87,12 +263,10 @@ class StudentAdmin(ModelAdmin):
     def get_queryset(self, request):
         """Annotate queryset with last test attempt score."""
         qs = super().get_queryset(request)
-        # Get the last test attempt score for each student
         last_attempt_subquery = TestAttempt.objects.filter(
             student=OuterRef('pk'),
             score__isnull=False
         ).order_by('-submitted_at', '-created_at').values('score')[:1]
-        
         return qs.annotate(
             last_test_score=Coalesce(
                 Subquery(last_attempt_subquery),
@@ -101,6 +275,11 @@ class StudentAdmin(ModelAdmin):
             )
         )
     
+    @display(description="To'liq ro'yxatdan o'tgan")
+    def is_fully_registered_display(self, obj):
+        """Display whether student completed Stage 2 registration."""
+        return "Ha" if obj.is_fully_registered else "Yo'q"
+
     @display(description='Oxirgi test balli')
     def last_test_score_display(self, obj):
         """Display last test attempt score."""

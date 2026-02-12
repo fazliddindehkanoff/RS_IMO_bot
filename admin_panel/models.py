@@ -18,6 +18,7 @@ class Student(models.Model):
         ('Toshkent', 'Toshkent viloyati'),
         ('Toshkent shahar', 'Toshkent shahar'),
         ('Xorazm', 'Xorazm viloyati'),
+        ('Qoraqalpog\'iston', 'Qoraqalpog\'iston')
     ]
     GRADE_CHOICES = [
         (5, '5-sinf'),
@@ -101,6 +102,30 @@ class Student(models.Model):
         if self.document_number:
             self.document_number = self.document_number.upper()
         super().save(*args, **kwargs)
+
+    @property
+    def is_fully_registered(self):
+        """True if Stage 2 registration is complete: core fields + parent and teacher with phone numbers."""
+        if not (self.first_name and self.last_name and self.date_of_birth and self.document_number):
+            return False
+        try:
+            parent = self.parent
+            parent_has_phone = bool(
+                (parent.phone_number and parent.phone_number.strip())
+                or (parent.phone_number2 and parent.phone_number2.strip())
+            )
+            if not parent_has_phone:
+                return False
+        except Parent.DoesNotExist:
+            return False
+        try:
+            teacher = self.teacher
+            teacher_has_phone = bool(teacher.phone_number and teacher.phone_number.strip())
+            if not teacher_has_phone:
+                return False
+        except Teacher.DoesNotExist:
+            return False
+        return True
 
     def __str__(self):
         return f"{self.first_name} {self.last_name or ''} (ID: {self.telegram_id})"
@@ -893,7 +918,12 @@ class BroadcastMessage(models.Model):
     target_grade_6 = models.BooleanField(default=False, verbose_name="6-sinf")
     target_grade_7 = models.BooleanField(default=False, verbose_name="7-sinf")
     target_grade_8 = models.BooleanField(default=False, verbose_name="8-sinf")
-    
+    target_not_fully_registered = models.BooleanField(
+        default=False,
+        verbose_name="Faqat to'liq ro'yxatdan o'tmaganlarga",
+        help_text="Belgilanganda xabar faqat to'liq ro'yxatdan o'tmagan o'quvchilarga yuboriladi (ota-ona va o'qituvchi telefonlari bo'yicha).",
+    )
+
     message = models.TextField(
         verbose_name="Xabar matni",
         help_text="Markdown formatini qo'llab quvvatlaydi. {student_name} - o'quvchi ismi o'rniga tushadi."
