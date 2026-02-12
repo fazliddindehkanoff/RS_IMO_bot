@@ -2,6 +2,7 @@ import logging
 import os
 import asyncio
 from datetime import datetime
+from pathlib import Path
 
 from aiogram import Router, F
 from aiogram.enums import ParseMode
@@ -43,6 +44,35 @@ from admin_panel.utils import send_referral_notification
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+# Initial registration states where we (re)show the welcome video on /start
+WELCOME_VIDEO_STATES = frozenset({
+    "waiting_for_initial_full_name",
+    "waiting_for_initial_phone",
+    "waiting_for_phone_owner",
+})
+
+
+async def _send_welcome_video_if_exists(message: Message) -> bool:
+    """Send welcome video note if file exists. Retries once on failure. Returns True if sent."""
+    media_root = Path(settings.MEDIA_ROOT)
+    video_path = media_root / "welcome_video.mp4"
+    if not video_path.is_file():
+        logger.debug("Welcome video not found at %s", video_path.resolve())
+        return False
+    for attempt in range(2):
+        try:
+            await message.answer_video_note(FSInputFile(str(video_path)))
+            await asyncio.sleep(0.5)
+            return True
+        except Exception as e:
+            logger.warning(
+                "Failed to send welcome video (attempt %s) from %s: %s",
+                attempt + 1, video_path.resolve(), e, exc_info=(attempt == 1)
+            )
+            if attempt == 0:
+                await asyncio.sleep(2)
+    return False
 
 
 def _build_channel_keyboard(missing_channels):
@@ -407,9 +437,11 @@ async def cmd_start(message: Message, state: FSMContext):
     username = message.from_user.username
     ref_code = _parse_start_referral(message.text or "")
 
-    # If user has a saved registration state, resume from there (re-send current step)
+    # If user has a saved registration state, resume from there (re-send current step).
+    # Only resume if the Student still exists; otherwise they were deleted and we start fresh.
     state_obj = await BotStateService.get_state(telegram_id)
-    if state_obj and state_obj.state in REGISTRATION_STATE_NAMES:
+    student_exists = await StudentService.get_student(telegram_id) is not None
+    if state_obj and state_obj.state in REGISTRATION_STATE_NAMES and student_exists:
         resume_state = state_obj.state
         # When resuming from editing_field, show "which field to edit" so user can pick again
         if resume_state == "editing_field":
@@ -422,6 +454,8 @@ async def cmd_start(message: Message, state: FSMContext):
                 telegram_id, resume_state, data, message.bot
             )
             if text is not None:
+                if state_obj.state in WELCOME_VIDEO_STATES:
+                    await _send_welcome_video_if_exists(message)
                 if state_obj.state == "waiting_for_channels" and data.get("after_channels") == "full_reg" and text == SUCCESS_MESSAGE:
                     await message.answer(SUCCESS_MESSAGE)
                     await message.answer(MENU_PROMPT, reply_markup=reply_markup)
@@ -436,16 +470,16 @@ async def cmd_start(message: Message, state: FSMContext):
                 return
             # Fall through if continuation returned None
 
+    # Stale state (e.g. user was deleted from DB): clear so we start fresh below
+    if state_obj and state_obj.state in REGISTRATION_STATE_NAMES and not student_exists:
+        await BotStateService.clear_state(telegram_id)
+        await state.clear()
+
     # Get or create student
     student, created = await StudentService.get_or_create_student(telegram_id, username)
 
-    # 1. Send Video Note (if exists)
-    video_note_path = os.path.join(settings.MEDIA_ROOT, 'welcome_video.mp4')
-    if os.path.exists(video_note_path):
-        try:
-            await message.answer_video_note(FSInputFile(video_note_path))
-        except Exception as e:
-            logger.error(f"Failed to send welcome video note: {e}")
+    # 1. Send Video Note (if exists; retry once on failure)
+    await _send_welcome_video_if_exists(message)
 
     if student.first_name and student.last_name and student.date_of_birth and student.document_number:
         # Student already fully registered (Stage 2 complete)
