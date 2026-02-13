@@ -26,6 +26,7 @@ from .models import (
     MandatoryChannel,
     Feedback,
     BroadcastMessage,
+    RegistrationSource,
 )
 from .utils import send_test_assignment_message, send_certificate_message
 from .certificate_generator import generate_certificate
@@ -123,7 +124,10 @@ class RegistrationStepFilter(admin.SimpleListFilter):
     def lookups(self, request, model_admin):
         return (
             ('not_started', "Boshlanmagan"),
-            ('stage1_only', "1-bosqich (ism-fon)"),
+            ('initial_full_name', "Ism-familiya (1-bosqich)"),
+            ('initial_phone', "Telefon (1-bosqich)"),
+            ('phone_owner', "Telefon egasi (1-bosqich)"),
+            ('stage1_only', "1-bosqich tugallangan (olimpiada boshlanmagan)"),
             ('first_name', "Ism"),
             ('last_name', "Familiya"),
             ('date_of_birth', "Tug'ilgan sana"),
@@ -147,8 +151,27 @@ class RegistrationStepFilter(admin.SimpleListFilter):
         if v == 'not_started':
             return queryset.filter(Q(initial_full_name__isnull=True) | Q(initial_full_name=''))
 
+        if v == 'initial_full_name':
+            return queryset.filter(initial_full_name__gt='').filter(
+                Q(phone_number__isnull=True) | Q(phone_number='')
+            )
+
+        if v == 'initial_phone':
+            return queryset.filter(initial_full_name__gt='').filter(
+                Q(phone_number__isnull=False) & ~Q(phone_number='')
+            ).filter(Q(phone_owner__isnull=True) | Q(phone_owner=''))
+
+        if v == 'phone_owner':
+            return queryset.filter(initial_full_name__gt='').filter(
+                Q(phone_number__isnull=False) & ~Q(phone_number='')
+            ).filter(Q(phone_owner__isnull=False) & ~Q(phone_owner='')).filter(
+                Q(first_name__isnull=True) | Q(first_name='')
+            )
+
         if v == 'stage1_only':
             return queryset.filter(initial_full_name__gt='').filter(
+                Q(phone_number__isnull=False) & ~Q(phone_number='')
+            ).filter(Q(phone_owner__isnull=False) & ~Q(phone_owner='')).filter(
                 Q(first_name__isnull=True) | Q(first_name='')
             )
 
@@ -250,11 +273,30 @@ class RegistrationStepFilter(admin.SimpleListFilter):
         return queryset
 
 
+class RegistrationSourceFilter(admin.SimpleListFilter):
+    """Filter students by registration source (how they found us)."""
+    title = "Manba"
+    parameter_name = 'registration_source'
+
+    def lookups(self, request, model_admin):
+        return (('none', "Manba yo'q"),) + tuple(
+            (choice[0], choice[1]) for choice in RegistrationSource.SOURCE_TYPE_CHOICES
+        )
+
+    def queryset(self, request, queryset):
+        v = self.value()
+        if not v:
+            return queryset
+        if v == 'none':
+            return queryset.filter(registration_source__isnull=True)
+        return queryset.filter(registration_source__source_type=v)
+
+
 @admin.register(Student)
 class StudentAdmin(ModelAdmin):
     """Admin for Student model."""
     list_display = ['telegram_id', 'first_name', 'last_name', 'grade', 'is_fully_registered_display', 'last_test_score_display', 'referral_points', 'school_name', 'is_active', 'created_at']
-    list_filter = ['grade', 'is_active', RegistrationStepFilter, FullyRegisteredFilter, LastTestAttemptScoreFilter, 'created_at']
+    list_filter = ['grade', 'is_active', RegistrationStepFilter, RegistrationSourceFilter, FullyRegisteredFilter, LastTestAttemptScoreFilter, 'created_at']
     search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name', 'referral_code']
     readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code']
     ordering = ['-created_at']

@@ -23,7 +23,7 @@ from bot.constants import (
     SUCCESS_MESSAGE, PROMO_MESSAGE, ERROR_NAME_LENGTH, ERROR_SURNAME_LENGTH,
     ERROR_DATE_FORMAT, ERROR_INVALID_PHOTO, ERROR_INVALID_FILE, ERROR_INVALID_AGE,
     ERROR_INVALID_PHONE_UZB, ERROR_USE_BUTTONS, ALREADY_REGISTERED,
-    REFERRAL_MENU_TITLE, REFERRAL_POINTS, REFERRAL_DESC, LEADERBOARD_TITLE,
+    REFERRAL_POINTS, REFERRAL_DESC, LEADERBOARD_TITLE,
     LEADERBOARD_EMPTY, LEADERBOARD_USER_RANK, CHECK_SUBS_FAIL, CHECK_SUBS_SUCCESS,
     CHECK_SUBS_START, CHECK_SUBS_CONFIRMED_ANSWER, CHECK_SUBS_NOT_CONFIRMED,
     EDIT_TITLE, EDIT_PROMPT_PREFIX, EDIT_FIELD_SUFFIXES,
@@ -245,6 +245,108 @@ def _parse_start_referral(message_text: str) -> str | None:
         return None
     parts = message_text.strip().split(maxsplit=1)
     return parts[1].strip() if len(parts) > 1 else None
+
+
+async def _infer_registration_state_from_db(telegram_id: int):
+    """Infer where the user stopped in registration from Student/Parent/Teacher/Source DB.
+    Returns (state_name, state_data) or (None, {}) if fully registered or nothing to resume."""
+    student = await StudentService.get_student(telegram_id)
+    if not student:
+        return None, {}
+
+    # Fully registered: no need to resume
+    try:
+        is_full = await sync_to_async(lambda: getattr(student, 'is_fully_registered', False))()
+        if is_full:
+            return None, {}
+    except Exception:
+        pass
+
+    try:
+        parent = await sync_to_async(lambda: student.parent)()
+    except Exception:
+        parent = None
+    try:
+        teacher = await sync_to_async(lambda: student.teacher)()
+    except Exception:
+        teacher = None
+    try:
+        source = await sync_to_async(lambda: student.registration_source)()
+    except Exception:
+        source = None
+
+    def _v(s, attr, default=""):
+        val = getattr(s, attr, None) if s else None
+        return (val or default).strip() if isinstance(val, str) else (val if val is not None else default)
+
+    # Build state_data from DB for continuation messages
+    state_data = {
+        "initial_full_name": _v(student, "initial_full_name"),
+        "initial_phone": _v(student, "phone_number") if getattr(student, "initial_full_name", None) else "",
+        "first_name": _v(student, "first_name"),
+        "last_name": _v(student, "last_name"),
+        "date_of_birth": str(student.date_of_birth) if student.date_of_birth else "",
+        "document_number": _v(student, "document_number"),
+        "region": _v(student, "region"),
+        "district": _v(student, "district"),
+        "school_name": _v(student, "school_name"),
+        "grade": student.grade if student.grade in [5, 6, 7, 8] else None,
+        "guardian_name": _v(parent, "full_name") if parent else "",
+        "guardian_relationship": _v(parent, "relationship") if parent else "",
+        "guardian_phone": _v(parent, "phone_number") if parent else "",
+        "guardian_phone2": _v(parent, "phone_number2") if parent else "",
+        "teacher_name": _v(teacher, "full_name") if teacher else "",
+        "teacher_workplace": _v(teacher, "workplace") if teacher else "",
+        "teacher_phone": _v(teacher, "phone_number") if teacher else "",
+        "source_type": getattr(source, "source_type", None) if source else "",
+    }
+    if getattr(student, "phone_owner", None):
+        state_data["phone_owner"] = student.phone_owner
+
+    # Stage 1
+    if not state_data["initial_full_name"]:
+        return "waiting_for_initial_full_name", state_data
+    if not (student.phone_number and str(student.phone_number).strip()):
+        return "waiting_for_initial_phone", state_data
+    if not (getattr(student, "phone_owner", None) and str(student.phone_owner or "").strip()):
+        return "waiting_for_phone_owner", state_data
+    # Stage 1 done, Stage 2 not started (no first_name from olympiad form)
+    if not state_data["first_name"]:
+        return "waiting_for_olympiad_participation", state_data
+
+    # Stage 2 steps
+    if not state_data["last_name"]:
+        return "waiting_for_last_name", state_data
+    if not student.date_of_birth:
+        return "waiting_for_date_of_birth", state_data
+    if not state_data["document_number"]:
+        return "waiting_for_document_number", state_data
+    if not state_data["region"]:
+        return "waiting_for_region", state_data
+    if not state_data["district"]:
+        return "waiting_for_district", state_data
+    if not state_data["school_name"]:
+        return "waiting_for_school_name", state_data
+    if student.grade not in (5, 6, 7, 8):
+        return "waiting_for_grade", state_data
+    if not (student.photo and str(student.photo).strip()):
+        return "waiting_for_photo", state_data
+    # Achievements are skippable; next required is guardian
+    if not parent or not state_data["guardian_name"]:
+        return "waiting_for_guardian_name", state_data
+    if not state_data["guardian_relationship"]:
+        return "waiting_for_guardian_relationship", state_data
+    if not state_data["guardian_phone"]:
+        return "waiting_for_guardian_phone", state_data
+    # guardian_phone2 is optional (skip); next is teacher
+    if not teacher or not state_data["teacher_name"]:
+        return "waiting_for_teacher_name", state_data
+    if not state_data["teacher_phone"]:
+        return "waiting_for_teacher_phone", state_data
+    if not source or not state_data["source_type"]:
+        return "waiting_for_source", state_data
+    # All data present but not confirmed
+    return "waiting_for_confirmation", state_data
 
 
 async def _get_state_data(telegram_id: int):
@@ -478,6 +580,23 @@ async def cmd_start(message: Message, state: FSMContext):
     # Get or create student
     student, created = await StudentService.get_or_create_student(telegram_id, username)
 
+    # If we didn't resume from saved state, try to infer stopped step from DB (e.g. user sent /start again after losing state)
+    if not (state_obj and state_obj.state in REGISTRATION_STATE_NAMES and student_exists):
+        inferred_state, inferred_data = await _infer_registration_state_from_db(telegram_id)
+        if inferred_state:
+            reg_state = getattr(RegistrationStates, inferred_state, None)
+            if reg_state is not None:
+                await state.set_state(reg_state)
+                await BotStateService.set_state(telegram_id, inferred_state, inferred_data)
+                text, reply_markup = await _get_continuation_for_state(
+                    telegram_id, inferred_state, inferred_data, message.bot
+                )
+                if text is not None:
+                    if inferred_state in WELCOME_VIDEO_STATES:
+                        await _send_welcome_video_if_exists(message)
+                    await message.answer(text, reply_markup=reply_markup)
+                    return
+
     # 1. Send Video Note (if exists; retry once on failure)
     await _send_welcome_video_if_exists(message)
 
@@ -647,7 +766,7 @@ async def handle_referral_menu(message: Message, state: FSMContext):
     bot_username = bot_me.username if bot_me else ""
     referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
 
-    text = REFERRAL_MENU_TITLE + REFERRAL_POINTS.format(points=points) + REFERRAL_DESC.format(referral_link=referral_link)
+    text = REFERRAL_DESC.format(referral_link=referral_link)
     await message.answer(text)
 
 

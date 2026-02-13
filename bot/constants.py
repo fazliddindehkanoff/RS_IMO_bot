@@ -215,7 +215,7 @@ REFERRAL_POINTS = "📊 <b>Sizning ballaringiz:</b> {points} ball\n\n"
 REFERRAL_DESC = (
     "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun siz <b>5 ball</b> olasiz.\n\n"
     "<b>Sizning havolangiz:</b>\n"
-    "<code>{referral_link}</code>\n\n"
+    "<a href=\"{referral_link}\">Referall link</a>\n\n"
     "Reytingni ko'rish uchun asosiy menyuda <b>🏆 Reyting</b> tugmasini bosing."
 )
 
