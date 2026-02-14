@@ -75,6 +75,15 @@ class Student(models.Model):
         verbose_name="Referral ballari",
         help_text="Har bir taklif qilingan do'st uchun 5 ball (admin tomonidan tahrirlanmaydi)",
     )
+    referrer = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='referred_students',
+        verbose_name="Taklif qiluvchi",
+        help_text="Bu foydalanuvchi qaysi student havolasi orqali kelgan (DB da saqlanadi)",
+    )
     achievements_description = models.TextField(null=True, blank=True, verbose_name="Avvalgi yutuqlar izohi")
     achievements_file = models.FileField(upload_to='students/achievements/', max_length=500, null=True, blank=True, verbose_name="Avvalgi yutuqlar fayli/rasmi")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")

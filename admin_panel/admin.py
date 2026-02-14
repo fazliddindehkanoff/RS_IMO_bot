@@ -296,7 +296,7 @@ class StudentAdmin(ModelAdmin):
     list_display = ['telegram_id', 'first_name', 'last_name', 'grade', 'is_fully_registered_display', 'last_test_score_display', 'referral_points', 'school_name', 'is_active', 'created_at']
     list_filter = ['grade', 'is_active', RegistrationStepFilter, RegistrationSourceFilter, FullyRegisteredFilter, LastTestAttemptScoreFilter, 'created_at']
     search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name', 'referral_code']
-    readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code']
+    readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code', 'referrer']
     ordering = ['-created_at']
     actions = ['send_certificate_action', 'export_students_csv']
 

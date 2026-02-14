@@ -180,6 +180,20 @@ class StudentService:
 
     @staticmethod
     @sync_to_async
+    def set_referrer(telegram_id: int, referrer: Student):
+        """Persistently store who referred this user (when they click /start REF_CODE)."""
+        if not referrer or referrer.telegram_id == telegram_id:
+            return
+        try:
+            student = Student.objects.get(telegram_id=telegram_id)
+        except Student.DoesNotExist:
+            return
+        if student.referrer_id is None:
+            student.referrer = referrer
+            student.save(update_fields=['referrer'])
+
+    @staticmethod
+    @sync_to_async
     def create_referral_and_award_points(referrer: Student, referred: Student, points: int = 5):
         """Create Referral record and add points to referrer. Idempotent per referred student."""
         with transaction.atomic():
@@ -189,6 +203,31 @@ class StudentService:
             referrer.referral_points = (referrer.referral_points or 0) + points
             referrer.save(update_fields=['referral_points'])
             return referrer
+
+    @staticmethod
+    @sync_to_async
+    def award_referral_if_pending(telegram_id: int, points: int = 5):
+        """
+        When registration completes: if student has referrer (stored in DB from /start REF_CODE),
+        create Referral, award points to referrer, send notification.
+        Idempotent - only runs once per referred student.
+        Returns (referrer_telegram_id, referred_name) if award was made, else (None, None).
+        """
+        try:
+            student = Student.objects.select_related('referrer').get(telegram_id=telegram_id)
+        except Student.DoesNotExist:
+            return None, None
+        referrer = student.referrer
+        if not referrer:
+            return None, None
+        if Referral.objects.filter(referred=student).exists():
+            return None, None
+        with transaction.atomic():
+            Referral.objects.create(referrer=referrer, referred=student, points_earned=points)
+            referrer.referral_points = (referrer.referral_points or 0) + points
+            referrer.save(update_fields=['referral_points'])
+        referred_name = f"{student.first_name} {student.last_name or ''}".strip()
+        return referrer.telegram_id, referred_name
 
     @staticmethod
     @sync_to_async
