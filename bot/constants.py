@@ -25,9 +25,9 @@ SUCCESS_INITIAL_REG = (
 )
 
 PROMO_TEXT = (
-    "Toshkentdagi eng nufuzli maktablardan biri — Rahimov School xususiy maktabida mutlaqo bepul o'qish imkoniyatiga nima deysiz?\n\n"
+    "Toshkentdagi xususiy maktablardan biri — Rahimov School xususiy maktabida mutlaqo bepul o'qish imkoniyatiga nima deysiz?\n\n"
     "Viloyatdan bo'lsangiz, yeb-ichish va yotoqxonangizgacha ta'minlab beramiz 🔥\n\n"
-    "Maktabimiz haqiqiy vunderkindlarni qidirmoqda 🌟\n\n"
+    "Maktabimiz haqiqiy iqtidorlarni qidirmoqda 🌟\n\n"
     "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 12 ta grant sohibidan biri bo'ling.\n\n"
     "Olimpiadada qatnashmoqchimisiz?"
 )
@@ -164,10 +164,10 @@ SUCCESS_MESSAGE = (
 
 PROMO_MESSAGE = (
     "👋 Assalomu alaykum!\n\n"
-    "Toshkentdagi eng nufuzli maktablardan biri — <a href=\"http://t.me/rahimovschool\">Rahimov School</a> xususiy maktabida mutlaqo bepul o'qishni istaysizmi?\n\n"
+    "Toshkentdagi xususiy maktablardan biri — <a href=\"http://t.me/rahimovschool\">Rahimov School</a> xususiy maktabida mutlaqo bepul o'qishni istaysizmi?\n\n"
     "Viloyatdan bo'lsangiz, yeb-ichish va yotoqxonangizgacha ta'minlab berisharkan 🔥\n\n"
     "\"Rahimov Matematika Olimpiadasi\"da qatnashib, 12 ta grant sohibidan biri bo'ling.\n\n"
-    "Maktab vunderkindlarni qidirmoqda 🔥\n\n"
+    "Maktab iqtidorlarni qidirmoqda 🔥\n\n"
     "Olimpiada haqida batafsil:\n"
     "https://telegra.ph/Rahimov-Matematika-Olimpiadasi-02-05\n\n"
     "Siz ham quyidagi havola orqali ro'yxatdan o'tishingiz mumkin:\n"
@@ -175,7 +175,7 @@ PROMO_MESSAGE = (
 )
 
 REFERRAL_ONLY_PROMO_TEXT = (
-    "Vunderkind o'quvchilarga yordam berishga qaror qilganingizdan xursandmiz! 😊\n\n"
+    "Iste'dodli o'quvchilarga yordam berishga qaror qilganingizdan xursandmiz! 😊\n\n"
     "<b>Olimpiadaga 5-8-sinflarga tarqating va rasmdagi sovg'a sohibiga aylaning 🎁:</b>\n\n"
     "🥇 1-o'rin —- <a href=\"https://t.me/rs_olimpiada/32\">sovg'alarni bu yerdan ko'ring</a>\n"
     "🥈 2-o'rin — <a href=\"https://t.me/rs_olimpiada/31\">sovg'alarni bu yerdan ko'ring</a>\n"
