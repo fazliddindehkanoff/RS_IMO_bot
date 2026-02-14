@@ -176,13 +176,12 @@ PROMO_MESSAGE = (
 
 REFERRAL_ONLY_PROMO_TEXT = (
     "Vunderkind o'quvchilarga yordam berishga qaror qilganingizdan xursandmiz! 😊\n\n"
-    "Olimpiadaga 5-8-sinflarni taklif qiling. Eng ko'p taklif qilgan 20 ta o'rin sohibiga quyidagi sovg'alarni va'da qilamiz:\n\n"
-    "🥇 1-o'rin: 1 ta mutolaa premium, 1 ta telegram premium va kitoblar to'plami\n"
-    "🥈 2-o'rin: 1 ta mutolaa premium, 1 ta telegram premium\n"
-    "🥉 3-o'ring: Kitoblar to'plami\n"
-    "🎖 4-11-o'rinlarga: 1 ta telegram premium\n"
-    "🎖 12-20-o'rinlarga: 1 ta mutolaa premium\n\n"
-    "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun 5 ball olasiz 🤩\n\n"
+    "<b>Olimpiadaga 5-8-sinflarga tarqating va rasmdagi sovg'a sohibiga aylaning 🎁:</b>\n\n"
+    "🥇 1-o'rin —- <a href=\"https://t.me/rs_olimpiada/32\">sovg'alarni bu yerdan ko'ring</a>\n"
+    "🥈 2-o'rin — <a href=\"https://t.me/rs_olimpiada/31\">sovg'alarni bu yerdan ko'ring</a>\n"
+    "🥉 3-o'rin — <a href=\"https://t.me/rs_olimpiada/30\">sovg'alarni bu yerdan ko'ring</a>\n"
+    "🎖 4-20-o'rin — <a href=\"https://t.me/rs_olimpiada/29\">sovg'alarni bu yerdan ko'ring</a>\n\n"
+    "📌 Har bir havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun 5 ball olasiz\n\n"
     "Rozi bo'lsangiz, \"Ha 🔥\" tugmasini bosing. Biz do'stlaringizga yuborishingiz kerak bo'lgan tayyor xabarni yuboramiz ⚡"
 )
 

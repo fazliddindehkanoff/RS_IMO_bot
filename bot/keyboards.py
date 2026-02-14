@@ -188,6 +188,15 @@ def get_post_reg_promo_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def get_referral_menu_confirm_keyboard() -> InlineKeyboardMarkup:
+    """Get keyboard for referral menu promo confirmation (Ha → get promo with image)."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Ha 🔥", callback_data="referral_menu_accept")
+    builder.button(text="⬅️ Ortga", callback_data="referral_menu_back")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
     """Get main menu keyboard."""
     builder = ReplyKeyboardBuilder()

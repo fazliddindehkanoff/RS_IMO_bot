@@ -8,13 +8,13 @@ from aiogram import Router, F
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import FSInputFile, LinkPreviewOptions, Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from asgiref.sync import sync_to_async
 from django.conf import settings
 
 from bot.constants import (
     GREETING_MESSAGE, STEP_INITIAL_PHONE, STEP_PHONE_OWNER, SUCCESS_INITIAL_REG,
-    PROMO_TEXT, OLYMPIAD_INTRO, OLYMPIAD_DECLINED, REFERRAL_ONLY_PROMO_TEXT,
+    PROMO_TEXT, OLYMPIAD_INTRO, OLYMPIAD_DECLINED,     REFERRAL_ONLY_PROMO_TEXT,
     STEP_1_ASK_NAME, STEP_2_ASK_SURNAME, STEP_3_ASK_DOB, STEP_4_ASK_METRIKA,
     STEP_5_ASK_REGION, STEP_6_ASK_DISTRICT, STEP_7_ASK_SCHOOL, STEP_8_ASK_GRADE,
     STEP_9_ASK_PHOTO, STEP_10_ASK_ACHIEVEMENTS, STEP_11_ASK_GUARDIAN_NAME,
@@ -34,7 +34,7 @@ from bot.keyboards import (
     get_grade_keyboard, get_region_keyboard, get_language_keyboard,
     get_main_menu_keyboard, get_confirmation_keyboard, get_edit_fields_keyboard,
     get_skip_keyboard, get_relationship_keyboard, get_source_type_keyboard,
-    get_post_reg_promo_keyboard, get_phone_keyboard, get_phone_owner_keyboard,
+    get_post_reg_promo_keyboard, get_referral_menu_confirm_keyboard, get_phone_keyboard, get_phone_owner_keyboard,
     get_olympiad_participation_keyboard, get_back_reply_keyboard, get_back_keyboard
 )
 from bot.services import BotStateService, StudentService, SubscriptionService
@@ -568,7 +568,10 @@ async def cmd_start(message: Message, state: FSMContext):
                     await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
                     await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
                 else:
-                    await message.answer(text, reply_markup=reply_markup)
+                    kwargs = {"reply_markup": reply_markup}
+                    if text == REFERRAL_ONLY_PROMO_TEXT:
+                        kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=True)
+                    await message.answer(text, **kwargs)
                 return
             # Fall through if continuation returned None
 
@@ -594,7 +597,10 @@ async def cmd_start(message: Message, state: FSMContext):
                 if text is not None:
                     if inferred_state in WELCOME_VIDEO_STATES:
                         await _send_welcome_video_if_exists(message)
-                    await message.answer(text, reply_markup=reply_markup)
+                    kwargs = {"reply_markup": reply_markup}
+                    if text == REFERRAL_ONLY_PROMO_TEXT:
+                        kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=True)
+                    await message.answer(text, **kwargs)
                     return
 
     # 1. Send Video Note (if exists; retry once on failure)
@@ -741,7 +747,11 @@ async def process_olympiad_choice(callback: CallbackQuery, state: FSMContext):
          await StudentService.update_student(telegram_id, first_name=first_name, last_name=last_name)
          
          # Show Referral Promo Text + "Ha" button to get link
-         await callback.message.answer(REFERRAL_ONLY_PROMO_TEXT, reply_markup=get_post_reg_promo_keyboard())
+         await callback.message.answer(
+             REFERRAL_ONLY_PROMO_TEXT,
+             reply_markup=get_post_reg_promo_keyboard(),
+             link_preview_options=LinkPreviewOptions(is_disabled=True),
+         )
          
          # Wait for "accept_promo" (Ha)
          await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
@@ -752,7 +762,7 @@ async def process_olympiad_choice(callback: CallbackQuery, state: FSMContext):
 
 @router.message(F.text == "👥 Do'stlarni taklif qilish")
 async def handle_referral_menu(message: Message, state: FSMContext):
-    """Show referral stats, link and leaderboard (Uzbek)."""
+    """Show REFERRAL_ONLY_PROMO_TEXT with Ha button; on Yes → promo message with image."""
     telegram_id = message.from_user.id
     student = await StudentService.get_student(telegram_id)
     # Relaxed check: allow if just first_name exists (referral agent)
@@ -760,14 +770,62 @@ async def handle_referral_menu(message: Message, state: FSMContext):
         await message.answer(ERROR_NOT_REGISTERED)
         return
 
-    points = getattr(student, 'referral_points', 0) or 0
+    await message.answer(
+        REFERRAL_ONLY_PROMO_TEXT,
+        reply_markup=get_referral_menu_confirm_keyboard(),
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
+    )
+
+
+@router.callback_query(F.data == "referral_menu_accept")
+async def referral_menu_accept(callback: CallbackQuery, state: FSMContext):
+    """Send PROMO_MESSAGE with image when user clicks Ha from referral menu."""
+    telegram_id = callback.from_user.id
+    student = await StudentService.get_student(telegram_id)
+    if not student or not student.first_name:
+        await callback.answer(ERROR_NOT_REGISTERED)
+        return
+
+    bot_me = await callback.bot.get_me()
+    bot_username = bot_me.username if bot_me else ""
     ref_code = student.referral_code or str(telegram_id)
-    bot_me = await message.bot.get_me()
+    referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
+    promo_text = PROMO_MESSAGE.format(referral_link=referral_link)
+
+    photo_path = os.path.join(settings.MEDIA_ROOT, "rmo_logo.jpg")
+    if os.path.exists(photo_path):
+        await callback.message.answer_photo(
+            FSInputFile(photo_path),
+            caption=promo_text,
+            parse_mode=ParseMode.HTML,
+        )
+    else:
+        await callback.message.answer(promo_text)
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@router.callback_query(F.data == "referral_menu_back")
+async def referral_menu_back(callback: CallbackQuery, state: FSMContext):
+    """Show REFERRAL_DESC (link + points) when user clicks Ortga from referral menu."""
+    telegram_id = callback.from_user.id
+    student = await StudentService.get_student(telegram_id)
+    if not student or not student.first_name:
+        await callback.answer(ERROR_NOT_REGISTERED)
+        return
+
+    ref_code = student.referral_code or str(telegram_id)
+    bot_me = await callback.bot.get_me()
     bot_username = bot_me.username if bot_me else ""
     referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
-
     text = REFERRAL_DESC.format(referral_link=referral_link)
-    await message.answer(text)
+
+    await callback.message.edit_text(text)
+    await callback.answer()
 
 
 @router.message(F.text == "🏆 Reyting")
