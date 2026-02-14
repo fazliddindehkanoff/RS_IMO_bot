@@ -232,9 +232,10 @@ class StudentService:
     @staticmethod
     @sync_to_async
     def get_referral_leaderboard(limit: int = 10):
-        """Get top students by referral_points."""
+        """Get top students by referral_points. Excludes users without first_name."""
         return list(
             Student.objects.filter(is_active=True)
+            .exclude(Q(first_name__isnull=True) | Q(first_name=''))
             .order_by('-referral_points', '-created_at')
             .values('telegram_id', 'first_name', 'last_name', 'referral_points')[:limit]
         )
@@ -242,12 +243,13 @@ class StudentService:
     @staticmethod
     @sync_to_async
     def get_user_referral_rank(telegram_id: int):
-        """Get current user's rank (1-based) by referral_points. Same order as leaderboard."""
+        """Get current user's rank (1-based) by referral_points. Same order as leaderboard. Excludes nameless users."""
         try:
             student = Student.objects.get(telegram_id=telegram_id, is_active=True)
         except Student.DoesNotExist:
             return None
-        above = Student.objects.filter(is_active=True).filter(
+        base = Student.objects.filter(is_active=True).exclude(Q(first_name__isnull=True) | Q(first_name=''))
+        above = base.filter(
             Q(referral_points__gt=student.referral_points)
             | Q(referral_points=student.referral_points, created_at__lt=student.created_at)
         ).count()
@@ -259,13 +261,14 @@ class StudentService:
         """
         Get current user's rank (1-based) and referral_points in a single query.
         Returns (rank, points) or (None, 0) if not found.
-        Ensures the points shown match the data used for ranking.
+        Excludes nameless users from ranking.
         """
         try:
             student = Student.objects.get(telegram_id=telegram_id, is_active=True)
         except Student.DoesNotExist:
             return None, 0
-        above = Student.objects.filter(is_active=True).filter(
+        base = Student.objects.filter(is_active=True).exclude(Q(first_name__isnull=True) | Q(first_name=''))
+        above = base.filter(
             Q(referral_points__gt=student.referral_points)
             | Q(referral_points=student.referral_points, created_at__lt=student.created_at)
         ).count()

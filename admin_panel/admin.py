@@ -460,14 +460,21 @@ class StudentRatingAdmin(ModelAdmin):
     list_per_page = 50
 
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(is_active=True)
+        return (
+            super().get_queryset(request)
+            .filter(is_active=True)
+            .exclude(Q(first_name__isnull=True) | Q(first_name=''))
+        )
 
     @display(description='#')
     def rank(self, obj):
         """1-based order number by referral_points, then created_at."""
         if obj is None:
             return ''
-        above = StudentRating.objects.filter(is_active=True).filter(
+        base = StudentRating.objects.filter(is_active=True).exclude(
+            Q(first_name__isnull=True) | Q(first_name='')
+        )
+        above = base.filter(
             Q(referral_points__gt=obj.referral_points)
             | Q(referral_points=obj.referral_points, created_at__lt=obj.created_at)
         ).count()
