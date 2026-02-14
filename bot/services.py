@@ -204,7 +204,6 @@ class StudentService:
     @sync_to_async
     def get_user_referral_rank(telegram_id: int):
         """Get current user's rank (1-based) by referral_points. Same order as leaderboard."""
-        from django.db.models import Q
         try:
             student = Student.objects.get(telegram_id=telegram_id, is_active=True)
         except Student.DoesNotExist:
@@ -214,6 +213,25 @@ class StudentService:
             | Q(referral_points=student.referral_points, created_at__lt=student.created_at)
         ).count()
         return above + 1
+
+    @staticmethod
+    @sync_to_async
+    def get_user_referral_rank_and_points(telegram_id: int):
+        """
+        Get current user's rank (1-based) and referral_points in a single query.
+        Returns (rank, points) or (None, 0) if not found.
+        Ensures the points shown match the data used for ranking.
+        """
+        try:
+            student = Student.objects.get(telegram_id=telegram_id, is_active=True)
+        except Student.DoesNotExist:
+            return None, 0
+        above = Student.objects.filter(is_active=True).filter(
+            Q(referral_points__gt=student.referral_points)
+            | Q(referral_points=student.referral_points, created_at__lt=student.created_at)
+        ).count()
+        points = student.referral_points or 0
+        return above + 1, points
 
 
 class BotStateService:
@@ -587,6 +605,8 @@ class FeedbackService:
 
 
 from admin_panel.models import BroadcastMessage
+from admin_panel.registration_filters import filter_students_by_registration_steps
+
 
 class BroadcastService:
     """Service for sending broadcast messages."""
@@ -614,10 +634,21 @@ class BroadcastService:
 
         def _get_broadcast_students():
             base = Student.objects.filter(is_active=True)
+            target_registration_steps = getattr(broadcast, 'target_registration_steps', None) or []
+
+            # Apply grade filter
             if grade_filters:
                 base = base.filter(grade__in=grade_filters)
-            elif not target_not_fully_registered:
+
+            # Apply registration step filter (OR: at any of the selected steps)
+            if target_registration_steps:
+                base = filter_students_by_registration_steps(base, target_registration_steps)
+
+            # Require at least one targeting filter
+            if not grade_filters and not target_registration_steps and not target_not_fully_registered:
                 base = base.none()
+
+            # Exclude fully registered when target_not_fully_registered is set
             if target_not_fully_registered:
                 fully_registered = Student.objects.filter(
                     Q(first_name__gt=''),
@@ -634,6 +665,7 @@ class BroadcastService:
                     teacher__phone_number__gt='',
                 )
                 base = base.exclude(pk__in=fully_registered.values_list('pk', flat=True))
+
             return list(base)
 
         students = await sync_to_async(_get_broadcast_students)()
@@ -646,10 +678,11 @@ class BroadcastService:
 
         for student in students:
             try:
-                # Personalize text
+                # Personalize text (use initial_full_name for early registration steps)
+                display_name = (student.first_name or student.initial_full_name or "O'quvchi").strip()
                 text = broadcast.message.format(
-                    student_name=student.first_name,
-                    user_name=student.first_name # alias for safety
+                    student_name=display_name,
+                    user_name=display_name
                 )
                 
                 # Send message

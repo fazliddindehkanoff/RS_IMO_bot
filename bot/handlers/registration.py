@@ -830,14 +830,17 @@ async def referral_menu_back(callback: CallbackQuery, state: FSMContext):
 
 @router.message(F.text == "🏆 Reyting")
 async def handle_leaderboard(message: Message, state: FSMContext):
-    """Show referral leaderboard."""
+    """Show referral leaderboard with fresh data."""
     telegram_id = message.from_user.id
     student = await StudentService.get_student(telegram_id)
     if not student or not student.first_name:
         await message.answer(ERROR_NOT_REGISTERED)
         return
 
+    # Fetch leaderboard and user rank+points from fresh DB queries
     leaderboard = await StudentService.get_referral_leaderboard(limit=10)
+    rank, user_points = await StudentService.get_user_referral_rank_and_points(telegram_id)
+
     text = LEADERBOARD_TITLE
 
     if leaderboard:
@@ -850,10 +853,8 @@ async def handle_leaderboard(message: Message, state: FSMContext):
     else:
         text += LEADERBOARD_EMPTY
 
-    rank = await StudentService.get_user_referral_rank(telegram_id)
     if rank is not None and rank > 10:
         text += "\n____\n\n"
-        user_points = getattr(student, 'referral_points', 0) or 0
         text += LEADERBOARD_USER_RANK.format(rank=rank, user_points=user_points)
 
     await message.answer(text)

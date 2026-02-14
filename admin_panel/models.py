@@ -933,6 +933,12 @@ class BroadcastMessage(models.Model):
         verbose_name="Faqat to'liq ro'yxatdan o'tmaganlarga",
         help_text="Belgilanganda xabar faqat to'liq ro'yxatdan o'tmagan o'quvchilarga yuboriladi (ota-ona va o'qituvchi telefonlari bo'yicha).",
     )
+    target_registration_steps = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Ro'yxatdan o'tish bosqichi bo'yicha",
+        help_text="Tanlangan bosqichlarda to'xtab qolgan o'quvchilarga yuborish. Bo'sh qoldirilsa, barcha bosqichlar hisobga olinmaydi (faqat sinf / to'liq ro'yxatdan o'tmagan filtrlari ishlatiladi).",
+    )
 
     message = models.TextField(
         verbose_name="Xabar matni",

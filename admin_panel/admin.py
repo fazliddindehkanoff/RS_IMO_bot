@@ -244,19 +244,17 @@ class RegistrationStepFilter(admin.SimpleListFilter):
             return with_parent.exclude(pk__in=with_teacher.values_list('pk', flat=True))
 
         if v == 'source':
-            with_teacher = queryset.filter(teacher__isnull=False).filter(
-                teacher__phone_number__gt=''
-            ).filter(parent__isnull=False).filter(
-                Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
-            )
-            fully = with_teacher.filter(
+            # Has everything up to and including teacher, but no RegistrationSource yet
+            has_all_before_source = queryset.filter(
                 Q(first_name__gt=''),
                 Q(last_name__isnull=False) & ~Q(last_name=''),
                 date_of_birth__isnull=False,
                 document_number__isnull=False,
                 document_number__gt='',
-            )
-            return with_teacher.exclude(pk__in=fully.values_list('pk', flat=True))
+            ).filter(parent__isnull=False).filter(
+                Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
+            ).filter(teacher__isnull=False, teacher__phone_number__gt='')
+            return has_all_before_source.filter(registration_source__isnull=True)
 
         if v == 'fully_registered':
             base = queryset.filter(
@@ -803,9 +801,40 @@ from bot.services import BroadcastService
 from aiogram import Bot
 from django.conf import settings
 
+from admin_panel.registration_filters import REGISTRATION_STEP_CHOICES
+
+
+class BroadcastMessageAdminForm(forms.ModelForm):
+    """Form for BroadcastMessage with multi-select for registration steps."""
+    target_registration_steps = forms.MultipleChoiceField(
+        choices=REGISTRATION_STEP_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Ro'yxatdan o'tish bosqichi bo'yicha",
+        help_text="Tanlangan bosqichlarda to'xtab qolgan o'quvchilarga yuborish.",
+    )
+
+    class Meta:
+        model = BroadcastMessage
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.initial['target_registration_steps'] = self.instance.target_registration_steps or []
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        obj.target_registration_steps = self.cleaned_data.get('target_registration_steps') or []
+        if commit:
+            obj.save()
+        return obj
+
+
 @admin.register(BroadcastMessage)
 class BroadcastMessageAdmin(ModelAdmin):
     """Admin for BroadcastMessage."""
+    form = BroadcastMessageAdminForm
     list_display = ['created_at', 'status', 'recipient_count', 'sent_count', 'blocked_count', 'failed_count']
     list_filter = ['status', 'created_at']
     readonly_fields = [
