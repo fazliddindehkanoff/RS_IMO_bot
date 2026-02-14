@@ -514,10 +514,15 @@ async def check_subs(callback: CallbackQuery, state: FSMContext):
         await callback.answer(CHECK_SUBS_CONFIRMED_ANSWER)
 
         if after_channels == "full_reg":
+            # Show success, then referral promo so referral can be created for full reg flow
             await callback.message.answer(SUCCESS_MESSAGE)
-            await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
-            await state.clear()
-            await BotStateService.clear_state(telegram_id)
+            await callback.message.answer(
+                REFERRAL_ONLY_PROMO_TEXT,
+                reply_markup=get_post_reg_promo_keyboard(),
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
+            await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+            await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
         elif after_channels == "other_grade":
             await callback.message.answer(OTHER_GRADE_PROMO_MESSAGE, reply_markup=get_post_reg_promo_keyboard())
             await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
@@ -551,7 +556,13 @@ async def cmd_start(message: Message, state: FSMContext):
         reg_state = getattr(RegistrationStates, resume_state, None)
         if reg_state is not None:
             await state.set_state(reg_state)
-            data = state_obj.state_data or {}
+            data = dict(state_obj.state_data or {})
+            # Store referrer if came via referral link (may have resumed before referrer was stored)
+            if ref_code and ref_code != str(telegram_id) and "referrer_telegram_id" not in data:
+                referrer = await StudentService.get_student_by_referral_code(ref_code)
+                if referrer and referrer.telegram_id != telegram_id and referrer.first_name and referrer.last_name and referrer.document_number:
+                    data["referrer_telegram_id"] = referrer.telegram_id
+                    await BotStateService.update_state_data(telegram_id, referrer_telegram_id=referrer.telegram_id)
             text, reply_markup = await _get_continuation_for_state(
                 telegram_id, resume_state, data, message.bot
             )
@@ -560,9 +571,13 @@ async def cmd_start(message: Message, state: FSMContext):
                     await _send_welcome_video_if_exists(message)
                 if state_obj.state == "waiting_for_channels" and data.get("after_channels") == "full_reg" and text == SUCCESS_MESSAGE:
                     await message.answer(SUCCESS_MESSAGE)
-                    await message.answer(MENU_PROMPT, reply_markup=reply_markup)
-                    await state.clear()
-                    await BotStateService.clear_state(telegram_id)
+                    await message.answer(
+                        REFERRAL_ONLY_PROMO_TEXT,
+                        reply_markup=get_post_reg_promo_keyboard(),
+                        link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    )
+                    await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+                    await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
                 elif state_obj.state == "waiting_for_channels" and data.get("after_channels") == "other_grade":
                     await message.answer(text, reply_markup=reply_markup)
                     await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
@@ -587,6 +602,11 @@ async def cmd_start(message: Message, state: FSMContext):
     if not (state_obj and state_obj.state in REGISTRATION_STATE_NAMES and student_exists):
         inferred_state, inferred_data = await _infer_registration_state_from_db(telegram_id)
         if inferred_state:
+            # Store referrer if came via referral link
+            if ref_code and ref_code != str(telegram_id):
+                referrer = await StudentService.get_student_by_referral_code(ref_code)
+                if referrer and referrer.telegram_id != telegram_id and referrer.first_name and referrer.last_name and referrer.document_number:
+                    inferred_data = {**(inferred_data or {}), "referrer_telegram_id": referrer.telegram_id}
             reg_state = getattr(RegistrationStates, inferred_state, None)
             if reg_state is not None:
                 await state.set_state(reg_state)
@@ -616,6 +636,12 @@ async def cmd_start(message: Message, state: FSMContext):
         
     elif student.initial_full_name:
         # Stage 1 completed, prompt for Stage 2 (Promo)
+        # Store referrer if came via referral link (for olympiad_yes/grade_other flows)
+        if ref_code and ref_code != str(telegram_id):
+            referrer = await StudentService.get_student_by_referral_code(ref_code)
+            if referrer and referrer.telegram_id != telegram_id:
+                if referrer.first_name and referrer.last_name and referrer.document_number:
+                    await BotStateService.update_state_data(telegram_id, referrer_telegram_id=referrer.telegram_id)
         await message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
         await state.set_state(RegistrationStates.waiting_for_olympiad_participation)
         await BotStateService.set_state(telegram_id, "waiting_for_olympiad_participation")
@@ -1611,15 +1637,20 @@ async def save_all_data_and_show_confirmation(message_or_callback, state: FSMCon
 
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_confirmation), F.data == "confirm")
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
-    """Confirm registration. Then ask to join channels (if any); after join show success + menu."""
+    """Confirm registration. Then ask to join channels (if any); after join show success + referral promo."""
     telegram_id = callback.from_user.id
     subscription_status = await SubscriptionService.check_subscription(callback.bot, telegram_id)
 
     if subscription_status['subscribed']:
+        # Show success, then referral promo so referral can be created for full reg flow
         await callback.message.edit_text(SUCCESS_MESSAGE)
-        await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
-        await state.clear()
-        await BotStateService.clear_state(telegram_id)
+        await callback.message.answer(
+            REFERRAL_ONLY_PROMO_TEXT,
+            reply_markup=get_post_reg_promo_keyboard(),
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        )
+        await state.set_state(RegistrationStates.waiting_for_post_reg_promo)
+        await BotStateService.set_state(telegram_id, "waiting_for_post_reg_promo")
         await callback.answer()
         return
 
