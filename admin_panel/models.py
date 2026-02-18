@@ -1,6 +1,46 @@
+import secrets
+import string
+
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+
+
+def _generate_partner_code():
+    """Generate a random 10-char alphanumeric partner referral code prefixed with 'ptr_'."""
+    alphabet = string.ascii_letters + string.digits
+    random_part = ''.join(secrets.choice(alphabet) for _ in range(10))
+    return f"ptr_{random_part}"
+
+
+class Partner(models.Model):
+    """External partner that brings users via a unique referral link."""
+    name = models.CharField(max_length=255, verbose_name="Hamkor nomi")
+    description = models.TextField(null=True, blank=True, verbose_name="Tavsif")
+    referral_code = models.CharField(
+        max_length=20,
+        unique=True,
+        db_index=True,
+        default=_generate_partner_code,
+        verbose_name="Referal kodi",
+        help_text="Avtomatik yaratiladi. t.me/BOT?start=ptr_XXXXXXXXXX",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Faol")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan vaqt")
+
+    class Meta:
+        db_table = 'partners'
+        verbose_name = "Hamkor"
+        verbose_name_plural = "Hamkorlar"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def referred_students_count(self):
+        return self.referred_students.count()
 
 
 class Student(models.Model):
@@ -84,6 +124,15 @@ class Student(models.Model):
         related_name='referred_students',
         verbose_name="Taklif qiluvchi",
         help_text="Bu foydalanuvchi qaysi student havolasi orqali kelgan (DB da saqlanadi)",
+    )
+    partner = models.ForeignKey(
+        Partner,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='referred_students',
+        verbose_name="Hamkor",
+        help_text="Foydalanuvchi qaysi hamkor havolasi orqali kelgan",
     )
     achievements_description = models.TextField(null=True, blank=True, verbose_name="Avvalgi yutuqlar izohi")
     achievements_file = models.FileField(upload_to='students/achievements/', max_length=500, null=True, blank=True, verbose_name="Avvalgi yutuqlar fayli/rasmi")

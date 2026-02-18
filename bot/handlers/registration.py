@@ -627,6 +627,31 @@ async def cmd_start(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     username = message.from_user.username
     ref_code = _parse_start_referral(message.text or "")
+    logger.info("/start from user %s | raw text: %r | parsed ref_code: %r", telegram_id, message.text, ref_code)
+
+    # Track referral (partner or student) as early as possible so it's captured
+    # even for returning users who get resumed into their registration flow below.
+    if ref_code and ref_code != str(telegram_id):
+        student_obj, _ = await StudentService.get_or_create_student(telegram_id, username)
+        if ref_code.startswith('ptr_'):
+            logger.info("Partner ref_code detected: %s for user %s", ref_code, telegram_id)
+            partner = await StudentService.get_partner_by_referral_code(ref_code)
+            if partner:
+                logger.info("Partner found: %s (id=%s) for user %s", partner.name, partner.id, telegram_id)
+                await StudentService.set_partner(telegram_id, partner)
+            else:
+                logger.warning("No active partner found for code: %s", ref_code)
+        else:
+            logger.info("Student referral code detected: %r for user %s", ref_code, telegram_id)
+            referrer = await StudentService.get_student_by_referral_code(ref_code)
+            if referrer and referrer.first_name and referrer.last_name and referrer.document_number:
+                logger.info("Referrer found: %s (id=%s)", referrer.first_name, referrer.telegram_id)
+                await StudentService.set_referrer(telegram_id, referrer)
+                await _award_referral_and_notify(telegram_id, message.bot)
+            elif referrer:
+                logger.warning("Referrer %s not fully registered, skipping", referrer.telegram_id)
+            else:
+                logger.warning("No student found for referral code: %r", ref_code)
 
     # If user has a saved registration state, resume from there (re-send current step).
     # Only resume if the Student still exists; otherwise they were deleted and we start fresh.
@@ -670,16 +695,8 @@ async def cmd_start(message: Message, state: FSMContext):
         await BotStateService.clear_state(telegram_id)
         await state.clear()
 
-    # Get or create student
+    # Get or create student (may already exist from the early referral block above)
     student, created = await StudentService.get_or_create_student(telegram_id, username)
-
-    # Persistently store referrer in DB when user comes via /start REF_CODE (survives state loss)
-    # Award referral immediately on /start (no need to complete registration)
-    if ref_code and ref_code != str(telegram_id):
-        referrer = await StudentService.get_student_by_referral_code(ref_code)
-        if referrer and referrer.first_name and referrer.last_name and referrer.document_number:
-            await StudentService.set_referrer(telegram_id, referrer)
-            await _award_referral_and_notify(telegram_id, message.bot)
 
     # When saved state is missing (e.g. after deployment), infer where the user stopped from DB and resume there
     if not (state_obj and state_obj.state in REGISTRATION_STATE_NAMES and student_exists):
@@ -2024,7 +2041,7 @@ async def _send_contest_promo_with_referral(message_or_bot, telegram_id: int, ch
     promo_text = CONTEST_PROMO_MESSAGE.format(referral_link=referral_link)
 
     target_chat = chat_id or telegram_id
-    photo_path = os.path.join(settings.MEDIA_ROOT, "rmo_logo.jpg")
+    photo_path = os.path.join(settings.MEDIA_ROOT, "poster.png")
 
     if os.path.exists(photo_path):
         sent_msg = await bot_instance.send_photo(

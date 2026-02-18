@@ -162,6 +162,7 @@ UNFOLD = {
                     {"title": "Test javoblari", "icon": "fact_check", "link": "/admin/admin_panel/testanswer/"},
                     {"title": "Taklif Va Shikoyatlar", "icon": "feedback", "link": "/admin/admin_panel/feedback/"},
                     {"title": "Xabarnomalar", "icon": "send", "link": "/admin/admin_panel/broadcastmessage/"},
+                    {"title": "Hamkorlar", "icon": "handshake", "link": "/admin/admin_panel/partner/"},
                     {"title": "Majburiy kanallar", "icon": "campaign", "link": "/admin/admin_panel/mandatorychannel/"},
                 ],
             },

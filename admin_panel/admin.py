@@ -30,6 +30,7 @@ from .models import (
     BroadcastMessage,
     BroadcastMedia,
     RegistrationSource,
+    Partner,
 )
 from .utils import send_test_assignment_message, send_certificate_message
 from .certificate_generator import generate_certificate
@@ -279,13 +280,57 @@ class RegistrationSourceFilter(admin.SimpleListFilter):
         return queryset.filter(registration_source__source_type=v)
 
 
+@admin.register(Partner)
+class PartnerAdmin(ModelAdmin):
+    """Admin for Partner model — external referral partners."""
+    list_display = ['name', 'referral_code', 'referral_link_display', 'referred_count', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'referral_code']
+    readonly_fields = ['referral_code', 'referral_link_display', 'referred_count', 'created_at', 'updated_at']
+    ordering = ['-created_at']
+
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'description', 'is_active'),
+        }),
+        ('Referal', {
+            'fields': ('referral_code', 'referral_link_display', 'referred_count'),
+        }),
+        ('Vaqt', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    @display(description="Havola")
+    def referral_link_display(self, obj):
+        from django.conf import settings
+        bot_token = getattr(settings, 'BOT_TOKEN', '')
+        if bot_token:
+            import requests
+            try:
+                resp = requests.get(
+                    f"https://api.telegram.org/bot{bot_token}/getMe", timeout=3
+                ).json()
+                bot_username = resp.get('result', {}).get('username', '')
+                if bot_username:
+                    return f"https://t.me/{bot_username}?start={obj.referral_code}"
+            except Exception:
+                pass
+        return f"t.me/BOT?start={obj.referral_code}"
+
+    @display(description="Foydalanuvchilar soni")
+    def referred_count(self, obj):
+        return obj.referred_students.count()
+
+
 @admin.register(Student)
 class StudentAdmin(ModelAdmin):
     """Admin for Student model."""
     list_display = ['telegram_id', 'first_name', 'last_name', 'grade', 'is_fully_registered_display', 'last_test_score_display', 'referral_points', 'school_name', 'is_active', 'created_at']
-    list_filter = ['grade', 'is_active', 'registered_from_web', RegistrationStepFilter, RegistrationSourceFilter, FullyRegisteredFilter, LastTestAttemptScoreFilter, 'created_at']
+    list_filter = ['grade', 'is_active', 'registered_from_web', RegistrationStepFilter, RegistrationSourceFilter, FullyRegisteredFilter, LastTestAttemptScoreFilter, 'partner', 'created_at']
     search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name', 'referral_code']
-    readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code', 'referrer']
+    readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code', 'referrer', 'partner']
     ordering = ['-created_at']
     list_per_page = 50
     show_full_result_count = False
@@ -299,7 +344,7 @@ class StudentAdmin(ModelAdmin):
             score__isnull=False
         ).order_by('-submitted_at', '-created_at').values('score')[:1]
         return qs.select_related(
-            'parent', 'teacher', 'registration_source', 'referrer'
+            'parent', 'teacher', 'registration_source', 'referrer', 'partner'
         ).annotate(
             last_test_score=Coalesce(
                 Subquery(last_attempt_subquery),

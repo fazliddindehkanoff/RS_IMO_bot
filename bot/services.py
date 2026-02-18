@@ -1,5 +1,8 @@
 """Service layer for database operations."""
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 from django.db import transaction
 from django.db.models import Q, Max, F
 from django.db.models.functions import Coalesce
@@ -10,7 +13,7 @@ from aiogram.enums import ParseMode
 from admin_panel.models import (
     Student, Parent, Teacher, RegistrationSource, BotState,
     Test, TestQuestion, TestAttempt, TestAnswer, Referral,
-    MandatoryChannel, Feedback
+    MandatoryChannel, Feedback, Partner
 )
 from datetime import timedelta
 
@@ -344,6 +347,41 @@ class StudentService:
         if student.referrer_id is None:
             student.referrer = referrer
             student.save(update_fields=['referrer'])
+
+    @staticmethod
+    @sync_to_async
+    def get_partner_by_referral_code(code: str):
+        """Look up an active Partner by its referral code (ptr_XXXXXXXXXX)."""
+        if not code or not code.startswith('ptr_'):
+            return None
+        try:
+            p = Partner.objects.get(referral_code=code, is_active=True)
+            logger.info("Partner lookup OK: code=%s -> %s (id=%s)", code, p.name, p.id)
+            return p
+        except Partner.DoesNotExist:
+            all_codes = list(Partner.objects.values_list('referral_code', flat=True)[:10])
+            logger.warning(
+                "Partner NOT FOUND for code=%s | active partners in DB: %s", code, all_codes
+            )
+            return None
+
+    @staticmethod
+    @sync_to_async
+    def set_partner(telegram_id: int, partner: 'Partner'):
+        """Assign a partner referral source to a student (once only)."""
+        if not partner:
+            return
+        try:
+            student = Student.objects.get(telegram_id=telegram_id)
+        except Student.DoesNotExist:
+            logger.warning("set_partner: student %s not found", telegram_id)
+            return
+        if student.partner_id is None:
+            student.partner = partner
+            student.save(update_fields=['partner'])
+            logger.info("Partner %s assigned to student %s", partner.name, telegram_id)
+        else:
+            logger.info("Student %s already has partner_id=%s, skipping", telegram_id, student.partner_id)
 
     @staticmethod
     @sync_to_async
