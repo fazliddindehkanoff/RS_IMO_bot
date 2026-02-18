@@ -28,6 +28,7 @@ from .models import (
     MandatoryChannel,
     Feedback,
     BroadcastMessage,
+    BroadcastMedia,
     RegistrationSource,
 )
 from .utils import send_test_assignment_message, send_certificate_message
@@ -282,7 +283,7 @@ class RegistrationSourceFilter(admin.SimpleListFilter):
 class StudentAdmin(ModelAdmin):
     """Admin for Student model."""
     list_display = ['telegram_id', 'first_name', 'last_name', 'grade', 'is_fully_registered_display', 'last_test_score_display', 'referral_points', 'school_name', 'is_active', 'created_at']
-    list_filter = ['grade', 'is_active', RegistrationStepFilter, RegistrationSourceFilter, FullyRegisteredFilter, LastTestAttemptScoreFilter, 'created_at']
+    list_filter = ['grade', 'is_active', 'registered_from_web', RegistrationStepFilter, RegistrationSourceFilter, FullyRegisteredFilter, LastTestAttemptScoreFilter, 'created_at']
     search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name', 'referral_code']
     readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code', 'referrer']
     ordering = ['-created_at']
@@ -834,17 +835,47 @@ class BroadcastMessageAdminForm(forms.ModelForm):
         return obj
 
 
+class BroadcastMediaInline(TabularInline):
+    """Inline for media files attached to a broadcast."""
+    model = BroadcastMedia
+    extra = 1
+    fields = ['media_type', 'file', 'order', 'duration', 'width', 'height', 'thumbnail']
+    readonly_fields = ['duration', 'width', 'height', 'thumbnail']
+    ordering = ['order']
+
+    def has_change_permission(self, request, obj=None):
+        if obj and obj.status != 'draft':
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_add_permission(self, request, obj=None):
+        if obj and obj.status != 'draft':
+            return False
+        return super().has_add_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.status != 'draft':
+            return False
+        return super().has_delete_permission(request, obj)
+
+
 @admin.register(BroadcastMessage)
 class BroadcastMessageAdmin(ModelAdmin):
     """Admin for BroadcastMessage."""
     form = BroadcastMessageAdminForm
-    list_display = ['created_at', 'status', 'recipient_count', 'sent_count', 'blocked_count', 'failed_count']
+    list_display = ['created_at', 'status', 'media_count_display', 'recipient_count', 'sent_count', 'blocked_count', 'failed_count']
     list_filter = ['status', 'created_at']
     readonly_fields = [
         'status', 'recipient_count', 'sent_count', 'blocked_count', 
         'failed_count', 'started_at', 'completed_at', 'created_at'
     ]
+    inlines = [BroadcastMediaInline]
     actions = ['send_broadcast_action']
+
+    @display(description='Media')
+    def media_count_display(self, obj):
+        count = obj.media_files.count()
+        return f"{count} ta" if count else "-"
 
     def get_readonly_fields(self, request, obj=None):
         """Make fields readonly if not draft."""

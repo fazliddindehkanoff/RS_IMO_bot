@@ -832,19 +832,22 @@ class FeedbackService:
 from admin_panel.models import BroadcastMessage
 from admin_panel.registration_filters import filter_students_by_registration_steps
 
+from aiogram.types import FSInputFile, InputMediaPhoto, InputMediaVideo
+from django.conf import settings
+import os
+
 
 class BroadcastService:
-    """Service for sending broadcast messages."""
+    """Service for sending broadcast messages with optional media."""
 
     @staticmethod
     async def send_broadcast(broadcast_id: int, bot):
-        """Send broadcast message to filtered users."""
+        """Send broadcast message (text / single media / media group) to filtered users."""
         try:
             broadcast = await sync_to_async(BroadcastMessage.objects.get)(id=broadcast_id)
         except BroadcastMessage.DoesNotExist:
             return
 
-        # Update status to sending
         broadcast.status = 'sending'
         broadcast.started_at = timezone.now()
         await sync_to_async(broadcast.save)()
@@ -861,19 +864,15 @@ class BroadcastService:
             base = Student.objects.filter(is_active=True)
             target_registration_steps = getattr(broadcast, 'target_registration_steps', None) or []
 
-            # Apply grade filter
             if grade_filters:
                 base = base.filter(grade__in=grade_filters)
 
-            # Apply registration step filter (OR: at any of the selected steps)
             if target_registration_steps:
                 base = filter_students_by_registration_steps(base, target_registration_steps)
 
-            # Require at least one targeting filter
             if not grade_filters and not target_registration_steps and not target_not_fully_registered:
                 base = base.none()
 
-            # Exclude fully registered when target_not_fully_registered is set
             if target_not_fully_registered:
                 fully_registered = Student.objects.filter(
                     Q(first_name__gt=''),
@@ -893,7 +892,14 @@ class BroadcastService:
 
             return list(base)
 
+        def _get_media_files():
+            return list(
+                broadcast.media_files.order_by('order')
+                .values_list('media_type', 'file', 'duration', 'width', 'height', 'thumbnail', named=False)
+            )
+
         students = await sync_to_async(_get_broadcast_students)()
+        media_list = await sync_to_async(_get_media_files)()
         broadcast.recipient_count = len(students)
         await sync_to_async(broadcast.save)()
 
@@ -903,42 +909,96 @@ class BroadcastService:
 
         for student in students:
             try:
-                # Personalize text (use initial_full_name for early registration steps)
                 display_name = (student.first_name or student.initial_full_name or "O'quvchi").strip()
                 text = broadcast.message.format(
                     student_name=display_name,
                     user_name=display_name
                 )
-                
-                # Send message
-                await bot.send_message(
-                    chat_id=student.telegram_id,
-                    text=text,
-                    parse_mode=ParseMode.MARKDOWN
-                )
+
+                if len(media_list) == 0:
+                    await bot.send_message(
+                        chat_id=student.telegram_id,
+                        text=text,
+                        parse_mode=ParseMode.HTML,
+                    )
+                elif len(media_list) == 1:
+                    media_type, file_name, duration, width, height, thumb = media_list[0]
+                    file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+                    fs_input = FSInputFile(file_path)
+                    if media_type == 'video':
+                        video_kwargs = {
+                            'chat_id': student.telegram_id,
+                            'video': fs_input,
+                            'caption': text,
+                            'parse_mode': ParseMode.HTML,
+                            'supports_streaming': True,
+                        }
+                        if duration:
+                            video_kwargs['duration'] = duration
+                        if width:
+                            video_kwargs['width'] = width
+                        if height:
+                            video_kwargs['height'] = height
+                        if thumb:
+                            thumb_path = os.path.join(settings.MEDIA_ROOT, thumb)
+                            if os.path.isfile(thumb_path):
+                                video_kwargs['thumbnail'] = FSInputFile(thumb_path)
+                        await bot.send_video(**video_kwargs)
+                    else:
+                        await bot.send_photo(
+                            chat_id=student.telegram_id,
+                            photo=fs_input,
+                            caption=text,
+                            parse_mode=ParseMode.HTML,
+                        )
+                else:
+                    group = []
+                    for idx, (media_type, file_name, duration, width, height, thumb) in enumerate(media_list):
+                        file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+                        fs_input = FSInputFile(file_path)
+                        caption_kwargs = {}
+                        if idx == 0:
+                            caption_kwargs = {'caption': text, 'parse_mode': ParseMode.HTML}
+                        if media_type == 'video':
+                            vid_extra = {}
+                            if duration:
+                                vid_extra['duration'] = duration
+                            if width:
+                                vid_extra['width'] = width
+                            if height:
+                                vid_extra['height'] = height
+                            if thumb:
+                                thumb_path = os.path.join(settings.MEDIA_ROOT, thumb)
+                                if os.path.isfile(thumb_path):
+                                    vid_extra['thumbnail'] = FSInputFile(thumb_path)
+                            group.append(InputMediaVideo(
+                                media=fs_input, supports_streaming=True,
+                                **caption_kwargs, **vid_extra,
+                            ))
+                        else:
+                            group.append(InputMediaPhoto(media=fs_input, **caption_kwargs))
+                    await bot.send_media_group(
+                        chat_id=student.telegram_id,
+                        media=group,
+                    )
+
                 sent_count += 1
-                
+
             except Exception as e:
-                # Check for blocking
-                e_str = str(e)
-                if "blocked" in e_str.lower() or "user is deactivated" in e_str.lower():
+                e_str = str(e).lower()
+                if "blocked" in e_str or "user is deactivated" in e_str:
                     blocked_count += 1
-                    # Mark student as inactive?
-                    # await StudentService.update_student(student.telegram_id, is_active=False)
                 else:
                     failed_count += 1
-            
-            # Rate limiting: 20 messages per second = 0.05s delay
-            await asyncio.sleep(0.05)
-            
-            # Update stats periodically (every 50 users?) to show progress in admin?
-            if (sent_count + blocked_count + failed_count) % 50 == 0:
-                 broadcast.sent_count = sent_count
-                 broadcast.blocked_count = blocked_count
-                 broadcast.failed_count = failed_count
-                 await sync_to_async(broadcast.save)()
 
-        # Final update
+            await asyncio.sleep(0.05)
+
+            if (sent_count + blocked_count + failed_count) % 50 == 0:
+                broadcast.sent_count = sent_count
+                broadcast.blocked_count = blocked_count
+                broadcast.failed_count = failed_count
+                await sync_to_async(broadcast.save)()
+
         broadcast.status = 'completed'
         broadcast.completed_at = timezone.now()
         broadcast.sent_count = sent_count

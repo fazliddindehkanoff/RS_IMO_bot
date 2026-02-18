@@ -962,7 +962,7 @@ class BroadcastMessage(models.Model):
 
     message = models.TextField(
         verbose_name="Xabar matni",
-        help_text="Markdown formatini qo'llab quvvatlaydi. {student_name} - o'quvchi ismi o'rniga tushadi."
+        help_text="HTML formatini qo'llab quvvatlaydi (<b>qalin</b>, <i>kursiv</i>, <a href='...'>havola</a>). {student_name} - o'quvchi ismi o'rniga tushadi."
     )
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Holat")
@@ -985,3 +985,160 @@ class BroadcastMessage(models.Model):
 
     def __str__(self):
         return f"{self.created_at.strftime('%d.%m.%Y %H:%M')} - {self.get_status_display()}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        has_media = self.pk and self.media_files.exists()
+        max_len = 1024 if has_media else 4096
+        label = "Caption (media bilan)" if has_media else "Xabar matni"
+
+        if self.message and len(self.message) > max_len:
+            raise ValidationError({
+                'message': f"{label} {max_len} belgidan oshmasligi kerak. Hozir: {len(self.message)}."
+            })
+
+        if self.pk and self.media_files.count() > 10:
+            raise ValidationError("Maksimum 10 ta media fayl biriktirish mumkin.")
+
+
+PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+VIDEO_EXTENSIONS = {'.mp4', '.mov'}
+PHOTO_MAX_SIZE = 10 * 1024 * 1024   # 10 MB
+VIDEO_MAX_SIZE = 50 * 1024 * 1024   # 50 MB
+
+
+class BroadcastMedia(models.Model):
+    """Media file attached to a broadcast message."""
+    MEDIA_TYPE_CHOICES = [
+        ('photo', 'Rasm'),
+        ('video', 'Video'),
+    ]
+
+    broadcast = models.ForeignKey(
+        BroadcastMessage,
+        on_delete=models.CASCADE,
+        related_name='media_files',
+        verbose_name="Xabarnoma",
+    )
+    media_type = models.CharField(
+        max_length=10,
+        choices=MEDIA_TYPE_CHOICES,
+        verbose_name="Media turi",
+    )
+    file = models.FileField(upload_to='broadcasts/', verbose_name="Fayl")
+    order = models.PositiveIntegerField(default=0, verbose_name="Tartib")
+
+    # Video metadata (auto-populated on save)
+    duration = models.PositiveIntegerField(null=True, blank=True, verbose_name="Davomiylik (sek)")
+    width = models.PositiveIntegerField(null=True, blank=True, verbose_name="Kenglik (px)")
+    height = models.PositiveIntegerField(null=True, blank=True, verbose_name="Balandlik (px)")
+    thumbnail = models.ImageField(
+        upload_to='broadcasts/thumbs/', null=True, blank=True, verbose_name="Eskiz",
+    )
+
+    class Meta:
+        db_table = 'broadcast_media'
+        verbose_name = "Media"
+        verbose_name_plural = "Media fayllar"
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.get_media_type_display()} #{self.order}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        import os
+
+        if not self.file:
+            return
+
+        ext = os.path.splitext(self.file.name)[1].lower()
+        size = self.file.size
+
+        if self.media_type == 'photo':
+            if ext not in PHOTO_EXTENSIONS:
+                raise ValidationError({
+                    'file': f"Rasm formati noto'g'ri. Ruxsat etilgan: {', '.join(sorted(PHOTO_EXTENSIONS))}"
+                })
+            if size > PHOTO_MAX_SIZE:
+                raise ValidationError({
+                    'file': f"Rasm hajmi {size // (1024*1024)} MB. Maksimum: 10 MB."
+                })
+        elif self.media_type == 'video':
+            if ext not in VIDEO_EXTENSIONS:
+                raise ValidationError({
+                    'file': f"Video formati noto'g'ri. Ruxsat etilgan: {', '.join(sorted(VIDEO_EXTENSIONS))}"
+                })
+            if size > VIDEO_MAX_SIZE:
+                raise ValidationError({
+                    'file': f"Video hajmi {size // (1024*1024)} MB. Maksimum: 50 MB."
+                })
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.media_type == 'video' and self.file and not self.duration:
+            self._extract_video_metadata()
+
+    def _extract_video_metadata(self):
+        """Extract duration, dimensions, and generate thumbnail using ffprobe/ffmpeg."""
+        import subprocess
+        import json
+        import os
+        import logging
+
+        logger = logging.getLogger(__name__)
+        file_path = self.file.path
+
+        if not os.path.isfile(file_path):
+            return
+
+        # Extract duration and dimensions via ffprobe
+        try:
+            result = subprocess.run(
+                [
+                    'ffprobe', '-v', 'quiet', '-print_format', 'json',
+                    '-show_format', '-show_streams', file_path,
+                ],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                probe = json.loads(result.stdout)
+                for stream in probe.get('streams', []):
+                    if stream.get('codec_type') == 'video':
+                        self.width = int(stream.get('width', 0)) or None
+                        self.height = int(stream.get('height', 0)) or None
+                        break
+                dur = probe.get('format', {}).get('duration')
+                if dur:
+                    self.duration = int(float(dur))
+        except Exception as e:
+            logger.warning("ffprobe failed for %s: %s", file_path, e)
+
+        # Generate thumbnail at 1-second mark
+        thumb_dir = os.path.join(os.path.dirname(file_path), 'thumbs')
+        os.makedirs(thumb_dir, exist_ok=True)
+        thumb_filename = f"thumb_{self.pk}.jpg"
+        thumb_path = os.path.join(thumb_dir, thumb_filename)
+
+        try:
+            subprocess.run(
+                [
+                    'ffmpeg', '-y', '-i', file_path,
+                    '-ss', '00:00:01', '-vframes', '1',
+                    '-vf', 'scale=320:-2',
+                    thumb_path,
+                ],
+                capture_output=True, timeout=30,
+            )
+            if os.path.isfile(thumb_path):
+                rel_path = os.path.join('broadcasts', 'thumbs', thumb_filename)
+                self.thumbnail = rel_path
+        except Exception as e:
+            logger.warning("ffmpeg thumbnail failed for %s: %s", file_path, e)
+
+        # Save metadata fields without triggering another _extract call
+        type(self).objects.filter(pk=self.pk).update(
+            duration=self.duration, width=self.width,
+            height=self.height, thumbnail=self.thumbnail or '',
+        )

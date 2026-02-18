@@ -13,6 +13,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
@@ -28,7 +29,7 @@ RUN chmod +x /docker-entrypoint.sh
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/media/certificates /app/media/students /app/staticfiles
+RUN mkdir -p /app/data /app/media/certificates /app/media/students /app/media/broadcasts/thumbs /app/staticfiles
 
 # Expose port for Django
 EXPOSE 8000
