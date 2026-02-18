@@ -197,14 +197,31 @@ def get_referral_menu_confirm_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
-    """Get main menu keyboard."""
+def get_main_menu_keyboard(other_grade: bool = False) -> ReplyKeyboardMarkup:
+    """Get main menu keyboard. If other_grade=True, excludes test button."""
     builder = ReplyKeyboardBuilder()
-    builder.button(text="👥 Do'stlarni taklif qilish")
+    builder.button(text="🏆 Konkursda qatnashish")
+    if not other_grade:
+        builder.button(text="📝 1-bosqich testini yechish: 22-fevral")
+    builder.button(text="✏️ Taklif va shikoyatlar")
+    builder.button(text="🔥 Konkursdagi ballarim")
     builder.button(text="🏆 Reyting")
-    builder.button(text="💬 Fikr bildirish")
-    builder.adjust(2)
+    if other_grade:
+        builder.adjust(1, 2, 1)
+    else:
+        builder.adjust(1, 1, 2, 1)
     return builder.as_markup(resize_keyboard=True)
+
+
+def get_reg_success_keyboard() -> InlineKeyboardMarkup:
+    """Three inline buttons after Web App registration: Boshqa menyu, Konkursda qatnashish, Testda qatnashish."""
+    from bot.constants import REG_BTN_MAIN_MENU, REG_BTN_PARTICIPATE_CONTEST, REG_BTN_PARTICIPATE_TEST
+    builder = InlineKeyboardBuilder()
+    builder.button(text=REG_BTN_MAIN_MENU, callback_data="reg_main_menu")
+    builder.button(text=REG_BTN_PARTICIPATE_CONTEST, callback_data="reg_participate_contest")
+    builder.button(text=REG_BTN_PARTICIPATE_TEST, callback_data="reg_participate_test")
+    builder.adjust(1)
+    return builder.as_markup()
 
 
 # ==================== TEST KEYBOARDS ====================

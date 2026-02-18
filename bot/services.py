@@ -1,7 +1,8 @@
 """Service layer for database operations."""
 from typing import Optional
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Max, F
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from asgiref.sync import sync_to_async
 from aiogram.enums import ParseMode
@@ -12,6 +13,22 @@ from admin_panel.models import (
     MandatoryChannel, Feedback
 )
 from datetime import timedelta
+
+# Registration state names; when BotState is set to one of these, Student.state is synced too
+REGISTRATION_STATE_NAMES = frozenset({
+    "waiting_for_initial_full_name", "waiting_for_initial_phone", "waiting_for_phone_owner",
+    "waiting_for_webapp_reg",
+    "waiting_for_olympiad_participation",
+    "waiting_for_first_name", "waiting_for_last_name", "waiting_for_date_of_birth",
+    "waiting_for_document_number", "waiting_for_region", "waiting_for_district",
+    "waiting_for_school_name", "waiting_for_grade", "waiting_for_language",
+    "waiting_for_photo", "waiting_for_achievements_description", "waiting_for_achievements_file",
+    "waiting_for_guardian_name", "waiting_for_guardian_relationship", "waiting_for_guardian_age",
+    "waiting_for_guardian_profession", "waiting_for_guardian_phone", "waiting_for_guardian_phone2",
+    "waiting_for_teacher_name", "waiting_for_teacher_workplace", "waiting_for_teacher_phone",
+    "waiting_for_source", "waiting_for_confirmation", "waiting_for_channels",
+    "waiting_for_post_reg_promo", "waiting_for_edit_field", "editing_field",
+})
 
 
 class StudentService:
@@ -51,10 +68,15 @@ class StudentService:
             )
             if not student.referral_code:
                 student.referral_code = str(telegram_id)
+                student.save(update_fields=['referral_code'])
+            update_fields = []
             for key, value in kwargs.items():
                 if value is not None:
                     setattr(student, key, value)
-            student.save()
+                    if hasattr(Student, key):
+                        update_fields.append(key)
+            if update_fields:
+                student.save(update_fields=update_fields)
             return student
     
     @staticmethod
@@ -65,7 +87,138 @@ class StudentService:
             return Student.objects.get(telegram_id=telegram_id)
         except Student.DoesNotExist:
             return None
-    
+
+    @staticmethod
+    @sync_to_async
+    def update_student_webapp(telegram_id: int, username: Optional[str], first_name: str, last_name: str,
+                             phone_number: str, region: Optional[str] = None, district: Optional[str] = None,
+                             grade: Optional[int] = None, school_name: Optional[str] = None,
+                             document_number: Optional[str] = None) -> bool:
+        """Create or update student from Web App form. Uses direct UPDATE for reliable persistence. Returns True on success."""
+        with transaction.atomic():
+            student, created = Student.objects.get_or_create(
+                telegram_id=telegram_id,
+                defaults={
+                    'first_name': (first_name or '').upper()[:255],
+                    'last_name': (last_name or '')[:255],
+                    'username': username or '',
+                    'is_active': True,
+                    'referral_code': str(telegram_id),
+                }
+            )
+            if not student.referral_code:
+                student.referral_code = str(telegram_id)
+                student.save(update_fields=['referral_code'])
+            doc_num = (document_number or '').strip().upper()
+            update_dict = {
+                'username': username or student.username,
+                'first_name': (first_name or student.first_name or '').upper()[:255],
+                'last_name': (last_name or student.last_name or '')[:255],
+                'phone_number': phone_number or student.phone_number,
+                'region': region or student.region,
+                'district': district or student.district,
+                'grade': grade if grade is not None else student.grade,
+                'school_name': school_name or student.school_name,
+                'document_number': doc_num if doc_num else None,
+            }
+            Student.objects.filter(telegram_id=telegram_id).update(**update_dict)
+        return True
+
+    @staticmethod
+    @sync_to_async
+    def is_fully_registered(telegram_id: int) -> bool:
+        """Check if student has completed full registration (Stage 2 + parent + teacher). Safe to call from async."""
+        try:
+            student = Student.objects.get(telegram_id=telegram_id)
+            return student.is_fully_registered
+        except Student.DoesNotExist:
+            return False
+
+    @staticmethod
+    def infer_registration_state_from_student(student: Student) -> Optional[str]:
+        """Infer registration state from student (and related parent/teacher/source) data. Sync only.
+        Returns state name or None if fully registered / nothing to resume. Used by backfill script and _infer_registration_state_from_db."""
+        if not student:
+            return None
+        if getattr(student, 'registered_from_web', False):
+            return None
+        try:
+            if student.is_fully_registered:
+                return None
+        except Exception:
+            pass
+        try:
+            parent = student.parent
+        except Parent.DoesNotExist:
+            parent = None
+        try:
+            teacher = student.teacher
+        except Exception:
+            teacher = None
+        try:
+            source = student.registration_source
+        except Exception:
+            source = None
+
+        def _v(s, attr, default=""):
+            val = getattr(s, attr, None) if s else None
+            return (val or default).strip() if isinstance(val, str) else (val if val is not None else default)
+
+        initial_full_name = _v(student, "initial_full_name")
+        phone_number = student.phone_number and str(student.phone_number).strip()
+        _po = getattr(student, "phone_owner", None)
+        has_phone_owner = bool(_po and str(_po or "").strip())
+        first_name = _v(student, "first_name")
+        last_name = _v(student, "last_name")
+        document_number = _v(student, "document_number")
+        region = _v(student, "region")
+        district = _v(student, "district")
+        school_name = _v(student, "school_name")
+        guardian_name = _v(parent, "full_name") if parent else ""
+        guardian_relationship = _v(parent, "relationship") if parent else ""
+        guardian_phone = _v(parent, "phone_number") if parent else ""
+        teacher_name = _v(teacher, "full_name") if teacher else ""
+        teacher_phone = _v(teacher, "phone_number") if teacher else ""
+        source_type = getattr(source, "source_type", None) if source else ""
+
+        if not initial_full_name:
+            return "waiting_for_initial_full_name"
+        if not phone_number:
+            return "waiting_for_initial_phone"
+        if not has_phone_owner:
+            return "waiting_for_phone_owner"
+        if not first_name:
+            return "waiting_for_olympiad_participation"
+        if not last_name:
+            return "waiting_for_last_name"
+        if not student.date_of_birth:
+            return "waiting_for_date_of_birth"
+        if not document_number:
+            return "waiting_for_document_number"
+        if not region:
+            return "waiting_for_region"
+        if not district:
+            return "waiting_for_district"
+        if not school_name:
+            return "waiting_for_school_name"
+        if student.grade not in (5, 6, 7, 8):
+            return "waiting_for_grade"
+        if not (student.photo and str(student.photo).strip()):
+            return "waiting_for_photo"
+        if not parent or not guardian_name:
+            return "waiting_for_guardian_name"
+        if not guardian_relationship:
+            return "waiting_for_guardian_relationship"
+        if not guardian_phone:
+            return "waiting_for_guardian_phone"
+        if not teacher or not teacher_name:
+            return "waiting_for_teacher_name"
+        if not teacher_phone:
+            return "waiting_for_teacher_phone"
+        if not source or not source_type:
+            return "waiting_for_source"
+        return "waiting_for_confirmation"
+
     @staticmethod
     @sync_to_async
     def create_parent(student: Student, full_name: str, phone_number: Optional[str] = None, 
@@ -227,31 +380,49 @@ class StudentService:
             referrer.referral_points = (referrer.referral_points or 0) + points
             referrer.save(update_fields=['referral_points'])
         referred_name = f"{student.first_name} {student.last_name or ''}".strip()
+        if not referred_name:
+            referred_name = student.initial_full_name or student.username or "Yangi foydalanuvchi"
         return referrer.telegram_id, referred_name
 
     @staticmethod
     @sync_to_async
     def get_referral_leaderboard(limit: int = 10):
-        """Get top students by referral_points. Excludes users without first_name."""
+        """Get top students by referral_points. Excludes users without first_name.
+        Tiebreaker: who reached their current points earlier (last referral date)."""
         return list(
             Student.objects.filter(is_active=True)
             .exclude(Q(first_name__isnull=True) | Q(first_name=''))
-            .order_by('-referral_points', '-created_at')
+            .annotate(
+                last_referral_at=Coalesce(
+                    Max('referrals_made__created_at'),
+                    F('created_at'),
+                )
+            )
+            .order_by('-referral_points', 'last_referral_at')
             .values('telegram_id', 'first_name', 'last_name', 'referral_points')[:limit]
         )
 
     @staticmethod
     @sync_to_async
     def get_user_referral_rank(telegram_id: int):
-        """Get current user's rank (1-based) by referral_points. Same order as leaderboard. Excludes nameless users."""
+        """Get current user's rank (1-based) by referral_points. Same order as leaderboard.
+        Tiebreaker: who reached their current points earlier (last referral date)."""
         try:
-            student = Student.objects.get(telegram_id=telegram_id, is_active=True)
+            student = Student.objects.annotate(
+                last_referral_at=Coalesce(Max('referrals_made__created_at'), F('created_at'))
+            ).get(telegram_id=telegram_id, is_active=True)
         except Student.DoesNotExist:
             return None
-        base = Student.objects.filter(is_active=True).exclude(Q(first_name__isnull=True) | Q(first_name=''))
+        base = (
+            Student.objects.filter(is_active=True)
+            .exclude(Q(first_name__isnull=True) | Q(first_name=''))
+            .annotate(
+                last_referral_at=Coalesce(Max('referrals_made__created_at'), F('created_at'))
+            )
+        )
         above = base.filter(
             Q(referral_points__gt=student.referral_points)
-            | Q(referral_points=student.referral_points, created_at__lt=student.created_at)
+            | Q(referral_points=student.referral_points, last_referral_at__lt=student.last_referral_at)
         ).count()
         return above + 1
 
@@ -259,18 +430,26 @@ class StudentService:
     @sync_to_async
     def get_user_referral_rank_and_points(telegram_id: int):
         """
-        Get current user's rank (1-based) and referral_points in a single query.
+        Get current user's rank (1-based) and referral_points.
         Returns (rank, points) or (None, 0) if not found.
-        Excludes nameless users from ranking.
+        Tiebreaker: who reached their current points earlier (last referral date).
         """
         try:
-            student = Student.objects.get(telegram_id=telegram_id, is_active=True)
+            student = Student.objects.annotate(
+                last_referral_at=Coalesce(Max('referrals_made__created_at'), F('created_at'))
+            ).get(telegram_id=telegram_id, is_active=True)
         except Student.DoesNotExist:
             return None, 0
-        base = Student.objects.filter(is_active=True).exclude(Q(first_name__isnull=True) | Q(first_name=''))
+        base = (
+            Student.objects.filter(is_active=True)
+            .exclude(Q(first_name__isnull=True) | Q(first_name=''))
+            .annotate(
+                last_referral_at=Coalesce(Max('referrals_made__created_at'), F('created_at'))
+            )
+        )
         above = base.filter(
             Q(referral_points__gt=student.referral_points)
-            | Q(referral_points=student.referral_points, created_at__lt=student.created_at)
+            | Q(referral_points=student.referral_points, last_referral_at__lt=student.last_referral_at)
         ).count()
         points = student.referral_points or 0
         return above + 1, points
@@ -291,7 +470,7 @@ class BotStateService:
     @staticmethod
     @sync_to_async
     def set_state(telegram_id: int, state: Optional[str], state_data: Optional[dict] = None):
-        """Set bot state for user."""
+        """Set bot state for user. Also updates Student.state when state is a registration state."""
         with transaction.atomic():
             bot_state, _ = BotState.objects.update_or_create(
                 telegram_id=telegram_id,
@@ -301,6 +480,9 @@ class BotStateService:
                     'updated_at': timezone.now(),
                 }
             )
+            # Keep Student.state in sync for registration flow (so it can be used for resume / admin)
+            student_state = state if (state and state in REGISTRATION_STATE_NAMES) else None
+            Student.objects.filter(telegram_id=telegram_id).update(state=student_state)
             return bot_state
     
     @staticmethod
@@ -324,8 +506,9 @@ class BotStateService:
     @staticmethod
     @sync_to_async
     def clear_state(telegram_id: int):
-        """Clear bot state."""
+        """Clear bot state and Student.state for this user."""
         BotState.objects.filter(telegram_id=telegram_id).delete()
+        Student.objects.filter(telegram_id=telegram_id).update(state=None)
 
 
 class TestService:

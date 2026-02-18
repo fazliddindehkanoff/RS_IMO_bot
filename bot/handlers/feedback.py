@@ -8,7 +8,7 @@ from bot.services import FeedbackService, StudentService
 
 router = Router()
 
-@router.message(F.text == "💬 Fikr bildirish")
+@router.message(F.text.in_({"💬 Fikr bildirish", "✏️ Taklif va shikoyatlar"}))
 async def cmd_feedback(message: Message, state: FSMContext):
     """Start feedback flow."""
     await state.set_state(FeedbackStates.waiting_for_type)

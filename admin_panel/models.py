@@ -25,6 +25,7 @@ class Student(models.Model):
         (6, '6-sinf'),
         (7, '7-sinf'),
         (8, '8-sinf'),
+        (0, 'Boshqa'),
     ]
     LANGUAGE_CHOICES = [
         ('uz', 'O\'zbek'),
@@ -38,7 +39,6 @@ class Student(models.Model):
     middle_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Sharif")
     phone_number = models.CharField(max_length=20, null=True, blank=True, verbose_name="Telefon raqami")
     grade = models.IntegerField(
-        validators=[MinValueValidator(5), MaxValueValidator(8)],
         null=True,
         blank=True,
         choices=GRADE_CHOICES,
@@ -69,6 +69,7 @@ class Student(models.Model):
     ]
     initial_full_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Ism-familiya (Registratsiya)")
     phone_owner = models.CharField(max_length=50, choices=PHONE_OWNER_CHOICES, null=True, blank=True, verbose_name="Telefon egasi")
+    registered_from_web = models.BooleanField(default=False, verbose_name="Web App orqali ro'yxatdan o'tgan")
 
     referral_points = models.IntegerField(
         default=0,
@@ -89,6 +90,13 @@ class Student(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan vaqt")
     is_active = models.BooleanField(default=True, verbose_name="Faol")
+    state = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="Ro'yxatdan o'tish holati",
+        help_text="Foydalanuvchi qaysi qadamda ekanligi (bot tomonidan avtomatik yangilanadi)",
+    )
 
     class Meta:
         db_table = 'students'
@@ -114,7 +122,10 @@ class Student(models.Model):
 
     @property
     def is_fully_registered(self):
-        """True if Stage 2 registration is complete: core fields + parent and teacher with phone numbers."""
+        """True if Stage 2 registration is complete: core fields + parent and teacher with phone numbers,
+        OR if user registered via the Web App."""
+        if self.registered_from_web:
+            return True
         if not (self.first_name and self.last_name and self.date_of_birth and self.document_number):
             return False
         try:

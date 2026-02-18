@@ -12,6 +12,26 @@ GREETING_MESSAGE = (
     "📝 Ismingizni kiriting:"
 )
 
+# Greeting shown before user clicks inline Web App button
+REG_GREETING_MESSAGE = (
+    "Rahimov Matematika Olimpiadasida qatnashishga qaror qilganingizdan xursandmiz 🙌\n\n"
+    "Quyidagi tugmani bosib ro'yxatdan o'ting:"
+)
+REG_BUTTON_LABEL = "📝 Ro'yxatdan o'tish"
+
+# After Web App registration (POST submit): success and follow-up message + button labels
+REG_SUCCESS_MESSAGE = (
+    "✅ Muvaffaqiyatli ro'yxatdan o'tdingiz!\n\n"
+    "Ma'lumotlaringiz saqlandi. Endi testda qatnashishingiz va 100$ mukofotli konkursda ishtirok etishingiz mumkin."
+)
+REG_AFTER_MESSAGE = (
+    "🎯 Testda qatnashing va 100$ gacha mukofot olish imkoniyatiga ega bo'ling!\n\n"
+    "Quyidagi tugmalardan birini tanlang:"
+)
+REG_BTN_MAIN_MENU = "🏠 Boshqa menyu"
+REG_BTN_PARTICIPATE_CONTEST = "🏆 Konkursda qatnashish"
+REG_BTN_PARTICIPATE_TEST = "📝 Testda qatnashish"
+
 STEP_INITIAL_PHONE = (
     "2. Telefon raqamingiz:"
 )
@@ -162,6 +182,13 @@ SUCCESS_MESSAGE = (
     "@rs_olimpiada / @RahimovSchool"
 )
 
+OTHER_GRADE_SUCCESS_MESSAGE = (
+    "Olimpiadamiz 5-6-7-8-sinflar uchun o'tkazilmoqda 🙂\n\n"
+    "Boshqa sinflar uchun grantlardan boxabar bo'lib turish uchun "
+    "kanallarimizni kuzatib boring 👇\n\n"
+    "@RahimovSchool / @RS_Olimpiada"
+)
+
 PROMO_MESSAGE = (
     "👋 Assalomu alaykum!\n\n"
     "Toshkentdagi xususiy maktablardan biri — <a href=\"http://t.me/rahimovschool\">Rahimov School</a> xususiy maktabida mutlaqo bepul o'qishni istaysizmi?\n\n"
@@ -171,6 +198,57 @@ PROMO_MESSAGE = (
     "Olimpiada haqida batafsil:\n"
     "https://telegra.ph/Rahimov-Matematika-Olimpiadasi-02-05\n\n"
     "Siz ham quyidagi havola orqali ro'yxatdan o'tishingiz mumkin:\n"
+    "{referral_link}"
+)
+
+# 30-second delayed message sent after web app registration
+PROMO_AFTER_REG_TEXT = (
+    "Rahimov Matematika Olimpiadasini qolganlarga ham yetib borishida yordamlashing "
+    "va maxsus mukofotlarga ega bo'ling 🎁\n\n"
+    "😎 Sizni <b>ajoyib sovg'alar va maxsus mukofotlar</b> kutmoqda!\n\n"
+    "✅ Quyidagi tugmani bosib maxsus konkursda qatnashing va siz uchun nima sovg'alar "
+    "tayyorlaganimizni bilib oling."
+)
+
+# Contest promo message with referral link (sent with logo photo)
+CONTEST_PROMO_MESSAGE = (
+    "Aloqadamisiz? Sizga maxsus xabar bor!\n\n"
+    "Rahimov Matematika Olimpiadasini eng ko'p tarqatganlar uchun mukofotlar o'ynayapmiz:\n\n"
+    "<b>1-o'rin</b> — 100$\n"
+    "<b>2-o'rin</b> — 500 000 so'm\n"
+    "<b>3-o'rin</b> — 250 000 so'm\n"
+    "4-o'rin — 100 000 so'm\n"
+    "5-10-o'rinlar — Telegram premium obunasiz\n"
+    "11-20-o'rinlar — Parallel Muhit obunasi\n"
+    "21-25-o'rinlar — \"Zehn tuzoqlari\" kitobi\n\n"
+    "25 ta o'ringa kira olmaganlar uchun <b>EKSKLYUZIV YANGILIK— 5 nafardan ko'p do'st taklif qilgan</b> "
+    "har bir ishtirokchi uchun <b>50 000 so'm</b> yutish imkoniyati mavjud.\n\n"
+    "Shoshiling sizlar uchun bunday imkoniyat qayta bo'lmasligi mumkin:\n\n"
+    "{referral_link}"
+)
+
+# Reply to contest promo message
+CONTEST_PROMO_REPLY = (
+    "👆 Yuqoridagi sizning <b>referal havolangiz.</b> "
+    "Uni ko\u02bcproq tanishlaringizga ulashing va g'olib bo'ling. Omad!"
+)
+
+# Promo message for "other" grade users (sent after 30 sec, directly with referral link)
+OTHER_GRADE_PROMO_MESSAGE = (
+    "Kanalga ulanib oldingizmi?\n\n"
+    "Olimpiadada qatnasha olmas ekanmiz deb xafa bo'lmang. "
+    "Bizda siz uchun boshqa taklif bor 🤩\n\n"
+    "Rahimov Matematika Olimpiadasini eng ko'p tarqatganlar uchun mukofotlar o'ynayapmiz:\n\n"
+    "<b>1-o'rin</b> — 100$\n"
+    "<b>2-o'rin</b> — 500 000 so'm\n"
+    "<b>3-o'rin</b> — 250 000 so'm\n"
+    "4-o'rin — 100 000 so'm\n"
+    "5-10-o'rinlar — Telegram premium obunasiz\n"
+    "11-20-o'rinlar — Parallel Muhit obunasi\n"
+    "21-25-o'rinlar — \"Zehn tuzoqlari\" kitobi\n\n"
+    "25 ta o'ringa kira olmaganlar uchun <b>EKSKLYUZIV YANGILIK— 5 nafardan ko'p do'st taklif qilgan</b> "
+    "har bir ishtirokchi uchun <b>50 000 so'm</b> yutish imkoniyati mavjud.\n\n"
+    "Shoshiling sizlar uchun bunday imkoniyat qayta bo'lmasligi mumkin:\n\n"
     "{referral_link}"
 )
 
@@ -220,7 +298,7 @@ REFERRAL_DESC = (
 
 LEADERBOARD_TITLE = "🏆 <b>Reyting</b> (referral ballari bo'yicha)\n\n"
 LEADERBOARD_EMPTY = "Reyting hali bo'sh.\n"
-LEADERBOARD_USER_RANK = "Sizning o'rningiz: <b>{rank}</b> — <b>{user_points}</b> ball"
+LEADERBOARD_USER_RANK = "Sizning o'rningiz: <b>{rank}</b> — <b>{user_points}</b> ta"
 
 CHECK_SUBS_FAIL = "❌ <b>Siz hali quyidagi kanallarga obuna bo'lmadingiz:</b>"
 CHECK_SUBS_SUCCESS = "✅ <b>Obuna tasdiqlandi!</b>\n\n/start buyrug'ini bosing."
@@ -263,15 +341,3 @@ OTHER_GRADE_MESSAGE = (
     "<a href=\"http://t.me/RahimovSchool\">Telegram</a> | <a href=\"https://www.instagram.com/rahimovschool/\">Instagram</a> | <a href=\"https://www.youtube.com/@RahimovSchool\">YouTube</a>"
 )
 
-OTHER_GRADE_PROMO_MESSAGE = (
-    "Kanalga ulanib oldingizmi?\n\n"
-    "Bu hali hammasi emas! Sizga olimpiadamiz tomonidan eksklyuziv taklif bor 🤩\n\n"
-    "Olimpiadaga tengdoshlaringizni taklif qiling. Eng ko'p taklif qilgan 20 ta o'rin sohibiga quyidagi sovg'alarni va'da qilamiz:\n\n"
-    "🥇 1-o'rin: 1 ta mutolaa premium, 1 ta telegram premium va kitoblar to'plami\n"
-    "🥈 2-o'rin: 1 ta mutolaa premium, 1 ta telegram premium\n"
-    "🥉 3-o'ring: Kitoblar to'plami\n"
-    "🎖 4-11-o'rinlarga: 1 ta telegram premium\n"
-    "🎖 12-20-o'rinlarga: 1 ta mutolaa premium\n\n"
-    "Har bir sizning havolangiz orqali ro'yxatdan o'tgan do'stingiz uchun 5 ball olasiz 🤩\n\n"
-    "Rozi bo'lsangiz, \"Ha 🔥\" tugmasini bosing. Biz do'stlaringizga yuborishingiz kerak bo'lgan tayyor xabarni yuboramiz ⚡"
-)

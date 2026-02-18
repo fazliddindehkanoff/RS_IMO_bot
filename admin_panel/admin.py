@@ -3,12 +3,14 @@ import csv
 import io
 import time
 import logging
+import threading
 from django import forms
 from django.contrib import admin
 from django.contrib import messages
-from django.db.models import Q, Max, F, FloatField, OuterRef, Subquery
-from django.db.models.functions import Coalesce
+from django.db.models import Q, Max, F, FloatField, OuterRef, Subquery, Window
+from django.db.models.functions import Coalesce, RowNumber
 from django.http import HttpResponse
+from django.utils import timezone
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
 from unfold.decorators import display
 
@@ -56,26 +58,12 @@ class LastTestAttemptScoreFilter(admin.SimpleListFilter):
             return queryset
 
         if self.value() == '80-100':
-            min_score, max_score = 80, 100
+            return queryset.filter(last_test_score__gte=80, last_test_score__lte=100)
         elif self.value() == '90-100':
-            min_score, max_score = 90, 100
+            return queryset.filter(last_test_score__gte=90, last_test_score__lte=100)
         elif self.value() == '100':
-            min_score, max_score = 100, 100
-        else:
-            return queryset
-
-        student_ids = []
-        for student in queryset:
-            last_attempt = TestAttempt.objects.filter(
-                student=student,
-                score__isnull=False
-            ).order_by('-submitted_at', '-created_at').first()
-
-            if last_attempt and last_attempt.score is not None:
-                if min_score <= last_attempt.score <= max_score:
-                    student_ids.append(student.pk)
-
-        return queryset.filter(pk__in=student_ids)
+            return queryset.filter(last_test_score=100)
+        return queryset
 
 
 class FullyRegisteredFilter(admin.SimpleListFilter):
@@ -298,16 +286,20 @@ class StudentAdmin(ModelAdmin):
     search_fields = ['telegram_id', 'first_name', 'last_name', 'username', 'phone_number', 'school_name', 'referral_code']
     readonly_fields = ['created_at', 'updated_at', 'referral_points', 'referral_code', 'referrer']
     ordering = ['-created_at']
+    list_per_page = 50
+    show_full_result_count = False
     actions = ['send_certificate_action', 'export_students_csv']
 
     def get_queryset(self, request):
-        """Annotate queryset with last test attempt score."""
+        """Annotate queryset with last test attempt score and prefetch relations."""
         qs = super().get_queryset(request)
         last_attempt_subquery = TestAttempt.objects.filter(
             student=OuterRef('pk'),
             score__isnull=False
         ).order_by('-submitted_at', '-created_at').values('score')[:1]
-        return qs.annotate(
+        return qs.select_related(
+            'parent', 'teacher', 'registration_source', 'referrer'
+        ).annotate(
             last_test_score=Coalesce(
                 Subquery(last_attempt_subquery),
                 None,
@@ -458,27 +450,31 @@ class StudentRatingAdmin(ModelAdmin):
     ordering = ['-referral_points', '-created_at']
     search_fields = ['first_name', 'last_name', 'telegram_id']
     list_per_page = 50
+    show_full_result_count = False
 
     def get_queryset(self, request):
         return (
             super().get_queryset(request)
             .filter(is_active=True)
             .exclude(Q(first_name__isnull=True) | Q(first_name=''))
+            .annotate(
+                last_referral_at=Coalesce(
+                    Max('referrals_made__created_at'),
+                    F('created_at'),
+                ),
+                computed_rank=Window(
+                    expression=RowNumber(),
+                    order_by=[
+                        F('referral_points').desc(),
+                        F('last_referral_at').asc(),
+                    ]
+                )
+            )
         )
 
     @display(description='#')
     def rank(self, obj):
-        """1-based order number by referral_points, then created_at."""
-        if obj is None:
-            return ''
-        base = StudentRating.objects.filter(is_active=True).exclude(
-            Q(first_name__isnull=True) | Q(first_name='')
-        )
-        above = base.filter(
-            Q(referral_points__gt=obj.referral_points)
-            | Q(referral_points=obj.referral_points, created_at__lt=obj.created_at)
-        ).count()
-        return above + 1
+        return getattr(obj, 'computed_rank', '')
 
     def has_add_permission(self, request):
         return False
@@ -857,30 +853,58 @@ class BroadcastMessageAdmin(ModelAdmin):
         return self.readonly_fields
 
     def send_broadcast_action(self, request, queryset):
-        """Send filtered messages."""
+        """Send filtered messages in a background thread (non-blocking)."""
         count = 0
         for broadcast in queryset:
             if broadcast.status != 'draft':
                 self.message_user(request, f"Xabarnoma {broadcast.id} oxiriga yetkazilmagan (Holat: {broadcast.status})", level=messages.WARNING)
                 continue
-            
-            # Initialize bot
-            # Note: Initializing bot inside a sync view
-            bot = Bot(token=settings.BOT_TOKEN)
-            
-            try:
-                # Run async service synchronously
-                async_to_sync(BroadcastService.send_broadcast)(broadcast.id, bot)
-                count += 1
-                
-                # Close session if needed (Aiogram 3 bot session handling)
-                async_to_sync(bot.session.close)()
-                
-            except Exception as e:
-                logger.error(f"Error sending broadcast {broadcast.id}: {e}")
-                self.message_user(request, f"Xatolik: {e}", level=messages.ERROR)
 
-        self.message_user(request, f"{count} ta xabarnoma yuborildi.", level=messages.SUCCESS)
-    
+            broadcast.status = 'sending'
+            broadcast.started_at = timezone.now()
+            broadcast.save()
+
+            thread = threading.Thread(
+                target=self._run_broadcast_background,
+                args=(broadcast.id, settings.BOT_TOKEN),
+                daemon=True,
+            )
+            thread.start()
+            count += 1
+
+        if count:
+            self.message_user(
+                request,
+                f"{count} ta xabarnoma yuborish boshlandi. Jarayonni ro'yxatda kuzatishingiz mumkin.",
+                level=messages.SUCCESS,
+            )
+
     send_broadcast_action.short_description = "Xabarnomani yuborish"
+
+    @staticmethod
+    def _run_broadcast_background(broadcast_id, bot_token):
+        """Run broadcast in a background thread with its own event loop."""
+        import asyncio
+
+        async def _send():
+            bot = Bot(token=bot_token)
+            try:
+                await BroadcastService.send_broadcast(broadcast_id, bot)
+            finally:
+                try:
+                    await bot.session.close()
+                except Exception:
+                    pass
+
+        try:
+            asyncio.run(_send())
+        except Exception as e:
+            logger.error("Background broadcast %s failed: %s", broadcast_id, e)
+            try:
+                BroadcastMessage.objects.filter(id=broadcast_id).update(status='failed')
+            except Exception:
+                pass
+        finally:
+            from django.db import connection
+            connection.close()
 

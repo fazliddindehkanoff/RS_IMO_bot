@@ -183,3 +183,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://yourdomain.com/webhook")
 WEBHOOK_PATH = "/webhook"
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+
+# Registration Web App (Mini App) – must be HTTPS for Telegram. Set in .env as REG_WEBAPP_URL.
+REG_WEBAPP_URL = os.getenv("REG_WEBAPP_URL", "").strip()

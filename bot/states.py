@@ -8,7 +8,8 @@ class RegistrationStates(StatesGroup):
     waiting_for_initial_full_name = State()
     waiting_for_initial_phone = State()
     waiting_for_phone_owner = State()
-    
+    waiting_for_webapp_reg = State()  # After 3 steps: user opens Web App form
+
     # Post-Registration / Promo
     waiting_for_olympiad_participation = State() # Yes/No
 

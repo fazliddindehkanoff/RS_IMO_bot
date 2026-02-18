@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a5f2a" />
+  <title>Ro'yxatdan o'tish</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --primary: #1a5f2a;
+      --primary-light: #2d7a3e;
+      --primary-dark: #0d3d1a;
+      --bg: #ffffff;
+      --text: #1a1a1a;
+      --border: #c8e6c9;
+      --error: #c62828;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 16px;
+      padding-left: calc(16px + env(safe-area-inset-left));
+      padding-right: calc(16px + env(safe-area-inset-right));
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+      padding-top: calc(16px + env(safe-area-inset-top));
+    }
+    .container { max-width: 560px; margin: 0 auto; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px 16px;
+    }
+    .logo-wrap {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo-wrap img {
+      max-width: 120px;
+      height: auto;
+      display: inline-block;
+    }
+    h1 {
+      font-size: 1.25rem;
+      margin: 0 0 20px;
+      text-align: center;
+      color: var(--primary-dark);
+    }
+    .section-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin: 20px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .field { margin-bottom: 14px; }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+    input, select {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(26, 95, 42, 0.2);
+    }
+    select {
+      cursor: pointer;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      padding-right: 36px;
+      min-height: 44px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%231a5f2a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-color: var(--bg);
+    }
+    select:invalid, select option[value=""]:checked { color: rgba(0,0,0,0.5); }
+    select option { color: var(--text); }
+    button[type="submit"] {
+      width: 100%;
+      margin-top: 24px;
+      margin-bottom: 16px;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--primary);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button[type="submit"]:hover { background: var(--primary-light); }
+    button[type="submit"]:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .error {
+      font-size: 0.8rem;
+      color: var(--error);
+      margin-top: 4px;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+    .phone-group {
+      display: flex;
+      align-items: stretch;
+    }
+    .phone-prefix {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text);
+      background: #f0f0f0;
+      border: 1px solid var(--border);
+      border-right: none;
+      border-radius: 8px 0 0 8px;
+      white-space: nowrap;
+    }
+    .phone-group input {
+      border-radius: 0 8px 8px 0;
+      flex: 1;
+      min-width: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    {% if logo_url %}
+    <div class="logo-wrap">
+      <img src="{{ logo_url }}" alt="Rahimov School" />
+    </div>
+    {% endif %}
+    <h1>Ro'yxatdan o'tish</h1>
+    <form id="regForm">
+      <div class="section-title">O'quvchi ma'lumotlari</div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="first_name">Ism *</label>
+          <input type="text" id="first_name" name="first_name" required minlength="2" placeholder="Ismingiz" autocomplete="given-name" />
+          <div id="err_first_name" class="error" hidden></div>
+        </div>
+        <div class="field">
+          <label for="last_name">Familiya *</label>
+          <input type="text" id="last_name" name="last_name" required minlength="2" placeholder="Familiyangiz" autocomplete="family-name" />
+          <div id="err_last_name" class="error" hidden></div>
+        </div>
+        <div class="field">
+          <label for="phone_number">Bog'lanish uchun telefon: *</label>
+          <div class="phone-group">
+            <span class="phone-prefix">+998</span>
+            <input type="number" id="phone_number" name="phone_number" required placeholder="901234567" value="{{ phone_number }}" readonly style="background: #f0f0f0; cursor: not-allowed;" />
+          </div>
+          <div id="err_phone" class="error" hidden></div>
+        </div>
+        <div class="field">
+          <label for="document_number">Metrika raqami</label>
+          <input type="text" id="document_number" name="document_number" placeholder="0015258" />
+        </div>
+        <div class="field">
+          <label for="region">Viloyat</label>
+          <select id="region" name="region">
+            <option value="">Tanlang</option>
+            <option value="Andijon">Andijon viloyati</option>
+            <option value="Buxoro">Buxoro viloyati</option>
+            <option value="Farg'ona">Farg'ona viloyati</option>
+            <option value="Jizzax">Jizzax viloyati</option>
+            <option value="Namangan">Namangan viloyati</option>
+            <option value="Navoiy">Navoiy viloyati</option>
+            <option value="Qashqadaryo">Qashqadaryo viloyati</option>
+            <option value="Samarqand">Samarqand viloyati</option>
+            <option value="Sirdaryo">Sirdaryo viloyati</option>
+            <option value="Surxondaryo">Surxondaryo viloyati</option>
+            <option value="Toshkent">Toshkent viloyati</option>
+            <option value="Toshkent shahar">Toshkent shahar</option>
+            <option value="Xorazm">Xorazm viloyati</option>
+            <option value="Qoraqalpog'iston">Qoraqalpog'iston</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="district">Tuman / shahar</label>
+          <input type="text" id="district" name="district" placeholder="Tuman yoki shahar" />
+        </div>
+        <div class="field">
+          <label for="grade">Sinf</label>
+          <select id="grade" name="grade">
+            <option value="">Tanlang</option>
+            <option value="5">5-sinf</option>
+            <option value="6">6-sinf</option>
+            <option value="7">7-sinf</option>
+            <option value="8">8-sinf</option>
+            <option value="other">Boshqa</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="school_name">Maktab nomi</label>
+          <input type="text" id="school_name" name="school_name" placeholder="Maktab nomi" />
+        </div>
+      </div>
+
+      <div class="section-title">Vasiy - bolaga mas'ul shaxs (ota-ona, buvi, tog'a va hokazo) ma'lumotlari</div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="guardian_name">Vasiy ismi</label>
+          <input type="text" id="guardian_name" name="guardian_name" placeholder="To'liq ism" />
+        </div>
+        <div class="field">
+          <label for="guardian_phone">Vasiy telefon raqami</label>
+          <div class="phone-group">
+            <span class="phone-prefix">+998</span>
+            <input type="number" id="guardian_phone" name="guardian_phone" placeholder="901234567" />
+          </div>
+          <div id="err_guardian_phone" class="error" hidden></div>
+        </div>
+      </div>
+
+      <div class="section-title">Ustoz ma'lumotlari</div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="teacher_name">Ustoz ismi</label>
+          <input type="text" id="teacher_name" name="teacher_name" placeholder="To'liq ism" />
+        </div>
+        <div class="field">
+          <label for="teacher_phone">Ustoz telefon raqami</label>
+          <div class="phone-group">
+            <span class="phone-prefix">+998</span>
+            <input type="number" id="teacher_phone" name="teacher_phone" placeholder="901234567" />
+          </div>
+          <div id="err_teacher_phone" class="error" hidden></div>
+        </div>
+      </div>
+
+      <button type="submit" id="submitBtn">Yuborish</button>
+    </form>
+  </div>
+  <script>
+    var regAppSubmitUrl = "{{ reg_app_submit_url|default:''|escapejs }}";
+    var serverUserId = "{{ user_id|default:''|escapejs }}";
+    var serverPhone = "{{ phone_number|default:''|escapejs }}";
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try { if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen(); } catch (_) {}
+    }
+
+    const form = document.getElementById('regForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    function getUserIdFromUrl() {
+      var params = new URLSearchParams(window.location.search);
+      return params.get('user_id') || serverUserId || null;
+    }
+
+    function stripPrefix(phone) {
+      if (!phone) return '';
+      var s = phone.replace(/[\s\-\(\)]/g, '');
+      if (s.startsWith('+998')) return s.substring(4);
+      if (s.startsWith('998') && s.length > 9) return s.substring(3);
+      return s;
+    }
+
+    // Prefill phone: strip +998 prefix since it's shown as a fixed label
+    (function() {
+      var phoneInput = document.getElementById('phone_number');
+      var raw = phoneInput.value || serverPhone || '';
+      if (!raw) {
+        var params = new URLSearchParams(window.location.search);
+        raw = params.get('phone') || '';
+      }
+      phoneInput.value = stripPrefix(raw);
+    })();
+
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = msg || '';
+      el.hidden = !msg;
+    }
+
+    function isValid9Digits(val) {
+      if (!val) return true;
+      return /^\d{9}$/.test(val);
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const first_name = (document.getElementById('first_name').value || '').trim();
+      const last_name = (document.getElementById('last_name').value || '').trim();
+      const phone_digits = (document.getElementById('phone_number').value || '').trim();
+      const guardian_digits = (document.getElementById('guardian_phone').value || '').trim();
+      const teacher_digits = (document.getElementById('teacher_phone').value || '').trim();
+
+      showError('err_first_name', '');
+      showError('err_last_name', '');
+      showError('err_phone', '');
+      showError('err_guardian_phone', '');
+      showError('err_teacher_phone', '');
+
+      var hasError = false;
+
+      if (first_name.length < 2) {
+        showError('err_first_name', 'Ism kamida 2 ta belgidan iborat bo\'lishi kerak.');
+        hasError = true;
+      }
+      if (last_name.length < 2) {
+        showError('err_last_name', 'Familiya kamida 2 ta belgidan iborat bo\'lishi kerak.');
+        hasError = true;
+      }
+      if (!isValid9Digits(phone_digits)) {
+        showError('err_phone', '9 ta raqam kiriting. Masalan: 901234567');
+        hasError = true;
+      }
+      if (guardian_digits && !isValid9Digits(guardian_digits)) {
+        showError('err_guardian_phone', '9 ta raqam kiriting. Masalan: 901234567');
+        hasError = true;
+      }
+      if (teacher_digits && !isValid9Digits(teacher_digits)) {
+        showError('err_teacher_phone', '9 ta raqam kiriting. Masalan: 901234567');
+        hasError = true;
+      }
+      if (hasError) return;
+
+      const gradeEl = document.getElementById('grade');
+      const gradeVal = gradeEl.value;
+      const user_id = getUserIdFromUrl();
+      const payload = {
+        user_id: user_id,
+        first_name: first_name,
+        last_name: last_name,
+        phone_number: phone_digits ? '+998' + phone_digits : '',
+        region: (document.getElementById('region').value || '').trim() || null,
+        district: (document.getElementById('district').value || '').trim() || null,
+        grade: gradeVal === 'other' ? 'other' : (gradeVal ? parseInt(gradeVal, 10) : null),
+        school_name: (document.getElementById('school_name').value || '').trim() || null,
+        document_number: (document.getElementById('document_number').value || '').trim() || null,
+        guardian_name: (document.getElementById('guardian_name').value || '').trim() || null,
+        guardian_phone: guardian_digits ? '+998' + guardian_digits : null,
+        teacher_name: (document.getElementById('teacher_name').value || '').trim() || null,
+        teacher_phone: teacher_digits ? '+998' + teacher_digits : null
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Yuborilmoqda...';
+
+      if (!regAppSubmitUrl) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Yuborish';
+        alert('Xatolik: server manzili topilmadi.');
+        return;
+      }
+
+      fetch(regAppSubmitUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          submitBtn.textContent = 'Yuborildi ✓';
+          if (tg && typeof tg.showPopup === 'function') {
+            tg.showPopup(
+              { title: 'Muvaffaqiyatli!', message: "Ro'yxatdan muvaffaqiyatli o'tdingiz ✅\n\nEndi botga qayting.", buttons: [{ type: 'ok' }] },
+              function () { if (typeof tg.close === 'function') tg.close(); }
+            );
+          } else {
+            alert("Ro'yxatdan muvaffaqiyatli o'tdingiz ✅\n\nEndi botga qayting.");
+            if (tg && typeof tg.close === 'function') tg.close();
+          }
+        } else {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Yuborish';
+          var errMsg = 'Xatolik yuz berdi.';
+          if (data.error === 'invalid_data') errMsg = 'Iltimos, barcha maydonlarni to\'g\'ri to\'ldiring.';
+          else if (data.error === 'duplicate_document') errMsg = 'Bu metrika raqami allaqachon ro\'yxatdan o\'tgan.';
+          else if (data.error === 'db_error') errMsg = 'Serverda xatolik. Qaytadan urinib ko\'ring.';
+          alert(errMsg);
+        }
+      })
+      .catch(function (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Yuborish';
+        alert('Tarmoq xatoligi: ' + err.message);
+      });
+    });
+  </script>
+</body>
+</html>
