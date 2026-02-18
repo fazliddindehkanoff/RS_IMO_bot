@@ -179,7 +179,7 @@
           <label for="phone_number">Bog'lanish uchun telefon: *</label>
           <div class="phone-group">
             <span class="phone-prefix">+998</span>
-            <input type="number" id="phone_number" name="phone_number" required placeholder="901234567" value="{{ phone_number }}" readonly style="background: #f0f0f0; cursor: not-allowed;" />
+            <input type="number" id="phone_number" name="phone_number" required placeholder="901234567" />
           </div>
           <div id="err_phone" class="error" hidden></div>
         </div>
@@ -263,24 +263,41 @@
       <button type="submit" id="submitBtn">Yuborish</button>
     </form>
   </div>
+  <div id="blockOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,0.97);align-items:center;justify-content:center;text-align:center;padding:32px;">
+    <div>
+      <div style="font-size:2.5rem;margin-bottom:16px;">⚠️</div>
+      <div id="blockMessage" style="font-size:1rem;color:#333;line-height:1.6;max-width:400px;"></div>
+    </div>
+  </div>
   <script>
     var regAppSubmitUrl = "{{ reg_app_submit_url|default:''|escapejs }}";
-    var serverUserId = "{{ user_id|default:''|escapejs }}";
-    var serverPhone = "{{ phone_number|default:''|escapejs }}";
     const tg = window.Telegram?.WebApp;
+    var tgInitData = (tg && tg.initData) ? tg.initData : "";
+    var tgUserId = "";
+    var tgUsername = "";
+
     if (tg) {
       tg.ready();
       tg.expand();
       try { if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen(); } catch (_) {}
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        tgUserId = String(tg.initDataUnsafe.user.id || "");
+        tgUsername = tg.initDataUnsafe.user.username || "";
+      }
+    }
+
+    function showBlock(msg) {
+      var el = document.getElementById('blockOverlay');
+      document.getElementById('blockMessage').innerHTML = msg;
+      el.style.display = 'flex';
+    }
+
+    if (!tgUserId) {
+      showBlock("Iltimos, formani Telegram ilovasi orqali oching.");
     }
 
     const form = document.getElementById('regForm');
     const submitBtn = document.getElementById('submitBtn');
-
-    function getUserIdFromUrl() {
-      var params = new URLSearchParams(window.location.search);
-      return params.get('user_id') || serverUserId || null;
-    }
 
     function stripPrefix(phone) {
       if (!phone) return '';
@@ -290,15 +307,40 @@
       return s;
     }
 
-    // Prefill phone: strip +998 prefix since it's shown as a fixed label
+    // Fetch user info via initData — prefill phone & check registration
     (function() {
       var phoneInput = document.getElementById('phone_number');
-      var raw = phoneInput.value || serverPhone || '';
-      if (!raw) {
-        var params = new URLSearchParams(window.location.search);
-        raw = params.get('phone') || '';
-      }
-      phoneInput.value = stripPrefix(raw);
+      phoneInput.value = '';
+
+      if (!tgInitData || !tgUserId) return;
+
+      fetch("/reg-app/user-info/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ init_data: tgInitData })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.ok) return;
+        if (data.is_registered) {
+          showBlock("Siz allaqachon olimpiadamizga ro'yxatdan o'tib bo'lgansiz 😊<br><br>Botga qaytib \"Konkursda qatnashish\" tugmasini bosib, olimpiadani keng ommaga yoyilishida xizmat qilishingiz mumkin");
+          return;
+        }
+        if (!data.phone) {
+          if (tg && typeof tg.showPopup === 'function') {
+            tg.showPopup(
+              { title: '', message: "Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi", buttons: [{ type: 'ok' }] },
+              function() { if (typeof tg.close === 'function') tg.close(); }
+            );
+          } else {
+            alert("Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi");
+          }
+          showBlock("Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi");
+          return;
+        }
+        phoneInput.value = stripPrefix(data.phone);
+      })
+      .catch(function() {});
     })();
 
     function showError(id, msg) {
@@ -353,9 +395,10 @@
 
       const gradeEl = document.getElementById('grade');
       const gradeVal = gradeEl.value;
-      const user_id = getUserIdFromUrl();
       const payload = {
-        user_id: user_id,
+        user_id: tgUserId,
+        username: tgUsername || null,
+        init_data: tgInitData || "",
         first_name: first_name,
         last_name: last_name,
         phone_number: phone_digits ? '+998' + phone_digits : '',

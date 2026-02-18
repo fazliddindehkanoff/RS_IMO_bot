@@ -7,12 +7,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
 
-from admin_panel.views import webhook_view, RegAppView, reg_app_submit_view
+from admin_panel.views import webhook_view, RegAppView, reg_app_submit_view, reg_app_user_info_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("webhook/", webhook_view, name="webhook"),
     path("reg-app/submit/", reg_app_submit_view, name="reg_app_submit"),
+    path("reg-app/user-info/", reg_app_user_info_view, name="reg_app_user_info"),
     path("reg-app/", RegAppView.as_view(), name="reg_app"),
     path("", RedirectView.as_view(url="/admin/", permanent=False), name="home"),
 ]

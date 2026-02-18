@@ -1,9 +1,14 @@
 """Webhook view for Telegram bot."""
+import hashlib
+import hmac
 import json
 import asyncio
 import logging
 import os
 import threading
+import time as _time
+from urllib.parse import parse_qs, unquote
+
 import requests
 from django.db import transaction, IntegrityError
 from django.http import JsonResponse, HttpResponse
@@ -17,6 +22,45 @@ from admin_panel.models import Student, Parent, Teacher, BotState
 from bot.constants import SUCCESS_MESSAGE, OTHER_GRADE_SUCCESS_MESSAGE, PROMO_AFTER_REG_TEXT, OTHER_GRADE_PROMO_MESSAGE, CONTEST_PROMO_REPLY
 
 logger = logging.getLogger(__name__)
+
+
+def validate_telegram_init_data(init_data: str, bot_token: str, max_age_seconds: int = 86400) -> dict | None:
+    """Validate Telegram WebApp initData using HMAC-SHA256.
+    Returns the parsed data dict (with 'user' as a parsed JSON object) on success, None on failure.
+    See: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+    """
+    if not init_data or not bot_token:
+        return None
+    try:
+        parsed = parse_qs(init_data, keep_blank_values=True)
+        received_hash = parsed.pop("hash", [None])[0]
+        if not received_hash:
+            return None
+
+        data_check_pairs = []
+        for key in sorted(parsed):
+            val = parsed[key][0]
+            data_check_pairs.append(f"{key}={val}")
+        data_check_string = "\n".join(data_check_pairs)
+
+        secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+        computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+
+        if not hmac.compare_digest(computed_hash, received_hash):
+            return None
+
+        auth_date = parsed.get("auth_date", [None])[0]
+        if auth_date and max_age_seconds:
+            if _time.time() - int(auth_date) > max_age_seconds:
+                return None
+
+        result = {k: v[0] for k, v in parsed.items()}
+        if "user" in result:
+            result["user"] = json.loads(result["user"])
+        return result
+    except Exception as e:
+        logger.warning("initData validation failed: %s", e)
+        return None
 
 # Global event loop running in background thread
 _background_loop = None
@@ -188,6 +232,54 @@ def _add_cors_headers(response):
 
 @csrf_exempt
 @require_http_methods(["POST", "OPTIONS"])
+def reg_app_user_info_view(request):
+    """Return prefilled user data (phone) after validating Telegram initData."""
+    if request.method == "OPTIONS":
+        return _add_cors_headers(HttpResponse(status=200))
+
+    try:
+        body = json.loads(request.body)
+    except (ValueError, TypeError):
+        resp = JsonResponse({"ok": False}, status=400)
+        return _add_cors_headers(resp)
+
+    init_data = body.get("init_data", "")
+    validated = validate_telegram_init_data(init_data, settings.BOT_TOKEN)
+    if not validated or "user" not in validated:
+        resp = JsonResponse({"ok": False, "error": "auth_failed"}, status=403)
+        return _add_cors_headers(resp)
+
+    telegram_id = validated["user"].get("id")
+    if not telegram_id:
+        resp = JsonResponse({"ok": False, "error": "no_user_id"}, status=400)
+        return _add_cors_headers(resp)
+
+    phone = ""
+    phone_owner = ""
+    is_registered = False
+    try:
+        student = Student.objects.select_related('parent', 'teacher').get(telegram_id=int(telegram_id))
+        raw = (student.phone_number or "").strip()
+        if raw.startswith("+998"):
+            phone = raw[4:]
+        elif raw.startswith("998") and len(raw) > 9:
+            phone = raw[3:]
+        else:
+            phone = raw
+        phone_owner = student.phone_owner or ""
+        is_registered = student.is_fully_registered
+    except (Student.DoesNotExist, ValueError, TypeError):
+        pass
+
+    resp = JsonResponse({
+        "ok": True, "phone": phone, "phone_owner": phone_owner,
+        "user_id": telegram_id, "is_registered": is_registered,
+    })
+    return _add_cors_headers(resp)
+
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
 def reg_app_submit_view(request):
     """Accept Web App form POST, save data, send success + follow-up messages with 3 inline buttons to user."""
     if request.method == "OPTIONS":
@@ -200,17 +292,24 @@ def reg_app_submit_view(request):
         response = JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
         return _add_cors_headers(response)
 
-    user_id = data.get("user_id")
-    if user_id is None:
-        response = JsonResponse({"ok": False, "error": "missing_user_id"}, status=400)
-        return _add_cors_headers(response)
-    try:
-        telegram_id = int(user_id)
-    except (TypeError, ValueError):
-        response = JsonResponse({"ok": False, "error": "invalid_user_id"}, status=400)
-        return _add_cors_headers(response)
+    # Prefer secure identification via Telegram initData
+    init_data = data.get("init_data", "")
+    validated = validate_telegram_init_data(init_data, settings.BOT_TOKEN) if init_data else None
 
-    username = (data.get("username") or "").strip() or None
+    if validated and "user" in validated:
+        telegram_id = int(validated["user"]["id"])
+        username = validated["user"].get("username") or (data.get("username") or "").strip() or None
+    else:
+        user_id = data.get("user_id")
+        if user_id is None:
+            response = JsonResponse({"ok": False, "error": "missing_user_id"}, status=400)
+            return _add_cors_headers(response)
+        try:
+            telegram_id = int(user_id)
+        except (TypeError, ValueError):
+            response = JsonResponse({"ok": False, "error": "invalid_user_id"}, status=400)
+            return _add_cors_headers(response)
+        username = (data.get("username") or "").strip() or None
     err = _save_reg_app_data(telegram_id, username, data)
     if err == "invalid_data":
         response = JsonResponse({"ok": False, "error": "invalid_data"}, status=400)
@@ -335,29 +434,11 @@ def _send_delayed_promo_sync(telegram_id: int, is_other_grade: bool = False):
 
 
 class RegAppView(TemplateView):
-    """Serves the registration Mini App (Web App) opened from /reg inline button."""
+    """Serves the registration Mini App (Web App) opened from Telegram menu button."""
     template_name = "reg_app.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["logo_url"] = "/media/rmo_logo.jpg"
         ctx["reg_app_submit_url"] = "/reg-app/submit/"
-        user_id = self.request.GET.get("user_id", "")
-        ctx["user_id"] = user_id
-        phone = ""
-        if user_id:
-            try:
-                student = Student.objects.get(telegram_id=int(user_id))
-                raw = student.phone_number or ""
-                # Strip +998 prefix — form shows only the 9 digits after the prefix
-                raw = raw.strip()
-                if raw.startswith("+998"):
-                    phone = raw[4:]
-                elif raw.startswith("998") and len(raw) > 9:
-                    phone = raw[3:]
-                else:
-                    phone = raw
-            except (Student.DoesNotExist, ValueError, TypeError):
-                pass
-        ctx["phone_number"] = phone
         return ctx
