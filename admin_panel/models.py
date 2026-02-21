@@ -61,6 +61,7 @@ class Student(models.Model):
         ('Qoraqalpog\'iston', 'Qoraqalpog\'iston')
     ]
     GRADE_CHOICES = [
+        (0, 'Boshqa'),
         (5, '5-sinf'),
         (6, '6-sinf'),
         (7, '7-sinf'),
@@ -362,6 +363,7 @@ class RegistrationSource(models.Model):
 class Exam(models.Model):
     """Exam/test definition."""
     GRADE_CHOICES = [
+        (0, 'Boshqa'),
         (5, '5-sinf'),
         (6, '6-sinf'),
         (7, '7-sinf'),
@@ -608,6 +610,7 @@ class BotState(models.Model):
 class Test(models.Model):
     """Test definition with grade-based separation."""
     GRADE_CHOICES = [
+        (0, 'Boshqa'),
         (5, '5-sinf'),
         (6, '6-sinf'),
         (7, '7-sinf'),

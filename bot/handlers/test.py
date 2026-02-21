@@ -131,6 +131,7 @@ async def handle_test_selection(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("test_start"))
 async def handle_test_start(callback: CallbackQuery, state: FSMContext):
     """Handle test start button click."""
+    await callback.message.delete()
     telegram_id = callback.from_user.id
     student = await StudentService.get_student(telegram_id)
 
@@ -613,6 +614,7 @@ async def back_from_no_answer(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(StateFilter(TestStates.answering_question), F.data == "test_finish")
 async def handle_finish(callback: CallbackQuery, state: FSMContext):
     """Handle finish button (last question)."""
+    await callback.message.delete()
     # Check time limit first
     if not await check_time_limit_before_action(callback, state):
         return
