@@ -255,10 +255,34 @@ def get_test_selection_keyboard(tests) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     
     for test in tests:
-        button_text = f"{test.title} ({test.duration_minutes} min)"
+        language_label = test.get_language_display() if getattr(test, 'language', None) else ""
+        if language_label:
+            button_text = f"{test.title} - {language_label} ({test.duration_minutes} min)"
+        else:
+            button_text = f"{test.title} ({test.duration_minutes} min)"
         builder.button(text=button_text, callback_data=f"test_select_{test.id}")
     
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_language_selection_keyboard(languages, language_labels) -> InlineKeyboardMarkup:
+    """Get language selection keyboard for tests.
+
+    Args:
+        languages: List of language codes
+        language_labels: Dict of language code to label
+
+    Returns:
+        InlineKeyboardMarkup with language selection buttons
+    """
+    builder = InlineKeyboardBuilder()
+
+    for language in languages:
+        label = language_labels.get(language, language)
+        builder.button(text=label, callback_data=f"test_lang_{language}")
+
+    builder.adjust(2)
     return builder.as_markup()
 
 

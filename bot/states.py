@@ -48,6 +48,7 @@ class RegistrationStates(StatesGroup):
 
 class TestStates(StatesGroup):
     """Test flow states."""
+    selecting_language = State()
     selecting_test = State()
     waiting_for_start_confirmation = State()
     answering_question = State()

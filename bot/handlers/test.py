@@ -13,6 +13,7 @@ from bot.states import TestStates
 from bot.keyboards import (
     get_start_test_keyboard,
     get_test_selection_keyboard,
+    get_language_selection_keyboard,
     get_start_confirmation_keyboard,
     get_answer_keyboard,
     get_no_answer_confirmation_keyboard,
@@ -23,7 +24,7 @@ from bot.keyboards import (
     get_main_menu_keyboard,
 )
 from bot.services import StudentService, TestService, BotStateService
-from admin_panel.models import TestAttempt
+from admin_panel.models import TestAttempt, Test
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +67,24 @@ async def handle_imtihonlar(message: Message, state: FSMContext):
         test = pending.test
         await send_test_to_user(message, student, test)
     else:
-        # Get all active tests for grade and language
+        # Get all active tests for grade (language selection handled below)
         tests = await TestService.get_active_tests_for_grade_and_language(
-            student.grade, 
-            student.language
+            student.grade,
+            None
         )
 
         if not tests:
             await message.answer("❌ Sizning sinfingiz uchun test topilmadi.")
+            return
+
+        languages = sorted({test.language for test in tests if test.language})
+        if len(languages) > 1:
+            language_labels = dict(Test.LANGUAGE_CHOICES)
+            await message.answer(
+                "Iltimos, test tilini tanlang:",
+                reply_markup=get_language_selection_keyboard(languages, language_labels)
+            )
+            await state.set_state(TestStates.selecting_language)
             return
 
         if len(tests) == 1:
@@ -90,6 +101,49 @@ async def handle_imtihonlar(message: Message, state: FSMContext):
 
 
 # ==================== TEST SELECTION (5.1.5) ====================
+
+@router.callback_query(StateFilter(TestStates.selecting_language), F.data.startswith("test_lang_"))
+async def handle_test_language_selection(callback: CallbackQuery, state: FSMContext):
+    """Handle test language selection."""
+    telegram_id = callback.from_user.id
+    student = await StudentService.get_student(telegram_id)
+
+    if not student or not student.grade:
+        await callback.answer("❌ Avval ro'yxatdan o'ting!", show_alert=True)
+        return
+
+    # Extract language from callback data
+    language = callback.data.split("_")[-1]
+    tests = await TestService.get_active_tests_for_grade_and_language(
+        student.grade,
+        language
+    )
+
+    if not tests:
+        await callback.answer("❌ Test topilmadi!", show_alert=True)
+        return
+
+    if len(tests) == 1:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await send_test_to_user(callback.message, student, tests[0])
+        await state.clear()
+        return
+
+    try:
+        await callback.message.edit_text(
+            "Iltimos, test tanlang:",
+            reply_markup=get_test_selection_keyboard(tests)
+        )
+    except Exception:
+        await callback.message.answer(
+            "Iltimos, test tanlang:",
+            reply_markup=get_test_selection_keyboard(tests)
+        )
+
+    await state.set_state(TestStates.selecting_test)
 
 @router.callback_query(StateFilter(TestStates.selecting_test), F.data.startswith("test_select_"))
 async def handle_test_selection(callback: CallbackQuery, state: FSMContext):
@@ -713,6 +767,7 @@ async def handle_edit_answers(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(StateFilter(TestStates.editing_answer), F.data.startswith("test_edit_q_"))
 async def handle_edit_question(callback: CallbackQuery, state: FSMContext):
     """Handle question selection for editing."""
+    await callback.message.delete()
     question_number = int(callback.data.split("_")[-1])
     telegram_id = callback.from_user.id
     data = await state.get_data()
