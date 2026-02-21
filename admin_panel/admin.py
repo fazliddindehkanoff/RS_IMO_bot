@@ -683,8 +683,6 @@ class TestAdmin(ModelAdmin):
 
         if test.grade is not None:
             query = Q(grade=test.grade, is_active=True)
-            if test.language:
-                query &= Q(language=test.language)
             students = Student.objects.filter(query)
         else:
             students = test.target_students.filter(is_active=True)
