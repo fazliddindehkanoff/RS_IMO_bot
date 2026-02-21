@@ -344,13 +344,12 @@ class StudentAdmin(ModelAdmin):
         qs = qs.only(
             'id', 'telegram_id', 'first_name', 'last_name', 'grade', 
             'is_active', 'created_at', 'referral_points', 'school_name',
-            'registered_from_web', 'date_of_birth', 'last_name', 
-            'document_number', 'registration_source_id', 'referrer_id', 'partner_id'
+            'registered_from_web', 'date_of_birth', 'referrer_id', 'partner_id'
         )
         
         # Use select_related for ForeignKey relationships
         qs = qs.select_related(
-            'parent', 'teacher', 'registration_source', 'referrer', 'partner'
+            'parent', 'teacher', 'referrer', 'partner'
         )
         
         # Optimize subquery for last test attempt score

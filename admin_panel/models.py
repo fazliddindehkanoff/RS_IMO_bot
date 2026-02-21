@@ -157,7 +157,6 @@ class Student(models.Model):
             models.Index(fields=['grade']),
             models.Index(fields=['is_active', 'created_at']),
             models.Index(fields=['grade', 'is_active']),
-            models.Index(fields=['registration_source']),
             models.Index(fields=['referrer']),
             models.Index(fields=['partner']),
             models.Index(fields=['registered_from_web']),
