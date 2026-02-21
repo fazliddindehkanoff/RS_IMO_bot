@@ -155,6 +155,12 @@ class Student(models.Model):
         indexes = [
             models.Index(fields=['telegram_id']),
             models.Index(fields=['grade']),
+            models.Index(fields=['is_active', 'created_at']),
+            models.Index(fields=['grade', 'is_active']),
+            models.Index(fields=['registration_source']),
+            models.Index(fields=['referrer']),
+            models.Index(fields=['partner']),
+            models.Index(fields=['registered_from_web']),
         ]
 
     def save(self, *args, **kwargs):
@@ -683,7 +689,7 @@ class TestQuestion(models.Model):
         ('C', 'C'),
         ('D', 'D'),
     ]
-    
+
     test = models.ForeignKey(
         Test,
         on_delete=models.CASCADE,

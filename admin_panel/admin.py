@@ -337,15 +337,29 @@ class StudentAdmin(ModelAdmin):
     actions = ['send_certificate_action', 'export_students_csv']
 
     def get_queryset(self, request):
-        """Annotate queryset with last test attempt score and prefetch relations."""
+        """Optimize queryset with select_related, prefetch_related, and only()."""
         qs = super().get_queryset(request)
+        
+        # Only fetch fields displayed in the list_display and filters
+        qs = qs.only(
+            'id', 'telegram_id', 'first_name', 'last_name', 'grade', 
+            'is_active', 'created_at', 'referral_points', 'school_name',
+            'registered_from_web', 'date_of_birth', 'last_name', 
+            'document_number', 'registration_source_id', 'referrer_id', 'partner_id'
+        )
+        
+        # Use select_related for ForeignKey relationships
+        qs = qs.select_related(
+            'parent', 'teacher', 'registration_source', 'referrer', 'partner'
+        )
+        
+        # Optimize subquery for last test attempt score
         last_attempt_subquery = TestAttempt.objects.filter(
             student=OuterRef('pk'),
             score__isnull=False
         ).order_by('-submitted_at', '-created_at').values('score')[:1]
-        return qs.select_related(
-            'parent', 'teacher', 'registration_source', 'referrer', 'partner'
-        ).annotate(
+        
+        return qs.annotate(
             last_test_score=Coalesce(
                 Subquery(last_attempt_subquery),
                 None,
@@ -631,7 +645,7 @@ class TestAdmin(ModelAdmin):
     filter_horizontal = ['target_students']
     fieldsets = (
         ('Asosiy ma\'lumotlar', {
-            'fields': ('title', 'grade', 'target_students', 'language', 'version', 'duration_minutes', 'is_active')
+            'fields': ('title', 'grade', 'target_students', 'language', 'version', 'duration_minutes', 'is_active', "starts_at", "finish_at")
         }),
         ('Statistika', {
             'fields': ('questions_count',),
