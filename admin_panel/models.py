@@ -650,6 +650,8 @@ class Test(models.Model):
         verbose_name="Versiya"
     )
     is_active = models.BooleanField(default=True, verbose_name="Faol")
+    starts_at = models.DateTimeField(null=True, blank=True, verbose_name="Boshlanish vaqti", help_text="Agar belgilansa, test faqat shu vaqtdan keyin boshlanishi mumkin.")
+    finish_at = models.DateTimeField(null=True, blank=True, verbose_name="Tugash vaqti", help_text="Agar belgilansa, test faqat shu vaqtdan oldin boshlanishi mumkin.")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan vaqt")
 
@@ -681,7 +683,7 @@ class TestQuestion(models.Model):
         ('C', 'C'),
         ('D', 'D'),
     ]
-
+    
     test = models.ForeignKey(
         Test,
         on_delete=models.CASCADE,

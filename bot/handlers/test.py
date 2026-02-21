@@ -12,6 +12,7 @@ from datetime import timedelta
 from bot.states import TestStates
 from bot.keyboards import (
     get_start_test_keyboard,
+    get_test_selection_keyboard,
     get_start_confirmation_keyboard,
     get_answer_keyboard,
     get_no_answer_confirmation_keyboard,
@@ -46,7 +47,7 @@ async def send_test_to_user(message: Message, student, test):
 
     await message.answer(
         text,
-        reply_markup=get_start_test_keyboard()
+        reply_markup=get_start_test_keyboard(test_id=test.id)
     )
 
 
@@ -63,19 +64,71 @@ async def handle_imtihonlar(message: Message, state: FSMContext):
     pending = await TestService.get_pending_attempt_for_student(student)
     if pending:
         test = pending.test
+        await send_test_to_user(message, student, test)
     else:
-        test = await TestService.get_active_test_for_grade(student.grade)
+        # Get all active tests for grade and language
+        tests = await TestService.get_active_tests_for_grade_and_language(
+            student.grade, 
+            student.language
+        )
 
-    if not test:
-        await message.answer("❌ Sizning sinfingiz uchun test topilmadi.")
+        if not tests:
+            await message.answer("❌ Sizning sinfingiz uchun test topilmadi.")
+            return
+
+        if len(tests) == 1:
+            # Only one test - show it directly
+            await send_test_to_user(message, student, tests[0])
+        else:
+            # Multiple tests - show selection keyboard
+            text = "Iltimos, test tanlang:"
+            await message.answer(
+                text,
+                reply_markup=get_test_selection_keyboard(tests)
+            )
+            await state.set_state(TestStates.selecting_test)
+
+
+# ==================== TEST SELECTION (5.1.5) ====================
+
+@router.callback_query(StateFilter(TestStates.selecting_test), F.data.startswith("test_select_"))
+async def handle_test_selection(callback: CallbackQuery, state: FSMContext):
+    """Handle test selection from multiple available tests."""
+    telegram_id = callback.from_user.id
+    student = await StudentService.get_student(telegram_id)
+    
+    if not student:
+        await callback.answer("❌ Xatolik yuz berdi!", show_alert=True)
         return
-
-    await send_test_to_user(message, student, test)
+    
+    # Extract test ID from callback data
+    try:
+        test_id = int(callback.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await callback.answer("❌ Xatolik yuz berdi!", show_alert=True)
+        return
+    
+    # Get the selected test
+    test = await TestService.get_test_by_id(test_id)
+    
+    if not test or not test.is_active:
+        await callback.answer("❌ Test topilmadi yoki faol emas!", show_alert=True)
+        return
+    
+    # Verify the test is available for this student's grade
+    if test.grade != student.grade:
+        await callback.answer("❌ Bu test sizning sinf darajangiz uchun emas!", show_alert=True)
+        return
+    
+    # Show the selected test
+    await callback.message.delete()
+    await send_test_to_user(callback.message, student, test)
+    await state.clear()
 
 
 # ==================== START CONFIRMATION (5.2) ====================
 
-@router.callback_query(F.data == "test_start")
+@router.callback_query(F.data.startswith("test_start"))
 async def handle_test_start(callback: CallbackQuery, state: FSMContext):
     """Handle test start button click."""
     telegram_id = callback.from_user.id
@@ -84,6 +137,14 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
     if not student or not student.grade:
         await callback.answer("❌ Avval ro'yxatdan o'ting!", show_alert=True)
         return
+
+    # Extract test_id from callback data if provided (e.g., "test_start_123")
+    test_id_from_callback = None
+    if callback.data.startswith("test_start_"):
+        try:
+            test_id_from_callback = int(callback.data.split("_")[-1])
+        except (ValueError, IndexError):
+            pass
 
     # Prefer assigned (PENDING) attempt from admin "send test"
     pending = await TestService.get_pending_attempt_for_student(student)
@@ -95,10 +156,22 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
             await callback.answer("⚠️ Sizda allaqachon davom etayotgan test bor!", show_alert=True)
             return
     else:
-        test = await TestService.get_active_test_for_grade(student.grade)
-        if not test:
-            await callback.answer("❌ Sizning sinfingiz uchun test topilmadi!", show_alert=True)
-            return
+        # If test_id is provided from callback, use it
+        if test_id_from_callback:
+            test = await TestService.get_test_by_id(test_id_from_callback)
+            if not test:
+                await callback.answer("❌ Test topilmadi!", show_alert=True)
+                return
+        else:
+            # Otherwise, get the first active test for the grade and language
+            tests = await TestService.get_active_tests_for_grade_and_language(
+                student.grade,
+                student.language
+            )
+            if not tests:
+                await callback.answer("❌ Sizning sinfingiz uchun test topilmadi!", show_alert=True)
+                return
+            test = tests[0]
 
         existing_attempt = await TestService.get_active_attempt_for_student(student, test)
         if existing_attempt and existing_attempt.status == 'IN_PROGRESS':
@@ -106,6 +179,22 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
             return
 
         attempt = await TestService.create_test_attempt(student, test)
+
+    # Check if test is within the valid time range
+    current_time = timezone.now()
+    if test.starts_at and current_time < test.starts_at:
+        await callback.answer(
+            "❌ Test hali boshlanmadi. Iltimos, keyinroq urinib ko'ring.",
+            show_alert=True
+        )
+        return
+    
+    if test.finish_at and current_time > test.finish_at:
+        await callback.answer(
+            "❌ Test vaqti tugab qolgan. Siz test boshlay olmaysiz.",
+            show_alert=True
+        )
+        return
 
     await state.update_data(attempt_id=attempt.id, test_id=test.id)
     await BotStateService.update_state_data(telegram_id, attempt_id=attempt.id, test_id=test.id)
@@ -121,6 +210,7 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(StateFilter(TestStates.waiting_for_start_confirmation), F.data == "test_confirm_start")
 async def confirm_test_start(callback: CallbackQuery, state: FSMContext):
     """Confirm test start."""
+    await callback.message.delete()
     telegram_id = callback.from_user.id
     data = await state.get_data()
     attempt_id = data.get('attempt_id')
@@ -187,12 +277,17 @@ async def show_question(message: Message, attempt: TestAttempt, question, questi
     
     # Build question text (plain text)
     text = f"Savol {question_number}/{total_questions}\n\n"
-    text += f"{question.text}\n\n"
     
+    # Add question text if it exists
+    if question.text:
+        text += f"{question.text}\n\n"
+    
+    # Add options (only if they exist)
     options = question.get_options_dict()
     for choice, option_text in options.items():
-        marker = "✅ " if current_answer == choice else ""
-        text += f"{marker}{choice}. {option_text}\n"
+        if option_text:  # Only include non-empty options
+            marker = "✅ " if current_answer == choice else ""
+            text += f"{marker}{choice}. {option_text}\n"
     
     # Add time remaining if started
     if attempt.started_at and attempt.expires_at:

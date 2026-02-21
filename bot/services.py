@@ -563,6 +563,15 @@ class TestService:
 
     @staticmethod
     @sync_to_async
+    def get_active_tests_for_grade_and_language(grade: int, language: str = None):
+        """Get all active tests for a grade, optionally filtered by language."""
+        query = Test.objects.filter(grade=grade, is_active=True)
+        if language:
+            query = query.filter(language=language)
+        return list(query.order_by('title'))
+
+    @staticmethod
+    @sync_to_async
     def get_pending_attempt_for_student(student):
         """Get a PENDING test attempt assigned to this student (e.g. from admin send)."""
         return (

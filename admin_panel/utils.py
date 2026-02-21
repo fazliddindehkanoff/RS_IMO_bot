@@ -66,6 +66,7 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
     test_grade_display = test.get_grade_display()
     test_duration = test.duration_minutes
     test_questions_count = test.get_questions_count()
+    test_id = test.id
 
     async def _send_message():
         bot = _get_bot()
@@ -77,7 +78,7 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
             f"<b>Savollar soni:</b> {test_questions_count}\n\n"
             "Testni boshlash uchun quyidagi <b>Boshlash</b> tugmasini bosing."
         )
-        reply_markup = get_start_test_keyboard() if with_start_button else None
+        reply_markup = get_start_test_keyboard(test_id=test_id) if with_start_button else None
         await bot.send_message(
             chat_id=telegram_id,
             text=message_text,

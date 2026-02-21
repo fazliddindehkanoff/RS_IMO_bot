@@ -902,7 +902,11 @@ async def callback_reg_participate_test(callback: CallbackQuery, state: FSMConte
     if pending:
         test = pending.test
     else:
-        test = await TestService.get_active_test_for_grade(student.grade)
+        tests = await TestService.get_active_tests_for_grade_and_language(student.grade, student.language)
+        if not tests:
+            await callback.message.answer("❌ Sizning sinfingiz uchun test hozircha mavjud emas.")
+            return
+        test = tests[0]
     if not test:
         await callback.message.answer("❌ Sizning sinfingiz uchun test hozircha mavjud emas.")
         return
@@ -2096,6 +2100,15 @@ async def handle_contest_participate_menu(message: Message, state: FSMContext):
 @router.message(F.text == "📝 1-bosqich testini yechish: 22-fevral")
 async def handle_test_from_menu(message: Message, state: FSMContext):
     """Handle test participation from main menu reply keyboard."""
+    # If today is earlier than 22 Feb of the current year, show informational message
+    today = datetime.now().date()
+    feb22 = datetime(today.year, 2, 22).date()
+    if today < feb22:
+        await message.answer(
+            "1-bosqich online testi shu botda 22-fevral kuni soat 14:00 da bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24"
+        )
+        return
+
     from bot.handlers.test import send_test_to_user
     telegram_id = message.from_user.id
     student = await StudentService.get_student(telegram_id)
@@ -2106,9 +2119,13 @@ async def handle_test_from_menu(message: Message, state: FSMContext):
     if pending:
         test = pending.test
     else:
-        test = await TestService.get_active_test_for_grade(student.grade)
+        tests = await TestService.get_active_tests_for_grade_and_language(student.grade, student.language)
+        if not tests:
+            await message.answer("1-bosqich online testi shu botda 22-fevral kuni soat 14:00 da bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24")
+            return
+        test = tests[0]
     if not test:
-        await message.answer("1-bosqich online testi shu botda 22-fevral kuni bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24")
+        await message.answer("1-bosqich online testi shu botda 22-fevral kuni soat 14:00 da bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24")
         return
     await send_test_to_user(message, student, test)
 

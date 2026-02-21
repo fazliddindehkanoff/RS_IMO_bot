@@ -226,10 +226,39 @@ def get_reg_success_keyboard() -> InlineKeyboardMarkup:
 
 # ==================== TEST KEYBOARDS ====================
 
-def get_start_test_keyboard() -> InlineKeyboardMarkup:
-    """Get start test button keyboard."""
+def get_start_test_keyboard(test_id: int = None) -> InlineKeyboardMarkup:
+    """Get start test button keyboard.
+    
+    Args:
+        test_id: Optional test ID to include in callback data
+    
+    Returns:
+        InlineKeyboardMarkup with start button
+    """
     builder = InlineKeyboardBuilder()
-    builder.button(text="🚀 Boshlash", callback_data="test_start")
+    if test_id:
+        builder.button(text="🚀 Boshlash", callback_data=f"test_start_{test_id}")
+    else:
+        builder.button(text="🚀 Boshlash", callback_data="test_start")
+    return builder.as_markup()
+
+
+def get_test_selection_keyboard(tests) -> InlineKeyboardMarkup:
+    """Get test selection keyboard for multiple available tests.
+    
+    Args:
+        tests: List of Test objects
+    
+    Returns:
+        InlineKeyboardMarkup with test selection buttons
+    """
+    builder = InlineKeyboardBuilder()
+    
+    for test in tests:
+        button_text = f"{test.title} ({test.duration_minutes} min)"
+        builder.button(text=button_text, callback_data=f"test_select_{test.id}")
+    
+    builder.adjust(1)
     return builder.as_markup()
 
 
