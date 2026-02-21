@@ -202,7 +202,7 @@ def get_main_menu_keyboard(other_grade: bool = False) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.button(text="🏆 Konkursda qatnashish")
     if not other_grade:
-        builder.button(text="📝 1-bosqich testini yechish: 22-fevral")
+        builder.button(text="📝 1-bosqich sinov testini yechish: 22-fevral")
     builder.button(text="✏️ Taklif va shikoyatlar")
     builder.button(text="🔥 Konkursdagi ballarim")
     builder.button(text="🏆 Reyting")

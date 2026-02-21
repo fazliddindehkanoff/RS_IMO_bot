@@ -2097,7 +2097,7 @@ async def handle_contest_participate_menu(message: Message, state: FSMContext):
     await _send_contest_promo_with_referral(message.bot, telegram_id, chat_id=message.chat.id)
 
 
-@router.message(F.text == "📝 1-bosqich testini yechish: 22-fevral")
+@router.message(F.text == "📝 1-bosqich sinov testini yechish: 22-fevral")
 async def handle_test_from_menu(message: Message, state: FSMContext):
     """Handle test participation from main menu reply keyboard."""
     # If today is earlier than 22 Feb of the current year, show informational message

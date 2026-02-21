@@ -693,16 +693,28 @@ class TestAdmin(ModelAdmin):
                     level=messages.ERROR
                 )
                 return
+        available_tests = Test.objects.filter(grade=test.grade, is_active=True) if test.grade is not None else None
+        available_languages = []
+        if available_tests is not None:
+            available_languages = sorted({t.language for t in available_tests if t.language})
+
         sent_count = 0
         skip_count = 0
         error_count = 0
 
         for student in students:
-            attempt_exists = TestAttempt.objects.filter(
-                test=test,
-                student=student,
-                status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
-            ).exists()
+            if available_languages and len(available_languages) > 1:
+                attempt_exists = TestAttempt.objects.filter(
+                    student=student,
+                    status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
+                    test__grade=test.grade,
+                ).exists()
+            else:
+                attempt_exists = TestAttempt.objects.filter(
+                    test=test,
+                    student=student,
+                    status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
+                ).exists()
 
             if attempt_exists:
                 skip_count += 1
@@ -710,14 +722,22 @@ class TestAdmin(ModelAdmin):
 
             attempt = None
             try:
-                attempt = TestAttempt.objects.create(
-                    student=student,
-                    test=test,
-                    status='PENDING',
-                    started_at=None,
-                    expires_at=None,
-                )
-                send_test_assignment_message(student.telegram_id, test, with_start_button=True)
+                if available_languages and len(available_languages) > 1:
+                    send_test_assignment_message(
+                        student.telegram_id,
+                        test,
+                        with_start_button=False,
+                        language_options=available_languages,
+                    )
+                else:
+                    attempt = TestAttempt.objects.create(
+                        student=student,
+                        test=test,
+                        status='PENDING',
+                        started_at=None,
+                        expires_at=None,
+                    )
+                    send_test_assignment_message(student.telegram_id, test, with_start_button=True)
                 sent_count += 1
                 
                 # Wait 1 second between messages to avoid rate limiting

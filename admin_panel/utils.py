@@ -50,7 +50,7 @@ def _get_bot():
     return _shared_bot
 
 
-def send_test_assignment_message(telegram_id: int, test, with_start_button: bool = False):
+def send_test_assignment_message(telegram_id: int, test, with_start_button: bool = False, language_options=None):
     """
     Send test assignment message to user via Telegram.
 
@@ -59,7 +59,8 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
         test: Test model instance
         with_start_button: If True, attach inline "Boshlash" button to start the test
     """
-    from bot.keyboards import get_start_test_keyboard
+    from bot.keyboards import get_start_test_keyboard, get_language_selection_keyboard
+    from admin_panel.models import Test
 
     # Pre-fetch all Django ORM data before entering async context
     test_title = test.title
@@ -70,15 +71,27 @@ def send_test_assignment_message(telegram_id: int, test, with_start_button: bool
 
     async def _send_message():
         bot = _get_bot()
-        message_text = (
-            f"📝 <b>Yangi test yuborildi!</b>\n\n"
-            f"<b>Test:</b> {test_title}\n"
-            f"<b>Sinf:</b> {test_grade_display}\n"
-            f"<b>Davomiyligi:</b> {test_duration} daqiqa\n"
-            f"<b>Savollar soni:</b> {test_questions_count}\n\n"
-            "Testni boshlash uchun quyidagi <b>Boshlash</b> tugmasini bosing."
-        )
-        reply_markup = get_start_test_keyboard(test_id=test_id) if with_start_button else None
+        if language_options:
+            language_labels = dict(Test.LANGUAGE_CHOICES)
+            message_text = (
+                f"📝 <b>Yangi test yuborildi!</b>\n\n"
+                f"<b>Test:</b> {test_title}\n"
+                f"<b>Sinf:</b> {test_grade_display}\n"
+                f"<b>Davomiyligi:</b> {test_duration} daqiqa\n"
+                f"<b>Savollar soni:</b> {test_questions_count}\n\n"
+                "Iltimos, test tilini tanlang."
+            )
+            reply_markup = get_language_selection_keyboard(language_options, language_labels)
+        else:
+            message_text = (
+                f"📝 <b>Yangi test yuborildi!</b>\n\n"
+                f"<b>Test:</b> {test_title}\n"
+                f"<b>Sinf:</b> {test_grade_display}\n"
+                f"<b>Davomiyligi:</b> {test_duration} daqiqa\n"
+                f"<b>Savollar soni:</b> {test_questions_count}\n\n"
+                "Testni boshlash uchun quyidagi <b>Boshlash</b> tugmasini bosing."
+            )
+            reply_markup = get_start_test_keyboard(test_id=test_id) if with_start_button else None
         await bot.send_message(
             chat_id=telegram_id,
             text=message_text,

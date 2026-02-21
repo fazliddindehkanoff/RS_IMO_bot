@@ -102,7 +102,7 @@ async def handle_imtihonlar(message: Message, state: FSMContext):
 
 # ==================== TEST SELECTION (5.1.5) ====================
 
-@router.callback_query(StateFilter(TestStates.selecting_language), F.data.startswith("test_lang_"))
+@router.callback_query(F.data.startswith("test_lang_"))
 async def handle_test_language_selection(callback: CallbackQuery, state: FSMContext):
     """Handle test language selection."""
     telegram_id = callback.from_user.id
@@ -826,13 +826,9 @@ async def confirm_final_submit(callback: CallbackQuery, state: FSMContext):
     
     attempt = await TestService.submit_final(attempt_id)
     
-    # Get results link (you'll need to implement this based on your requirements)
-    results_link = "https://example.com/results"  # TODO: Replace with actual link
-    results_date = "2026-01-25"  # TODO: Replace with actual date
-    
     text = (
-        f"🎉 Tabriklaymiz, test topshirildi.\n\n"
-        f"Natijalar {results_link}da {results_date} e'lon qilinadi."
+        "<b>🎉 Tabriklaymiz, testni muvaffaqiyatli yakunladingiz!</b>\n\n"
+        "🏆 Kanalimizda umumiy natijalarni tez kunda e’lon qilamiz, kuzatishda davom eting:\n\n@rs_olimpiada"
     )
     
     await callback.message.edit_text(text, reply_markup=get_test_completion_keyboard())
