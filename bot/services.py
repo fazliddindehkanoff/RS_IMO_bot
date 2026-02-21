@@ -897,10 +897,15 @@ class BroadcastService:
         if broadcast.target_grade_7: grade_filters.append(7)
         if broadcast.target_grade_8: grade_filters.append(8)
         target_not_fully_registered = getattr(broadcast, 'target_not_fully_registered', False)
+        target_all_users = getattr(broadcast, 'target_all_users', False)
 
         def _get_broadcast_students():
             base = Student.objects.filter(is_active=True)
             target_registration_steps = getattr(broadcast, 'target_registration_steps', None) or []
+
+            # If "broadcast to all users" is checked, return all active students
+            if target_all_users:
+                return list(base)
 
             if grade_filters:
                 base = base.filter(grade__in=grade_filters)

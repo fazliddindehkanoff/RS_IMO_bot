@@ -993,6 +993,11 @@ class BroadcastMessage(models.Model):
         ('failed', 'Xatolik'),
     ]
 
+    target_all_users = models.BooleanField(
+        default=False,
+        verbose_name="Barcha foydalanuvchilarga",
+        help_text="Belgilanganda xabar barcha faol foydalanuvchilarga yuboriladi (boshqa filtrlar hisobga olinmaydi).",
+    )
     target_grade_5 = models.BooleanField(default=False, verbose_name="5-sinf")
     target_grade_6 = models.BooleanField(default=False, verbose_name="6-sinf")
     target_grade_7 = models.BooleanField(default=False, verbose_name="7-sinf")
