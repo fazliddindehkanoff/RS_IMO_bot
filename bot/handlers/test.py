@@ -131,7 +131,6 @@ async def handle_test_selection(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("test_start"))
 async def handle_test_start(callback: CallbackQuery, state: FSMContext):
     """Handle test start button click."""
-    await callback.message.delete()
     telegram_id = callback.from_user.id
     student = await StudentService.get_student(telegram_id)
 
@@ -200,10 +199,18 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
     await state.update_data(attempt_id=attempt.id, test_id=test.id)
     await BotStateService.update_state_data(telegram_id, attempt_id=attempt.id, test_id=test.id)
 
-    await callback.message.edit_text(
-        "Testni boshlashni tasdiqlaysizmi?",
-        reply_markup=get_start_confirmation_keyboard()
-    )
+    try:
+        await callback.message.edit_text(
+            "Testni boshlashni tasdiqlaysizmi?",
+            reply_markup=get_start_confirmation_keyboard()
+        )
+    except Exception:
+        # If message can't be edited (e.g., already deleted), send a new message
+        await callback.message.answer(
+            "Testni boshlashni tasdiqlaysizmi?",
+            reply_markup=get_start_confirmation_keyboard()
+        )
+    
     await callback.answer()
     await state.set_state(TestStates.waiting_for_start_confirmation)
 
