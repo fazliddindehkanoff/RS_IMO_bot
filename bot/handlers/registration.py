@@ -723,6 +723,14 @@ async def cmd_start(message: Message, state: FSMContext):
     # No registration state to resume: show video then decide by student data
     await _send_welcome_video_if_exists(message)
 
+    # Check if user has phone number - if not, restart Stage 1 registration
+    if not student.phone_number or not student.phone_number.strip():
+        # No phone number - start from beginning (Stage 1: Name -> Phone -> Owner)
+        await message.answer(GREETING_MESSAGE)
+        await state.set_state(RegistrationStates.waiting_for_initial_full_name)
+        await BotStateService.set_state(telegram_id, "waiting_for_initial_full_name")
+        return
+
     if student.registered_from_web or (student.first_name and student.last_name and student.date_of_birth and student.document_number):
         # Student already registered (via Web App or full 17-step flow)
         display_name = student.first_name or student.initial_full_name or ""

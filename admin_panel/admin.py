@@ -7,7 +7,7 @@ import threading
 from django import forms
 from django.contrib import admin
 from django.contrib import messages
-from django.db.models import Q, Max, F, FloatField, OuterRef, Subquery, Window
+from django.db.models import Q, Max, F, FloatField, OuterRef, Subquery, Window, Count
 from django.db.models.functions import Coalesce, RowNumber
 from django.http import HttpResponse
 from django.utils import timezone
@@ -491,7 +491,7 @@ class StudentAdmin(ModelAdmin):
 @admin.register(StudentRating)
 class StudentRatingAdmin(ModelAdmin):
     """Admin for referral leaderboard: list only, no add/change/delete/view."""
-    list_display = ['rank', 'first_name', 'last_name', 'telegram_id', 'referral_points']
+    list_display = ['rank', 'first_name', 'last_name', 'telegram_id', 'referral_points', 'completed_referrals_display', 'total_referred_display']
     list_display_links = []  # no link to detail view
     ordering = ['-referral_points', '-created_at']
     search_fields = ['first_name', 'last_name', 'telegram_id']
@@ -514,13 +514,38 @@ class StudentRatingAdmin(ModelAdmin):
                         F('referral_points').desc(),
                         F('last_referral_at').asc(),
                     ]
-                )
+                ),
+                total_referred_count=Count('referred_students', distinct=True)
             )
         )
+    
+    def get_completed_referrals_count(self, obj):
+        """Count referred students who completed registration (have all required fields)."""
+        return obj.referred_students.filter(
+            is_active=True,
+            first_name__gt='',
+            last_name__isnull=False,
+        ).exclude(
+            last_name=''
+        ).filter(
+            phone_number__isnull=False,
+            phone_number__gt='',
+            grade__isnull=False,
+            document_number__isnull=False,
+            document_number__gt='',
+        ).count()
 
     @display(description='#')
     def rank(self, obj):
         return getattr(obj, 'computed_rank', '')
+
+    @display(description="To'liq ro'yxatdan o'tganlar")
+    def completed_referrals_display(self, obj):
+        return self.get_completed_referrals_count(obj)
+
+    @display(description="Jami taklif qilinganlar")
+    def total_referred_display(self, obj):
+        return getattr(obj, 'total_referred_count', 0)
 
     def has_add_permission(self, request):
         return False

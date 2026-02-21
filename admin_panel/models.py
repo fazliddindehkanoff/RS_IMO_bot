@@ -694,6 +694,8 @@ class TestQuestion(models.Model):
     )
     text = models.TextField(
         verbose_name="Savol matni",
+        blank=True,
+        null=True,
     )
     image = models.ImageField(
         upload_to='questions/',
@@ -705,18 +707,26 @@ class TestQuestion(models.Model):
     option_a = models.CharField(
         max_length=500,
         verbose_name="Variant A",
+        blank=True,
+        null=True,
     )
     option_b = models.CharField(
         max_length=500,
         verbose_name="Variant B",
+        blank=True,
+        null=True,
     )
     option_c = models.CharField(
         max_length=500,
         verbose_name="Variant C",
+        blank=True,
+        null=True,
     )
     option_d = models.CharField(
         max_length=500,
         verbose_name="Variant D",
+        blank=True,
+        null=True,
     )
     correct_answer = models.CharField(
         max_length=1,
