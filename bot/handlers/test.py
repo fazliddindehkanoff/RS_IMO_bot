@@ -725,7 +725,6 @@ async def back_from_no_answer(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(StateFilter(TestStates.answering_question), F.data == "test_finish")
 async def handle_finish(callback: CallbackQuery, state: FSMContext):
     """Handle finish button (last question)."""
-    await callback.message.delete()
     # Check time limit first
     if not await check_time_limit_before_action(callback, state):
         return
@@ -748,13 +747,26 @@ async def handle_finish(callback: CallbackQuery, state: FSMContext):
     existing_answer = await TestService.get_answer(attempt, current_question)
     
     if not existing_answer or not existing_answer.answer_choice:
-        # No answer selected - show confirmation
-        await callback.message.edit_text(
-            "Javob tanlanmadi. Davom etamizmi?",
-            reply_markup=get_no_answer_confirmation_keyboard()
-        )
+        # No answer selected - show confirmation via edit
+        try:
+            await callback.message.edit_text(
+                "Javob tanlanmadi. Davom etamizmi?",
+                reply_markup=get_no_answer_confirmation_keyboard()
+            )
+        except Exception:
+            # If edit fails, send new message
+            await callback.message.answer(
+                "Javob tanlanmadi. Davom etamizmi?",
+                reply_markup=get_no_answer_confirmation_keyboard()
+            )
         await callback.answer()
         return
+    
+    # Delete the question message before showing review
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
     
     # Finish review
     await TestService.finish_review(attempt_id)
