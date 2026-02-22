@@ -5,7 +5,7 @@ from typing import Optional
 from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from django.utils import timezone
 from datetime import timedelta
 
@@ -373,15 +373,24 @@ async def show_question(message: Message, attempt: TestAttempt, question, questi
         message_has_photo = callback.message.photo is not None and len(callback.message.photo) > 0
 
         if message_has_photo and has_image:
-            # Both photo: edit caption
+            # Both photo: edit media to update the actual photo
             try:
-                await callback.message.edit_caption(
+                media = InputMediaPhoto(
+                    media=FSInputFile(question.image.path),
                     caption=text,
+                    parse_mode="HTML" if "<" in text else None
+                )
+                await callback.message.edit_media(
+                    media=media,
                     reply_markup=keyboard,
                 )
-            except Exception:
-                # Fallback: send new photo
+            except Exception as e:
+                # Fallback: send new photo if edit_media fails
                 from exam_bot_admin.webhook import bot
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
                 photo_file = FSInputFile(question.image.path)
                 await bot.send_photo(
                     chat_id=message.chat.id,
@@ -399,8 +408,13 @@ async def show_question(message: Message, attempt: TestAttempt, question, questi
             except Exception:
                 await message.answer(text, reply_markup=keyboard)
         else:
-            # Type switch (photo↔text): send new message
+            # Type switch (photo↔text): delete old and send new message
             from exam_bot_admin.webhook import bot
+            try:
+                await callback.message.delete()
+            except Exception:
+                pass
+            
             if has_image:
                 photo_file = FSInputFile(question.image.path)
                 await bot.send_photo(
