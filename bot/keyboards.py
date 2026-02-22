@@ -345,7 +345,7 @@ def get_review_keyboard() -> InlineKeyboardMarkup:
     """Get review page keyboard."""
     builder = InlineKeyboardBuilder()
     builder.button(text="✏️ Javoblarni tahrirlash", callback_data="test_edit_answers")
-    builder.button(text="✅ Yakuniy topshirish", callback_data="test_submit_final")
+    builder.button(text="✅ Testni topshirish", callback_data="test_submit_final")
     builder.adjust(1)
     return builder.as_markup()
 
@@ -374,7 +374,7 @@ def get_question_list_keyboard(questions: list, current_question_num: int = None
 def get_final_submission_keyboard() -> InlineKeyboardMarkup:
     """Get final submission confirmation keyboard."""
     builder = InlineKeyboardBuilder()
-    builder.button(text="✅ Ha, yakuniy topshiraman", callback_data="test_confirm_submit")
+    builder.button(text="✅ Ha, tasdiqlayman", callback_data="test_confirm_submit")
     builder.button(text="⬅️ Qaytish", callback_data="test_back_from_submit")
     builder.adjust(1)
     return builder.as_markup()

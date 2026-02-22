@@ -789,7 +789,7 @@ async def show_review_page(message: Message, attempt: TestAttempt):
     # Create answer map
     answer_map = {a.question.id: a for a in answers}
     
-    text = "<b>📋 Tekshiruv sahifasi</b>\n\n"
+    text = "<b>📋 Siz bergan javoblar</b>\n\n"
     
     for question in questions:
         answer = answer_map.get(question.id)
@@ -819,7 +819,7 @@ async def handle_edit_answers(callback: CallbackQuery, state: FSMContext):
         question.answer_choice = answer.answer_choice if answer and answer.answer_choice else None
     
     await callback.message.edit_text(
-        "Qaysi savolni tahrirlamoqchisiz?",
+        "Qaysi javobingizni tahrirlamoqchisiz?",
         reply_markup=get_question_list_keyboard(questions)
     )
     await callback.answer()
@@ -829,6 +829,10 @@ async def handle_edit_answers(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(StateFilter(TestStates.editing_answer), F.data.startswith("test_edit_q_"))
 async def handle_edit_question(callback: CallbackQuery, state: FSMContext):
     """Handle question selection for editing."""
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
     question_number = int(callback.data.split("_")[-1])
     telegram_id = callback.from_user.id
     data = await state.get_data()
@@ -877,7 +881,7 @@ async def back_to_review(callback: CallbackQuery, state: FSMContext):
 async def handle_submit_final(callback: CallbackQuery, state: FSMContext):
     """Handle final submission button."""
     await callback.message.edit_text(
-        "Yakuniy topshirsangiz, javoblar o'zgarmaydi. Tasdiqlaysizmi?",
+        "Testni topshirsangiz, javoblar o'zgarmaydi. Tasdiqlaysizmi?",
         reply_markup=get_final_submission_keyboard()
     )
     await callback.answer()
@@ -908,6 +912,10 @@ async def confirm_final_submit(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(StateFilter(TestStates.waiting_for_final_submission), F.data == "test_back_from_submit")
 async def back_from_submit(callback: CallbackQuery, state: FSMContext):
     """Go back from final submission confirmation."""
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
     telegram_id = callback.from_user.id
     data = await state.get_data()
     attempt_id = data.get('attempt_id')
