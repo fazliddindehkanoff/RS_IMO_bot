@@ -24,6 +24,18 @@ from bot.constants import SUCCESS_MESSAGE, OTHER_GRADE_SUCCESS_MESSAGE, PROMO_AF
 logger = logging.getLogger(__name__)
 
 
+def _normalize_phone(raw_phone: str) -> str:
+    """Normalize phone input to digits with optional leading +."""
+    if not raw_phone:
+        return ""
+    raw_phone = raw_phone.strip()
+    prefix = "+" if raw_phone.startswith("+") else ""
+    digits = "".join(ch for ch in raw_phone if ch.isdigit())
+    if not digits:
+        return ""
+    return f"{prefix}{digits}" if prefix else digits
+
+
 def validate_telegram_init_data(init_data: str, bot_token: str, max_age_seconds: int = 86400) -> dict | None:
     """Validate Telegram WebApp initData using HMAC-SHA256.
     Returns the parsed data dict (with 'user' as a parsed JSON object) on success, None on failure.
@@ -132,8 +144,8 @@ def _save_reg_app_data(telegram_id: int, username: str, data: dict) -> str | Non
     """Save Web App form data to DB. Returns None on success, error message on failure."""
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
-    phone_number = (data.get("phone_number") or "").strip()
-    if len(first_name) < 2 or len(last_name) < 2 or len(phone_number) < 9:
+    phone_number = _normalize_phone((data.get("phone_number") or ""))
+    if len(first_name) < 2 or len(last_name) < 2 or len(phone_number) < 9 or len(phone_number) > 20:
         return "invalid_data"
     region = (data.get("region") or "").strip() or None
     district = (data.get("district") or "").strip() or None
@@ -153,9 +165,13 @@ def _save_reg_app_data(telegram_id: int, username: str, data: dict) -> str | Non
     document_number = (data.get("document_number") or "").strip()
     document_number = document_number.upper() if document_number else None
     guardian_name = (data.get("guardian_name") or "").strip() or None
-    guardian_phone = (data.get("guardian_phone") or "").strip() or None
+    guardian_phone = _normalize_phone((data.get("guardian_phone") or "")) or None
+    if guardian_phone and len(guardian_phone) > 20:
+        guardian_phone = None
     teacher_name = (data.get("teacher_name") or "").strip() or None
-    teacher_phone = (data.get("teacher_phone") or "").strip() or None
+    teacher_phone = _normalize_phone((data.get("teacher_phone") or "")) or None
+    if teacher_phone and len(teacher_phone) > 20:
+        teacher_phone = None
 
     try:
         with transaction.atomic():

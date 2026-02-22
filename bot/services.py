@@ -93,6 +93,17 @@ class StudentService:
 
     @staticmethod
     @sync_to_async
+    def get_student_by_document_number(document_number: str):
+        """Get student by document number (if provided)."""
+        if not document_number:
+            return None
+        try:
+            return Student.objects.get(document_number=document_number)
+        except Student.DoesNotExist:
+            return None
+
+    @staticmethod
+    @sync_to_async
     def update_student_webapp(telegram_id: int, username: Optional[str], first_name: str, last_name: str,
                              phone_number: str, region: Optional[str] = None, district: Optional[str] = None,
                              grade: Optional[int] = None, school_name: Optional[str] = None,

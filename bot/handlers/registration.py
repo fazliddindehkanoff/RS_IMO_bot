@@ -7,6 +7,7 @@ from pathlib import Path
 
 from aiogram import Router, F
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
@@ -107,6 +108,32 @@ def _build_channel_keyboard(missing_channels):
         keyboard.append([InlineKeyboardButton(text=f"📢 {ch.title}", url=link)])
     keyboard.append([InlineKeyboardButton(text="✅ Obunani tekshirish", callback_data="check_subs")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def _normalize_phone(raw_phone: str) -> str:
+    """Normalize phone input to digits with optional leading +."""
+    if not raw_phone:
+        return ""
+    raw_phone = raw_phone.strip()
+    prefix = "+" if raw_phone.startswith("+") else ""
+    digits = "".join(ch for ch in raw_phone if ch.isdigit())
+    if not digits:
+        return ""
+    return f"{prefix}{digits}" if prefix else digits
+
+
+async def _safe_delete_message(message: Message | None, context: str = "") -> bool:
+    """Delete a message, ignoring Telegram delete errors."""
+    if not message:
+        return False
+    try:
+        await message.delete()
+        return True
+    except TelegramBadRequest as exc:
+        logger.info("Skipping delete for %s: %s", context or "message", exc)
+    except Exception as exc:
+        logger.warning("Failed to delete %s: %s", context or "message", exc)
+    return False
 
 
 # All registration state names stored in BotStateService (used for /start resume)
@@ -516,7 +543,7 @@ async def process_back_callback(callback: CallbackQuery, state: FSMContext):
     data = await _get_state_data(telegram_id)
     
     if current_state == RegistrationStates.waiting_for_phone_owner:
-        await callback.message.delete()
+        await _safe_delete_message(callback.message, "check_subs")
         await callback.message.answer(STEP_INITIAL_PHONE, reply_markup=get_phone_keyboard())
         await state.set_state(RegistrationStates.waiting_for_initial_phone)
         
@@ -615,7 +642,7 @@ async def check_subs(callback: CallbackQuery, state: FSMContext):
             await callback.message.answer(CHECK_SUBS_SUCCESS)
         return
 
-    await callback.message.delete()
+    await _safe_delete_message(callback.message, "phone_owner")
     await callback.message.answer(CHECK_SUBS_SUCCESS)
     await callback.answer(CHECK_SUBS_CONFIRMED_ANSWER)
 
@@ -770,7 +797,7 @@ async def handle_reg_webapp_data(message: Message, state: FSMContext):
 
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
-    phone_number = (data.get("phone_number") or "").strip()
+    phone_number = _normalize_phone((data.get("phone_number") or ""))
     region = (data.get("region") or "").strip() or None
     district = (data.get("district") or "").strip() or None
     grade_raw = data.get("grade")
@@ -785,9 +812,13 @@ async def handle_reg_webapp_data(message: Message, state: FSMContext):
     school_name = (data.get("school_name") or "").strip() or None
     document_number = (data.get("document_number") or "").strip() or None
     guardian_name = (data.get("guardian_name") or "").strip() or None
-    guardian_phone = (data.get("guardian_phone") or "").strip() or None
+    guardian_phone = _normalize_phone((data.get("guardian_phone") or "")) or None
+    if guardian_phone and len(guardian_phone) > 20:
+        guardian_phone = None
     teacher_name = (data.get("teacher_name") or "").strip() or None
-    teacher_phone = (data.get("teacher_phone") or "").strip() or None
+    teacher_phone = _normalize_phone((data.get("teacher_phone") or "")) or None
+    if teacher_phone and len(teacher_phone) > 20:
+        teacher_phone = None
 
     if len(first_name) < 2:
         await message.answer(ERROR_NAME_LENGTH)
@@ -795,7 +826,7 @@ async def handle_reg_webapp_data(message: Message, state: FSMContext):
     if len(last_name) < 2:
         await message.answer(ERROR_SURNAME_LENGTH)
         return
-    if not phone_number or len(phone_number) < 9:
+    if not phone_number or len(phone_number) < 9 or len(phone_number) > 20:
         await message.answer(ERROR_INVALID_PHONE_UZB)
         return
 
@@ -819,6 +850,15 @@ async def handle_reg_webapp_data(message: Message, state: FSMContext):
     if not student:
         await message.answer("Xatolik: ro'yxatdan o'tishda muammo. Qaytadan urinib ko'ring.")
         return
+
+    if document_number:
+        existing = await StudentService.get_student_by_document_number(document_number.upper())
+        if existing and existing.telegram_id != telegram_id:
+            await message.answer(
+                "❌ Bu Metrika raqami boshqa foydalanuvchi ro'yxatida mavjud. "
+                "Iltimos, to'g'ri raqam kiriting yoki bo'sh qoldiring."
+            )
+            return
 
     try:
         await StudentService.update_student_webapp(
@@ -952,9 +992,10 @@ async def process_initial_phone(message: Message, state: FSMContext):
     elif message.text:
         phone = message.text.strip()
     
-    if not phone or len(phone) < 9:
-         await message.answer(ERROR_INVALID_PHONE_UZB)
-         return
+    phone = _normalize_phone(phone or "")
+    if not phone or len(phone) < 9 or len(phone) > 20:
+        await message.answer(ERROR_INVALID_PHONE_UZB)
+        return
 
     telegram_id = message.from_user.id
 
@@ -980,7 +1021,7 @@ async def process_phone_owner(callback: CallbackQuery, state: FSMContext):
         return
 
     # Delete message
-    await callback.message.delete()
+    await _safe_delete_message(callback.message, "check_subs")
 
     owner_type = callback.data.replace('phone_owner_', '') # self/spouse/other
     
@@ -1258,10 +1299,24 @@ async def process_document_number(message: Message, state: FSMContext):
         await message.answer("Iltimos, tug'ilganlik haqidagi guvohnoma raqamini kiriting.")
         return
     
-    document_number = message.text.strip()
-    
+    document_number = message.text.strip().upper()
+
     telegram_id = message.from_user.id
-    await StudentService.update_student(telegram_id, document_number=document_number)
+    existing = await StudentService.get_student_by_document_number(document_number)
+    if existing and existing.telegram_id != telegram_id:
+        await message.answer(
+            "❌ Bu Metrika raqami boshqa foydalanuvchi ro'yxatida mavjud. "
+            "Iltimos, to'g'ri raqam kiriting."
+        )
+        return
+    try:
+        await StudentService.update_student(telegram_id, document_number=document_number)
+    except IntegrityError:
+        await message.answer(
+            "❌ Bu Metrika raqami boshqa foydalanuvchi ro'yxatida mavjud. "
+            "Iltimos, to'g'ri raqam kiriting."
+        )
+        return
     await BotStateService.update_state_data(telegram_id, document_number=document_number)
     
     await message.answer(
