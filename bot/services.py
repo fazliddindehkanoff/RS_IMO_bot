@@ -587,6 +587,17 @@ class TestService:
     
     @staticmethod
     @sync_to_async
+    def check_student_has_active_or_submitted_test(student, grade: int):
+        """Check if student has any IN_PROGRESS or SUBMITTED_FINAL attempts for tests with this grade."""
+        attempt = TestAttempt.objects.filter(
+            student=student,
+            test__grade=grade,
+            status__in=['IN_PROGRESS', 'FINISHED_REVIEW', 'SUBMITTED_FINAL']
+        ).select_related('test').first()
+        return attempt
+    
+    @staticmethod
+    @sync_to_async
     def get_test_by_id(test_id: int):
         """Get test by ID."""
         try:
@@ -627,7 +638,7 @@ class TestService:
     def start_test_attempt(attempt_id: int):
         """Start the test attempt (set started_at and expires_at)."""
         with transaction.atomic():
-            attempt = TestAttempt.objects.get(id=attempt_id)
+            attempt = TestAttempt.objects.select_related('test', 'student').get(id=attempt_id)
             if attempt.status == 'PENDING':
                 started_at = timezone.now()
                 expires_at = started_at + timedelta(minutes=attempt.test.duration_minutes)
@@ -710,7 +721,7 @@ class TestService:
     def finish_review(attempt_id: int):
         """Mark attempt as finished review."""
         with transaction.atomic():
-            attempt = TestAttempt.objects.get(id=attempt_id)
+            attempt = TestAttempt.objects.select_related('test', 'student').get(id=attempt_id)
             attempt.status = 'FINISHED_REVIEW'
             attempt.save()
             return attempt
@@ -720,7 +731,7 @@ class TestService:
     def submit_final(attempt_id: int):
         """Submit test attempt and calculate score."""
         with transaction.atomic():
-            attempt = TestAttempt.objects.select_related('test').get(id=attempt_id)
+            attempt = TestAttempt.objects.select_related('test', 'student').get(id=attempt_id)
             
             # Get all answers
             answers = TestAnswer.objects.filter(attempt=attempt).select_related('question')
@@ -762,7 +773,7 @@ class TestService:
     def expire_attempt(attempt_id: int, auto_submit: bool = False):
         """Expire an attempt, optionally auto-submitting."""
         with transaction.atomic():
-            attempt = TestAttempt.objects.get(id=attempt_id)
+            attempt = TestAttempt.objects.select_related('test', 'student').get(id=attempt_id)
             
             if auto_submit:
                 # Auto-submit with current answers

@@ -64,9 +64,39 @@ async def handle_imtihonlar(message: Message, state: FSMContext):
 
     pending = await TestService.get_pending_attempt_for_student(student)
     if pending:
+        # Check if already submitted
+        if pending.status == 'SUBMITTED_FINAL':
+            await message.answer(
+                "✅ Siz allaqachon bu testni topshirgansiz.\n\n"
+                "🏆 Kanalimizda umumiy natijalarni tez kunda e'lon qilamiz, kuzatishda davom eting:\n\n@rs_olimpiada"
+            )
+            return
+        # Check if in progress
+        if pending.status == 'IN_PROGRESS':
+            await message.answer(
+                "⚠️ Sizda allaqachon davom etayotgan test bor!\n\n"
+                "Testni davom ettirish uchun /start buyrug'ini yuboring."
+            )
+            return
         test = pending.test
         await send_test_to_user(message, student, test)
     else:
+        # Check if student has any active or submitted test for their grade
+        existing_attempt = await TestService.check_student_has_active_or_submitted_test(student, student.grade)
+        if existing_attempt:
+            if existing_attempt.status == 'SUBMITTED_FINAL':
+                await message.answer(
+                    "✅ Siz allaqachon bu testni topshirgansiz.\n\n"
+                    "🏆 Kanalimizda umumiy natijalarni tez kunda e'lon qilamiz, kuzatishda davom eting:\n\n@rs_olimpiada"
+                )
+                return
+            if existing_attempt.status in ['IN_PROGRESS', 'FINISHED_REVIEW']:
+                await message.answer(
+                    "⚠️ Sizda allaqachon davom etayotgan test bor!\n\n"
+                    "Testni davom ettirish uchun /start buyrug'ini yuboring."
+                )
+                return
+        
         # Get all active tests for grade (language selection handled below)
         tests = await TestService.get_active_tests_for_grade_and_language(
             student.grade,
