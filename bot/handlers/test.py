@@ -517,19 +517,13 @@ async def handle_next_question(callback: CallbackQuery, state: FSMContext):
     questions = await TestService.get_questions_for_test(attempt.test)
     total_questions = len(questions)
     
-    # Check if answer exists
+    # Check if answer exists for current question
     current_question = questions[current_question_num - 1]
     existing_answer = await TestService.get_answer(attempt, current_question)
     
+    # If no answer selected, show warning but continue
     if not existing_answer or not existing_answer.answer_choice:
-        # No answer selected - show confirmation
-        await state.update_data(nav_direction='next')
-        await callback.message.edit_text(
-            "Javob tanlanmadi. Davom etamizmi?",
-            reply_markup=get_no_answer_confirmation_keyboard()
-        )
-        await callback.answer()
-        return
+        await callback.answer("⚠️ Bu savol javobsiz qoldi", show_alert=True)
     
     # Move to next question
     next_question_num = current_question_num + 1
@@ -584,15 +578,9 @@ async def handle_prev_question(callback: CallbackQuery, state: FSMContext):
     current_question = questions[current_question_num - 1]
     existing_answer = await TestService.get_answer(attempt, current_question)
     
+    # If no answer selected, show warning but continue
     if not existing_answer or not existing_answer.answer_choice:
-        # No answer selected - show confirmation
-        await state.update_data(nav_direction='prev')
-        await callback.message.edit_text(
-            "Javob tanlanmadi. Davom etamizmi?",
-            reply_markup=get_no_answer_confirmation_keyboard()
-        )
-        await callback.answer()
-        return
+        await callback.answer("⚠️ Bu savol javobsiz qoldi", show_alert=True)
     
     # Move to previous question
     prev_question_num = current_question_num - 1
@@ -781,7 +769,6 @@ async def handle_edit_answers(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(StateFilter(TestStates.editing_answer), F.data.startswith("test_edit_q_"))
 async def handle_edit_question(callback: CallbackQuery, state: FSMContext):
     """Handle question selection for editing."""
-    await callback.message.delete()
     question_number = int(callback.data.split("_")[-1])
     telegram_id = callback.from_user.id
     data = await state.get_data()
@@ -796,8 +783,14 @@ async def handle_edit_question(callback: CallbackQuery, state: FSMContext):
     await state.update_data(current_question=question_number)
     await BotStateService.update_state_data(telegram_id, current_question=question_number)
     
-    # Show question for editing (edit review message)
-    await show_question(callback.message, attempt, question, question_number, total_questions, callback=callback)
+    # Delete the question list message and send the question
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    
+    # Show question for editing (send as new message, not edit)
+    await show_question(callback.message, attempt, question, question_number, total_questions, callback=None)
     
     await callback.answer()
     await state.set_state(TestStates.answering_question)
