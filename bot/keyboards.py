@@ -295,7 +295,7 @@ def get_start_confirmation_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def get_answer_keyboard(question_number: int, total_questions: int, has_previous: bool = False, has_next: bool = True, current_answer: str = None) -> InlineKeyboardMarkup:
+def get_answer_keyboard(question_number: int, total_questions: int, has_previous: bool = False, has_next: bool = True, current_answer: str = None, show_finish: bool = False) -> InlineKeyboardMarkup:
     """Get answer selection keyboard with navigation."""
     builder = InlineKeyboardBuilder()
     
@@ -320,8 +320,9 @@ def get_answer_keyboard(question_number: int, total_questions: int, has_previous
         nav_builder.button(text="⬅️ Ortga", callback_data="test_prev")
     if has_next:
         nav_builder.button(text="Keyingi ➡️", callback_data="test_next")
-    else:
-        # Last question - show finish button
+    
+    # Show finish button if it's the last question OR if all questions are answered (when editing)
+    if not has_next or show_finish:
         nav_builder.button(text="✅ Yakunlash", callback_data="test_finish")
     
     nav_builder.adjust(2)

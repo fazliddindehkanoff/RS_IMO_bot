@@ -205,6 +205,13 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
     if pending:
         test = pending.test
         attempt = pending
+        # Check if already submitted
+        if attempt.status == 'SUBMITTED_FINAL':
+            await callback.answer(
+                "✅ Siz allaqachon bu testni topshirgansiz. Natijalarni tez orada e'lon qilamiz!",
+                show_alert=True
+            )
+            return
         # Check not already in progress
         if attempt.status == 'IN_PROGRESS':
             await callback.answer("⚠️ Sizda allaqachon davom etayotgan test bor!", show_alert=True)
@@ -228,9 +235,16 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
             test = tests[0]
 
         existing_attempt = await TestService.get_active_attempt_for_student(student, test)
-        if existing_attempt and existing_attempt.status == 'IN_PROGRESS':
-            await callback.answer("⚠️ Sizda allaqachon davom etayotgan test bor!", show_alert=True)
-            return
+        if existing_attempt:
+            if existing_attempt.status == 'SUBMITTED_FINAL':
+                await callback.answer(
+                    "✅ Siz allaqachon bu testni topshirgansiz. Natijalarni tez orada e'lon qilamiz!",
+                    show_alert=True
+                )
+                return
+            if existing_attempt.status == 'IN_PROGRESS':
+                await callback.answer("⚠️ Sizda allaqachon davom etayotgan test bor!", show_alert=True)
+                return
 
         attempt = await TestService.create_test_attempt(student, test)
 
@@ -337,6 +351,10 @@ async def show_question(message: Message, attempt: TestAttempt, question, questi
     existing_answer = await TestService.get_answer(attempt, question)
     current_answer = existing_answer.answer_choice if existing_answer else None
     
+    # Check if all questions are answered (for showing finish button during editing)
+    all_answers = await TestService.get_all_answers(attempt)
+    all_questions_answered = len(all_answers) == total_questions and all(a.answer_choice for a in all_answers)
+    
     # Build question text (plain text)
     text = f"Savol {question_number}/{total_questions}\n\n"
     
@@ -364,7 +382,7 @@ async def show_question(message: Message, attempt: TestAttempt, question, questi
     # Build keyboard
     has_previous = question_number > 1
     has_next = question_number < total_questions
-    keyboard = get_answer_keyboard(question_number, total_questions, has_previous, has_next, current_answer)
+    keyboard = get_answer_keyboard(question_number, total_questions, has_previous, has_next, current_answer, show_finish=all_questions_answered)
     
     has_image = _question_has_image(question)
 
