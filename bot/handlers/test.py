@@ -4,6 +4,7 @@ from typing import Optional
 
 from aiogram import Router, F
 from aiogram.filters import StateFilter
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 from django.utils import timezone
@@ -29,6 +30,18 @@ from admin_panel.models import TestAttempt, Test
 logger = logging.getLogger(__name__)
 
 router = Router()
+
+
+async def _safe_callback_answer(callback: CallbackQuery, *args, **kwargs) -> bool:
+    """Answer a callback query, ignoring expired/invalid query errors."""
+    try:
+        await callback.answer(*args, **kwargs)
+        return True
+    except TelegramBadRequest as exc:
+        logger.info("Skipping callback.answer: %s", exc)
+    except Exception as exc:
+        logger.warning("Failed callback.answer: %s", exc)
+    return False
 
 
 # ==================== TEST SENDING (5.1) ====================
@@ -237,21 +250,21 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
         attempt = pending
         # Check if already submitted
         if attempt.status == 'SUBMITTED_FINAL':
-            await callback.answer(
+            await _safe_callback_answer(
                 "✅ Siz allaqachon bu testni topshirgansiz. Natijalarni tez orada e'lon qilamiz!",
                 show_alert=True
             )
             return
         # Check not already in progress
         if attempt.status == 'IN_PROGRESS':
-            await callback.answer("⚠️ Sizda allaqachon davom etayotgan test bor!", show_alert=True)
+            await _safe_callback_answer(callback, "⚠️ Sizda allaqachon davom etayotgan test bor!", show_alert=True)
             return
     else:
         # If test_id is provided from callback, use it
         if test_id_from_callback:
             test = await TestService.get_test_by_id(test_id_from_callback)
             if not test:
-                await callback.answer("❌ Test topilmadi!", show_alert=True)
+                await _safe_callback_answer(callback, "❌ Test topilmadi!", show_alert=True)
                 return
         else:
             # Otherwise, get the first active test for the grade and language
@@ -260,20 +273,20 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
                 student.language
             )
             if not tests:
-                await callback.answer("❌ Sizning sinfingiz uchun test topilmadi!", show_alert=True)
+                await _safe_callback_answer(callback, "❌ Sizning sinfingiz uchun test topilmadi!", show_alert=True)
                 return
             test = tests[0]
 
         existing_attempt = await TestService.get_active_attempt_for_student(student, test)
         if existing_attempt:
             if existing_attempt.status == 'SUBMITTED_FINAL':
-                await callback.answer(
+                await _safe_callback_answer(
                     "✅ Siz allaqachon bu testni topshirgansiz. Natijalarni tez orada e'lon qilamiz!",
                     show_alert=True
                 )
                 return
             if existing_attempt.status == 'IN_PROGRESS':
-                await callback.answer("⚠️ Sizda allaqachon davom etayotgan test bor!", show_alert=True)
+                await _safe_callback_answer(callback, "⚠️ Sizda allaqachon davom etayotgan test bor!", show_alert=True)
                 return
 
         attempt = await TestService.create_test_attempt(student, test)
@@ -281,14 +294,14 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
     # Check if test is within the valid time range
     current_time = timezone.now()
     if test.starts_at and current_time < test.starts_at:
-        await callback.answer(
+        await _safe_callback_answer(
             "❌ Test hali boshlanmadi. Iltimos, keyinroq urinib ko'ring.",
             show_alert=True
         )
         return
     
     if test.finish_at and current_time > test.finish_at:
-        await callback.answer(
+        await _safe_callback_answer(
             "❌ Test vaqti tugab qolgan. Siz test boshlay olmaysiz.",
             show_alert=True
         )
@@ -309,7 +322,7 @@ async def handle_test_start(callback: CallbackQuery, state: FSMContext):
             reply_markup=get_start_confirmation_keyboard()
         )
     
-    await callback.answer()
+    await _safe_callback_answer(callback)
     await state.set_state(TestStates.waiting_for_start_confirmation)
 
 
@@ -322,7 +335,7 @@ async def confirm_test_start(callback: CallbackQuery, state: FSMContext):
     attempt_id = data.get('attempt_id')
     
     if not attempt_id:
-        await callback.answer("❌ Xatolik yuz berdi!", show_alert=True)
+        await _safe_callback_answer(callback, "❌ Xatolik yuz berdi!", show_alert=True)
         return
     
     # Start the attempt
@@ -331,7 +344,7 @@ async def confirm_test_start(callback: CallbackQuery, state: FSMContext):
     # Get first question
     questions = await TestService.get_questions_for_test(attempt.test)
     if not questions:
-        await callback.answer("❌ Testda savollar topilmadi!", show_alert=True)
+        await _safe_callback_answer(callback, "❌ Testda savollar topilmadi!", show_alert=True)
         return
     
     first_question = questions[0]

@@ -136,6 +136,18 @@ async def _safe_delete_message(message: Message | None, context: str = "") -> bo
     return False
 
 
+async def _safe_callback_answer(callback: CallbackQuery, *args, **kwargs) -> bool:
+    """Answer a callback query, ignoring expired/invalid query errors."""
+    try:
+        await callback.answer(*args, **kwargs)
+        return True
+    except TelegramBadRequest as exc:
+        logger.info("Skipping callback.answer: %s", exc)
+    except Exception as exc:
+        logger.warning("Failed callback.answer: %s", exc)
+    return False
+
+
 # All registration state names stored in BotStateService (used for /start resume)
 REGISTRATION_STATE_NAMES = {
     "waiting_for_initial_full_name", "waiting_for_initial_phone", "waiting_for_phone_owner",
@@ -1123,7 +1135,7 @@ async def referral_menu_accept(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
     student = await StudentService.get_student(telegram_id)
     if not student or not student.first_name:
-        await callback.answer(ERROR_NOT_REGISTERED)
+        await _safe_callback_answer(callback, ERROR_NOT_REGISTERED)
         return
 
     bot_me = await callback.bot.get_me()
@@ -1142,11 +1154,8 @@ async def referral_menu_accept(callback: CallbackQuery, state: FSMContext):
     else:
         await callback.message.answer(promo_text)
 
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    await callback.answer()
+    await _safe_delete_message(callback.message, "referral_menu_accept")
+    await _safe_callback_answer(callback)
 
 
 @router.callback_query(F.data == "referral_menu_back")
@@ -1155,7 +1164,7 @@ async def referral_menu_back(callback: CallbackQuery, state: FSMContext):
     telegram_id = callback.from_user.id
     student = await StudentService.get_student(telegram_id)
     if not student or not student.first_name:
-        await callback.answer(ERROR_NOT_REGISTERED)
+        await _safe_callback_answer(callback, ERROR_NOT_REGISTERED)
         return
 
     ref_code = student.referral_code or str(telegram_id)
@@ -1164,8 +1173,11 @@ async def referral_menu_back(callback: CallbackQuery, state: FSMContext):
     referral_link = f"https://t.me/{bot_username}?start={ref_code}" if bot_username else ""
     text = REFERRAL_DESC.format(referral_link=referral_link)
 
-    await callback.message.edit_text(text)
-    await callback.answer()
+    try:
+        await callback.message.edit_text(text)
+    except TelegramBadRequest:
+        await callback.message.answer(text)
+    await _safe_callback_answer(callback)
 
 
 @router.message(F.text == "🔥 Konkursdagi ballarim")
