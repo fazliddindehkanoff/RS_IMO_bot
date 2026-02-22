@@ -2115,18 +2115,30 @@ async def handle_test_from_menu(message: Message, state: FSMContext):
     if not student or not student.grade:
         await message.answer(ERROR_NOT_REGISTERED)
         return
+    
+    # Check for existing test attempts
     pending = await TestService.get_pending_attempt_for_student(student)
     if pending:
+        # Check if attempt is finished
+        if pending.submitted_at:
+            await message.answer("❌ Siz allaqachon final javobingizni topshirgan edingiz. Sizning natijalaringiz tekshirilmoqda.")
+            return
+        # Attempt is in progress, show it
         test = pending.test
     else:
+        # No pending attempt, check for finished attempts
+        finished_attempts = await TestService.get_finished_attempts_for_student(student)
+        if finished_attempts:
+            await message.answer("❌ Siz allaqachon bu testni yakunlagan edingiz. Sizning natijalaringiz tekshirilmoqda.")
+            return
+        
+        # Get available tests
         tests = await TestService.get_active_tests_for_grade_and_language(student.grade, student.language)
         if not tests:
             await message.answer("1-bosqich online testi shu botda 22-fevral kuni soat 14:00 da bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24")
             return
         test = tests[0]
-    if not test:
-        await message.answer("1-bosqich online testi shu botda 22-fevral kuni soat 14:00 da bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24")
-        return
+    
     await send_test_to_user(message, student, test)
 
 
