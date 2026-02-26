@@ -2115,6 +2115,21 @@ async def handle_test_from_menu(message: Message, state: FSMContext):
 
     await send_test_to_user(message, student, test)
 
+@router.message(F.text == "👤 Mening ma'lumotlarim")
+async def handle_my_info(message: Message, state: FSMContext):
+    """Handle 'My Info' from main menu."""
+    telegram_id = message.from_user.id
+    student = await StudentService.get_student(telegram_id)
+    if not student or not student.first_name:
+        await message.answer(ERROR_NOT_REGISTERED)
+        return
+    
+    web_app_url = _reg_webapp_url_with_user(message.from_user.id)
+    info_text = "Rahimov Matematika Olimpiadasi ishtirokchisisiz\n\nQuyidagi tugma orqali shaxsiy ma'lumotlaringizni tekshiringiz mumkin:"
+    button = InlineKeyboardButton(text="👤 Mening ma'lumotlarim", web_app=WebAppInfo(url=web_app_url)))
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    await message.answer(info_text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+
 
 @router.callback_query(StateFilter(RegistrationStates.waiting_for_confirmation), F.data == "edit")
 async def start_editing(callback: CallbackQuery, state: FSMContext):
@@ -2122,178 +2137,3 @@ async def start_editing(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(EDIT_TITLE, reply_markup=get_edit_fields_keyboard())
     await callback.answer()
     await state.set_state(RegistrationStates.waiting_for_edit_field)
-
-
-@router.callback_query(StateFilter(RegistrationStates.waiting_for_edit_field), F.data.startswith("edit_field:"))
-async def select_field_to_edit(callback: CallbackQuery, state: FSMContext):
-    """Select field to edit."""
-    field_name = callback.data.split(":", 1)[1]
-    telegram_id = callback.from_user.id
-    
-    # Store which field we're editing
-    await BotStateService.update_state_data(telegram_id, editing_field=field_name)
-    
-    suffix = EDIT_FIELD_SUFFIXES.get(field_name, "ma'lumot kiriting:")
-    prompt = f"{EDIT_PROMPT_PREFIX} {suffix}"
-    
-    # Handle special cases that need keyboards
-    if field_name == 'region':
-        await callback.message.edit_text(prompt, reply_markup=get_region_keyboard())
-    elif field_name == 'grade':
-        await callback.message.edit_text(prompt, reply_markup=get_grade_keyboard())
-    elif field_name == 'language':
-        await callback.message.edit_text(prompt, reply_markup=get_language_keyboard())
-    elif field_name in ['achievements_description', 'achievements_file', 'guardian_phone2']:
-        await callback.message.edit_text(prompt, reply_markup=get_skip_keyboard())
-    elif field_name == 'guardian_relationship':
-        await callback.message.edit_text(prompt, reply_markup=get_relationship_keyboard())
-    elif field_name == 'source':
-        await callback.message.edit_text(prompt, reply_markup=get_source_type_keyboard())
-    else:
-        await callback.message.edit_text(prompt)
-    
-    await callback.answer()
-    await state.set_state(RegistrationStates.editing_field)
-
-
-@router.message(StateFilter(RegistrationStates.editing_field))
-async def process_editing_field(message: Message, state: FSMContext):
-    """Process editing field value."""
-    telegram_id = message.from_user.id
-    state_data = await BotStateService.get_state(telegram_id)
-    editing_field = state_data.state_data.get('editing_field')
-    
-    # Common update logic based on field
-    if editing_field == 'photo':
-        if not message.photo:
-            await message.answer(ERROR_INVALID_PHOTO)
-            return
-        # Process photo same as before
-        photo = message.photo[-1]
-        from django.conf import settings
-        from exam_bot_admin.webhook import bot
-        import os
-        file = await bot.get_file(photo.file_id)
-        media_dir = os.path.join(settings.MEDIA_ROOT, 'students')
-        os.makedirs(media_dir, exist_ok=True)
-        file_path = os.path.join(media_dir, f"{telegram_id}_{photo.file_id}.jpg")
-        await bot.download_file(file.file_path, file_path)
-        relative_path = f"students/{telegram_id}_{photo.file_id}.jpg"
-        await StudentService.update_student(telegram_id, photo=relative_path)
-
-    elif editing_field == 'achievements_file':
-        if message.photo:
-            file_obj = message.photo[-1]
-            from django.conf import settings
-            from exam_bot_admin.webhook import bot
-            import os
-            file = await bot.get_file(file_obj.file_id)
-            media_dir = os.path.join(settings.MEDIA_ROOT, 'students', 'achievements')
-            os.makedirs(media_dir, exist_ok=True)
-            file_path = os.path.join(media_dir, f"{telegram_id}_{file_obj.file_id}.jpg")
-            await bot.download_file(file.file_path, file_path)
-            relative_path = f"students/achievements/{telegram_id}_{file_obj.file_id}.jpg"
-            await StudentService.update_student(telegram_id, achievements_file=relative_path)
-        else:
-            await message.answer(ERROR_INVALID_PHOTO)
-            return
-
-    elif editing_field == 'date_of_birth':
-        date_str = message.text.strip() if message.text else ""
-        # Try to parse date, but accept any format
-        date_of_birth = None
-        if date_str:
-            for fmt in ("%d.%m.%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y"):
-                try:
-                    date_of_birth = datetime.strptime(date_str, fmt).date()
-                    break
-                except ValueError:
-                    continue
-        await StudentService.update_student(telegram_id, date_of_birth=date_of_birth)
-
-    elif editing_field in ['grade', 'region', 'language', 'guardian_relationship', 'source']:
-        await message.answer(ERROR_USE_BUTTONS)
-        return
-        
-    elif editing_field == 'guardian_name':
-        value = message.text.strip() if message.text else ""
-        await BotStateService.update_state_data(telegram_id, guardian_name=value)
-        
-    elif editing_field == 'guardian_age':
-        age_str = message.text.strip() if message.text else "0"
-        try:
-            age = int(age_str)
-        except ValueError:
-            age = 0
-        await BotStateService.update_state_data(telegram_id, guardian_age=age)
-
-    elif editing_field == 'guardian_profession':
-        value = message.text.strip() if message.text else ""
-        await BotStateService.update_state_data(telegram_id, guardian_profession=value)
-
-    elif editing_field == 'guardian_phone':
-        value = message.text.strip() if message.text else ""
-        await BotStateService.update_state_data(telegram_id, guardian_phone=value)
-
-    elif editing_field == 'guardian_phone2':
-        value = message.text.strip() if message.text else ""
-        await BotStateService.update_state_data(telegram_id, guardian_phone2=value)
-
-    elif editing_field == 'teacher_name':
-        value = message.text.strip() if message.text else ""
-        await BotStateService.update_state_data(telegram_id, teacher_name=value)
-
-    elif editing_field == 'teacher_workplace':
-        value = message.text.strip()
-        await BotStateService.update_state_data(telegram_id, teacher_workplace=value)
-
-    elif editing_field == 'teacher_phone':
-        value = message.text.strip()
-        await BotStateService.update_state_data(telegram_id, teacher_phone=value)
-
-    else:
-        # Generic text fields
-        value = message.text.strip()
-        kwargs = {editing_field: value}
-        await StudentService.update_student(telegram_id, **kwargs)
-    
-    await save_all_data_and_show_confirmation(message, state, telegram_id)
-
-
-@router.callback_query(StateFilter(RegistrationStates.editing_field))
-async def process_editing_callback(callback: CallbackQuery, state: FSMContext):
-    """Process editing field callback (for region, grade, language)."""
-    telegram_id = callback.from_user.id
-    state_data = await BotStateService.get_state(telegram_id)
-    editing_field = state_data.state_data.get('editing_field')
-    
-    if editing_field == 'region' and callback.data.startswith('region_'):
-        value = callback.data.split('_', 1)[1]
-        await StudentService.update_student(telegram_id, region=value)
-    elif editing_field == 'grade' and callback.data.startswith('grade_'):
-        value = int(callback.data.split('_')[1])
-        await StudentService.update_student(telegram_id, grade=value)
-    elif editing_field == 'language' and callback.data.startswith('language_'):
-        value = callback.data.split('_')[1]
-        await StudentService.update_student(telegram_id, language=value)
-    elif editing_field == 'achievements_description' and callback.data == 'skip':
-        await StudentService.update_student(telegram_id, achievements_description=None)
-    elif editing_field == 'achievements_file' and callback.data == 'skip':
-         await StudentService.update_student(telegram_id, achievements_file=None)
-    elif editing_field == 'guardian_relationship' and callback.data.startswith('relationship_'):
-        value = callback.data.split('_', 1)[1]
-        await BotStateService.update_state_data(telegram_id, guardian_relationship=value)
-    elif editing_field == 'guardian_phone2' and callback.data == 'skip':
-        await BotStateService.update_state_data(telegram_id, guardian_phone2=None)
-    elif editing_field == 'source' and callback.data.startswith('source_'):
-        value = callback.data.split('_', 1)[1]
-        await BotStateService.update_state_data(telegram_id, source_type=value)
-    
-    await save_all_data_and_show_confirmation(callback, state, telegram_id)
-
-
-@router.callback_query(StateFilter(RegistrationStates.waiting_for_edit_field), F.data == "back_to_confirmation")
-async def back_to_confirmation(callback: CallbackQuery, state: FSMContext):
-    """Go back to confirmation."""
-    telegram_id = callback.from_user.id
-    await save_all_data_and_show_confirmation(callback, state, telegram_id)
