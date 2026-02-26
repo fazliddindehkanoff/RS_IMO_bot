@@ -832,16 +832,6 @@ async def handle_reg_webapp_data(message: Message, state: FSMContext):
     if teacher_phone and len(teacher_phone) > 20:
         teacher_phone = None
 
-    if len(first_name) < 2:
-        await message.answer(ERROR_NAME_LENGTH)
-        return
-    if len(last_name) < 2:
-        await message.answer(ERROR_SURNAME_LENGTH)
-        return
-    if not phone_number or len(phone_number) < 9 or len(phone_number) > 20:
-        await message.answer(ERROR_INVALID_PHONE_UZB)
-        return
-
     telegram_id = message.from_user.id
     payload_user_id = data.get("user_id")
     if payload_user_id is not None:
@@ -970,14 +960,7 @@ async def callback_reg_participate_test(callback: CallbackQuery, state: FSMConte
 @router.message(StateFilter(RegistrationStates.waiting_for_initial_full_name))
 async def process_initial_full_name(message: Message, state: FSMContext):
     """Process initial full name."""
-    if not message.text:
-        await message.answer(ERROR_NAME_LENGTH)
-        return
-        
-    full_name = message.text.strip()
-    if len(full_name) < 2:
-        await message.answer(ERROR_NAME_LENGTH)
-        return
+    full_name = message.text.strip() if message.text else ""
 
     telegram_id = message.from_user.id
 
@@ -1238,15 +1221,7 @@ async def handle_leaderboard(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_first_name))
 async def process_first_name(message: Message, state: FSMContext):
     """Process first name."""
-    if not message.text:
-        await message.answer(ERROR_NAME_LENGTH)
-        return
-    
-    first_name = message.text.strip()
-    
-    if len(first_name) < 2:
-        await message.answer(ERROR_NAME_LENGTH)
-        return
+    first_name = message.text.strip() if message.text else ""
     
     telegram_id = message.from_user.id
     await StudentService.update_student(telegram_id, first_name=first_name)
@@ -1261,11 +1236,7 @@ async def process_first_name(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_last_name))
 async def process_last_name(message: Message, state: FSMContext):
     """Process last name."""
-    last_name = message.text.strip() if message.text else None
-    
-    if not last_name or len(last_name) < 2:
-        await message.answer(ERROR_SURNAME_LENGTH)
-        return
+    last_name = message.text.strip() if message.text else ""
     
     telegram_id = message.from_user.id
     await StudentService.update_student(telegram_id, last_name=last_name)
@@ -1281,22 +1252,21 @@ async def process_last_name(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_date_of_birth))
 async def process_date_of_birth(message: Message, state: FSMContext):
     """Process date of birth."""
-    if not message.text:
-        await message.answer(ERROR_DATE_FORMAT)
-        return
+    date_str = message.text.strip() if message.text else ""
     
-    date_str = message.text.strip()
-    
-    try:
-        # Changed format to DD-MM-YYYY
-        date_of_birth = datetime.strptime(date_str, "%d-%m-%Y").date()
-    except ValueError:
-        await message.answer(ERROR_DATE_FORMAT)
-        return
+    # Try to parse date, but accept any format
+    date_of_birth = None
+    if date_str:
+        for fmt in ("%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                date_of_birth = datetime.strptime(date_str, fmt).date()
+                break
+            except ValueError:
+                continue
     
     telegram_id = message.from_user.id
     await StudentService.update_student(telegram_id, date_of_birth=date_of_birth)
-    await BotStateService.update_state_data(telegram_id, date_of_birth=str(date_of_birth))
+    await BotStateService.update_state_data(telegram_id, date_of_birth=str(date_of_birth) if date_of_birth else "")
     
     await message.answer(STEP_4_ASK_METRIKA.format(date_str=date_str), reply_markup=get_back_reply_keyboard())
     await state.set_state(RegistrationStates.waiting_for_document_number)
@@ -1307,22 +1277,19 @@ async def process_date_of_birth(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_document_number))
 async def process_document_number(message: Message, state: FSMContext):
     """Process document number."""
-    if not message.text:
-        await message.answer("Iltimos, tug'ilganlik haqidagi guvohnoma raqamini kiriting.")
-        return
-    
-    document_number = message.text.strip().upper()
+    document_number = message.text.strip().upper() if message.text else ""
 
     telegram_id = message.from_user.id
-    existing = await StudentService.get_student_by_document_number(document_number)
-    if existing and existing.telegram_id != telegram_id:
-        await message.answer(
-            "❌ Bu Metrika raqami boshqa foydalanuvchi ro'yxatida mavjud. "
-            "Iltimos, to'g'ri raqam kiriting."
-        )
-        return
+    if document_number:
+        existing = await StudentService.get_student_by_document_number(document_number)
+        if existing and existing.telegram_id != telegram_id:
+            await message.answer(
+                "❌ Bu Metrika raqami boshqa foydalanuvchi ro'yxatida mavjud. "
+                "Iltimos, to'g'ri raqam kiriting."
+            )
+            return
     try:
-        await StudentService.update_student(telegram_id, document_number=document_number)
+        await StudentService.update_student(telegram_id, document_number=document_number if document_number else None)
     except IntegrityError:
         await message.answer(
             "❌ Bu Metrika raqami boshqa foydalanuvchi ro'yxatida mavjud. "
@@ -1571,11 +1538,7 @@ async def process_achievements_file_invalid(message: Message):
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_name))
 async def process_guardian_name(message: Message, state: FSMContext):
     """Process guardian name."""
-    if not message.text:
-        await message.answer("Iltimos, vasiy ismini kiriting.")
-        return
-    
-    guardian_name = message.text.strip()
+    guardian_name = message.text.strip() if message.text else ""
     
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_name=guardian_name)
@@ -1629,17 +1592,12 @@ async def process_guardian_relationship(callback: CallbackQuery, state: FSMConte
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_age))
 async def process_guardian_age(message: Message, state: FSMContext):
     """Process guardian age."""
-    if not message.text:
-        await message.answer(ERROR_INVALID_AGE)
-        return
+    age_str = message.text.strip() if message.text else "0"
     
     try:
-        age = int(message.text.strip())
-        if age < 18 or age > 120:
-            raise ValueError
+        age = int(age_str)
     except ValueError:
-        await message.answer(ERROR_INVALID_AGE)
-        return
+        age = 0
 
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_age=age)
@@ -1662,11 +1620,7 @@ async def process_guardian_age(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_profession))
 async def process_guardian_profession(message: Message, state: FSMContext):
     """Process guardian profession."""
-    if not message.text:
-        await message.answer("Iltimos, kasb nomini kiriting.")
-        return
-    
-    profession = message.text.strip()
+    profession = message.text.strip() if message.text else ""
     
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_profession=profession)
@@ -1691,31 +1645,8 @@ async def process_guardian_phone(message: Message, state: FSMContext):
     if message.contact:
         phone = message.contact.phone_number
     else:
-        phone = message.text.strip()
-        # Validate Uzbekistan phone number regex
-        import re
-        # Regex for Uzbekistan phone numbers:
-        # +998 followed by 9 digits
-        # 998 followed by 9 digits
-        # 9 digits (local format without code, we can assume +998)
-        # Allows spaces, dashes, parens
-        
-        # Clean the number first
-        clean_phone = re.sub(r'[^\d+]', '', phone)
-        
-        if not re.match(r'^(\+998|998)?\d{9}$', clean_phone):
-            await message.answer(ERROR_INVALID_PHONE_UZB)
-            return
+        phone = message.text.strip() if message.text else ""
 
-        # Format consistently to +998...
-        if len(clean_phone) == 9:
-            phone = f"+998{clean_phone}"
-        elif len(clean_phone) == 12 and clean_phone.startswith('998'):
-            phone = f"+{clean_phone}"
-        else:
-            phone = clean_phone # Keep as entered if it matched +998...
-
-    
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_phone=phone)
     
@@ -1744,28 +1675,7 @@ async def skip_guardian_phone2(callback: CallbackQuery, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_guardian_phone2))
 async def process_guardian_phone2(message: Message, state: FSMContext):
     """Process guardian phone 2."""
-    if not message.text:
-        await message.answer(ERROR_INVALID_PHONE_UZB)
-        return
-    
-    phone = message.text.strip()
-    
-    # Validate Uzbekistan phone number regex
-    import re
-    clean_phone = re.sub(r'[^\d+]', '', phone)
-    
-    if not re.match(r'^(\+998|998)?\d{9}$', clean_phone):
-        await message.answer(ERROR_INVALID_PHONE_UZB)
-        return
-
-    # Format
-    if len(clean_phone) == 9:
-        phone = f"+998{clean_phone}"
-    elif len(clean_phone) == 12 and clean_phone.startswith('998'):
-        phone = f"+{clean_phone}"
-    else:
-        phone = clean_phone
-
+    phone = message.text.strip() if message.text else ""
     
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, guardian_phone2=phone)
@@ -1779,11 +1689,7 @@ async def process_guardian_phone2(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_teacher_name))
 async def process_teacher_name(message: Message, state: FSMContext):
     """Process teacher name."""
-    if not message.text:
-        await message.answer("Iltimos, ustoz ismini kiriting.")
-        return
-    
-    teacher_name = message.text.strip()
+    teacher_name = message.text.strip() if message.text else ""
     
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, teacher_name=teacher_name)
@@ -1801,11 +1707,7 @@ async def process_teacher_name(message: Message, state: FSMContext):
 @router.message(StateFilter(RegistrationStates.waiting_for_teacher_workplace))
 async def process_teacher_workplace(message: Message, state: FSMContext):
     """Process teacher workplace."""
-    if not message.text:
-        await message.answer("Iltimos, ish joyini kiriting.")
-        return
-    
-    workplace = message.text.strip()
+    workplace = message.text.strip() if message.text else ""
     
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, teacher_workplace=workplace)
@@ -1825,22 +1727,7 @@ async def process_teacher_phone(message: Message, state: FSMContext):
     if message.contact:
         phone = message.contact.phone_number
     else:
-        phone = message.text.strip()
-        # Validate Uzbekistan phone number regex
-        import re
-        clean_phone = re.sub(r'[^\d+]', '', phone)
-        
-        if not re.match(r'^(\+998|998)?\d{9}$', clean_phone):
-            await message.answer(ERROR_INVALID_PHONE_UZB)
-            return
-        
-        # Format
-        if len(clean_phone) == 9:
-            phone = f"+998{clean_phone}"
-        elif len(clean_phone) == 12 and clean_phone.startswith('998'):
-            phone = f"+{clean_phone}"
-        else:
-            phone = clean_phone
+        phone = message.text.strip() if message.text else ""
     
     telegram_id = message.from_user.id
     await BotStateService.update_state_data(telegram_id, teacher_phone=phone)
@@ -2164,15 +2051,15 @@ async def handle_contest_participate_menu(message: Message, state: FSMContext):
     await _send_contest_promo_with_referral(message.bot, telegram_id, chat_id=message.chat.id)
 
 
-@router.message(F.text == "📝 1-bosqich sinov testini yechish: 22-fevral")
+@router.message(F.text == "📝 1-bosqich sinov testini yechish: 1-mart")
 async def handle_test_from_menu(message: Message, state: FSMContext):
     """Handle test participation from main menu reply keyboard."""
     # If today is earlier than 22 Feb of the current year, show informational message
     today = datetime.now().date()
-    feb22 = datetime(today.year, 2, 22).date()
-    if today < feb22:
+    mar1 = datetime(today.year, 3, 1).date()
+    if today < mar1:
         await message.answer(
-            "1-bosqich online testi shu botda 22-fevral kuni soat 14:00 da bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24"
+            "1-bosqich online sinov testi shu botda 1-mart kuni soat 14:00 da bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24"
         )
         return
 
@@ -2182,7 +2069,7 @@ async def handle_test_from_menu(message: Message, state: FSMContext):
     if not student or not student.grade:
         await message.answer(ERROR_NOT_REGISTERED)
         return
-    
+
     # Check for existing test attempts
     pending = await TestService.get_pending_attempt_for_student(student)
     if pending:
@@ -2218,14 +2105,14 @@ async def handle_test_from_menu(message: Message, state: FSMContext):
                     "Testni davom ettirish uchun /start buyrug'ini yuboring."
                 )
                 return
-        
+
         # Get available tests
         tests = await TestService.get_active_tests_for_grade_and_language(student.grade, student.language)
         if not tests:
             await message.answer("1-bosqich online testi shu botda 22-fevral kuni soat 14:00 da bo'lib o'tadi. Unga namunaviy testlarni yechib turishingiz mumkin:\n\nhttps://t.me/rs_olimpiada/24")
             return
         test = tests[0]
-    
+
     await send_test_to_user(message, student, test)
 
 
@@ -2312,66 +2199,48 @@ async def process_editing_field(message: Message, state: FSMContext):
             return
 
     elif editing_field == 'date_of_birth':
-        if not message.text:
-            await message.answer(ERROR_DATE_FORMAT_EDIT)
-            return
-        try:
-            date_of_birth = datetime.strptime(message.text.strip(), "%d.%m.%Y").date()
-            await StudentService.update_student(telegram_id, date_of_birth=date_of_birth)
-        except ValueError:
-            await message.answer(ERROR_DATE_FORMAT_EDIT)
-            return
+        date_str = message.text.strip() if message.text else ""
+        # Try to parse date, but accept any format
+        date_of_birth = None
+        if date_str:
+            for fmt in ("%d.%m.%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y"):
+                try:
+                    date_of_birth = datetime.strptime(date_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+        await StudentService.update_student(telegram_id, date_of_birth=date_of_birth)
 
     elif editing_field in ['grade', 'region', 'language', 'guardian_relationship', 'source']:
         await message.answer(ERROR_USE_BUTTONS)
         return
         
     elif editing_field == 'guardian_name':
-        if not message.text:
-            await message.answer("Iltimos, vasiy ismini kiriting.")
-            return
-        value = message.text.strip()
+        value = message.text.strip() if message.text else ""
         await BotStateService.update_state_data(telegram_id, guardian_name=value)
         
     elif editing_field == 'guardian_age':
-        if not message.text:
-            await message.answer(ERROR_INVALID_AGE)
-            return
+        age_str = message.text.strip() if message.text else "0"
         try:
-            age = int(message.text.strip())
-            if age < 18 or age > 120:
-                raise ValueError
-            await BotStateService.update_state_data(telegram_id, guardian_age=age)
+            age = int(age_str)
         except ValueError:
-            await message.answer(ERROR_INVALID_AGE)
-            return
+            age = 0
+        await BotStateService.update_state_data(telegram_id, guardian_age=age)
 
     elif editing_field == 'guardian_profession':
-        if not message.text:
-            await message.answer("Iltimos, kasb nomini kiriting.")
-            return
-        value = message.text.strip()
+        value = message.text.strip() if message.text else ""
         await BotStateService.update_state_data(telegram_id, guardian_profession=value)
 
     elif editing_field == 'guardian_phone':
-        if not message.text:
-            await message.answer(ERROR_INVALID_PHONE_UZB)
-            return
-        value = message.text.strip()
+        value = message.text.strip() if message.text else ""
         await BotStateService.update_state_data(telegram_id, guardian_phone=value)
 
     elif editing_field == 'guardian_phone2':
-        if not message.text:
-            await message.answer(ERROR_INVALID_PHONE_UZB)
-            return
-        value = message.text.strip()
+        value = message.text.strip() if message.text else ""
         await BotStateService.update_state_data(telegram_id, guardian_phone2=value)
 
     elif editing_field == 'teacher_name':
-        if not message.text:
-            await message.answer("Iltimos, ustoz ismini kiriting.")
-            return
-        value = message.text.strip()
+        value = message.text.strip() if message.text else ""
         await BotStateService.update_state_data(telegram_id, teacher_name=value)
 
     elif editing_field == 'teacher_workplace':

@@ -184,12 +184,12 @@
           <div id="err_phone" class="error" hidden></div>
         </div>
         <div class="field">
-          <label for="document_number">Metrika raqami</label>
-          <input type="text" id="document_number" name="document_number" placeholder="0015258" />
+          <label for="document_number">Metrika raqami *</label>
+          <input type="text" id="document_number" name="document_number" required placeholder="0015258" />
         </div>
         <div class="field">
-          <label for="region">Viloyat</label>
-          <select id="region" name="region">
+          <label for="region">Viloyat *</label>
+          <select id="region" name="region" required>
             <option value="">Tanlang</option>
             <option value="Andijon">Andijon viloyati</option>
             <option value="Buxoro">Buxoro viloyati</option>
@@ -208,12 +208,12 @@
           </select>
         </div>
         <div class="field">
-          <label for="district">Tuman / shahar</label>
-          <input type="text" id="district" name="district" placeholder="Tuman yoki shahar" />
+          <label for="district">Tuman / shahar *</label>
+          <input type="text" id="district" name="district" required placeholder="Tuman yoki shahar" />
         </div>
         <div class="field">
-          <label for="grade">Sinf</label>
-          <select id="grade" name="grade">
+          <label for="grade">Sinf *</label>
+          <select id="grade" name="grade" required>
             <option value="">Tanlang</option>
             <option value="5">5-sinf</option>
             <option value="6">6-sinf</option>
@@ -223,22 +223,22 @@
           </select>
         </div>
         <div class="field">
-          <label for="school_name">Maktab nomi</label>
-          <input type="text" id="school_name" name="school_name" placeholder="Maktab nomi" />
+          <label for="school_name">Maktab nomi *</label>
+          <input type="text" id="school_name" name="school_name" required placeholder="Maktab nomi" />
         </div>
       </div>
 
       <div class="section-title">Vasiy - bolaga mas'ul shaxs (ota-ona, buvi, tog'a va hokazo) ma'lumotlari</div>
       <div class="form-grid">
         <div class="field">
-          <label for="guardian_name">Vasiy ismi</label>
-          <input type="text" id="guardian_name" name="guardian_name" placeholder="To'liq ism" />
+          <label for="guardian_name">Vasiy ismi *</label>
+          <input type="text" id="guardian_name" name="guardian_name" required placeholder="To'liq ism" />
         </div>
         <div class="field">
-          <label for="guardian_phone">Vasiy telefon raqami</label>
+          <label for="guardian_phone">Vasiy telefon raqami *</label>
           <div class="phone-group">
             <span class="phone-prefix">+998</span>
-            <input type="number" id="guardian_phone" name="guardian_phone" placeholder="901234567" />
+            <input type="number" id="guardian_phone" name="guardian_phone" required placeholder="901234567" />
           </div>
           <div id="err_guardian_phone" class="error" hidden></div>
         </div>
@@ -247,11 +247,11 @@
       <div class="section-title">Ustoz ma'lumotlari</div>
       <div class="form-grid">
         <div class="field">
-          <label for="teacher_name">Ustoz ismi</label>
-          <input type="text" id="teacher_name" name="teacher_name" placeholder="To'liq ism" />
+          <label for="teacher_name">Ustoz ismi *</label>
+          <input type="text" id="teacher_name" name="teacher_name" required placeholder="To'liq ism" />
         </div>
         <div class="field">
-          <label for="teacher_phone">Ustoz telefon raqami (Bor bo’lsa kiriting, yo’q bo’lsa shartmas)</label>
+          <label for="teacher_phone">Ustoz telefon raqami (ixtiyoriy)</label>
           <div class="phone-group">
             <span class="phone-prefix">+998</span>
             <input type="number" id="teacher_phone" name="teacher_phone" placeholder="901234567" />
@@ -308,6 +308,7 @@
     }
 
     // Fetch user info via initData — prefill phone & check registration
+    var isAlreadyRegistered = false;
     (function() {
       var phoneInput = document.getElementById('phone_number');
       phoneInput.value = '';
@@ -322,11 +323,38 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.ok) return;
-        if (data.is_registered) {
-          showBlock("Siz allaqachon olimpiadamizga ro'yxatdan o'tib bo'lgansiz 😊<br><br>Botga qaytib \"Konkursda qatnashish\" tugmasini bosib, olimpiadani keng ommaga yoyilishida xizmat qilishingiz mumkin");
-          return;
+        
+        // Store registration status
+        isAlreadyRegistered = data.is_registered || false;
+        
+        // If user is registered, change button text to "Update"
+        if (isAlreadyRegistered) {
+          submitBtn.textContent = 'Yangilash';
+          document.querySelector('h1').textContent = "Ma'lumotlarni tahrirlash";
         }
-        if (!data.phone) {
+        
+        // Pre-fill all available student data
+        if (data.student_data) {
+          var sd = data.student_data;
+          if (sd.first_name) document.getElementById('first_name').value = sd.first_name;
+          if (sd.last_name) document.getElementById('last_name').value = sd.last_name;
+          if (sd.phone_number) document.getElementById('phone_number').value = sd.phone_number;
+          if (sd.document_number) document.getElementById('document_number').value = sd.document_number;
+          if (sd.region) document.getElementById('region').value = sd.region;
+          if (sd.district) document.getElementById('district').value = sd.district;
+          if (sd.grade !== undefined && sd.grade !== "" && sd.grade !== null) {
+            var gradeVal = sd.grade === 0 ? 'other' : String(sd.grade);
+            document.getElementById('grade').value = gradeVal;
+          }
+          if (sd.school_name) document.getElementById('school_name').value = sd.school_name;
+          if (sd.guardian_name) document.getElementById('guardian_name').value = sd.guardian_name;
+          if (sd.guardian_phone) document.getElementById('guardian_phone').value = sd.guardian_phone;
+          if (sd.teacher_name) document.getElementById('teacher_name').value = sd.teacher_name;
+          if (sd.teacher_phone) document.getElementById('teacher_phone').value = sd.teacher_phone;
+        }
+        
+        // Only show the "must answer bot questions" warning if not registered and no phone
+        if (!data.is_registered && !data.phone) {
           if (tg && typeof tg.showPopup === 'function') {
             tg.showPopup(
               { title: '', message: "Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi", buttons: [{ type: 'ok' }] },
@@ -338,7 +366,6 @@
           showBlock("Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi");
           return;
         }
-        phoneInput.value = stripPrefix(data.phone);
       })
       .catch(function() {});
     })();
@@ -351,7 +378,7 @@
     }
 
     function isValid9Digits(val) {
-      if (!val) return true;
+      if (!val) return false;
       return /^\d{9}$/.test(val);
     }
 
@@ -383,7 +410,7 @@
         showError('err_phone', '9 ta raqam kiriting. Masalan: 901234567');
         hasError = true;
       }
-      if (guardian_digits && !isValid9Digits(guardian_digits)) {
+      if (!isValid9Digits(guardian_digits)) {
         showError('err_guardian_phone', '9 ta raqam kiriting. Masalan: 901234567');
         hasError = true;
       }
@@ -414,11 +441,11 @@
       };
 
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Yuborilmoqda...';
+      submitBtn.textContent = isAlreadyRegistered ? 'Yangilanmoqda...' : 'Yuborilmoqda...';
 
       if (!regAppSubmitUrl) {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Yuborish';
+        submitBtn.textContent = isAlreadyRegistered ? 'Yangilash' : 'Yuborish';
         alert('Xatolik: server manzili topilmadi.');
         return;
       }
@@ -432,18 +459,23 @@
       .then(function (data) {
         if (data.ok) {
           submitBtn.textContent = 'Yuborildi ✓';
+          var successTitle = isAlreadyRegistered ? 'Yangilandi!' : 'Muvaffaqiyatli!';
+          var successMessage = isAlreadyRegistered 
+            ? "Ma'lumotlaringiz muvaffaqiyatli yangilandi ✅\n\nEndi botga qayting."
+            : "Ro'yxatdan muvaffaqiyatli o'tdingiz ✅\n\nEndi botga qayting.";
+          
           if (tg && typeof tg.showPopup === 'function') {
             tg.showPopup(
-              { title: 'Muvaffaqiyatli!', message: "Ro'yxatdan muvaffaqiyatli o'tdingiz ✅\n\nEndi botga qayting.", buttons: [{ type: 'ok' }] },
+              { title: successTitle, message: successMessage, buttons: [{ type: 'ok' }] },
               function () { if (typeof tg.close === 'function') tg.close(); }
             );
           } else {
-            alert("Ro'yxatdan muvaffaqiyatli o'tdingiz ✅\n\nEndi botga qayting.");
+            alert(successMessage);
             if (tg && typeof tg.close === 'function') tg.close();
           }
         } else {
           submitBtn.disabled = false;
-          submitBtn.textContent = 'Yuborish';
+          submitBtn.textContent = isAlreadyRegistered ? 'Yangilash' : 'Yuborish';
           var errMsg = 'Xatolik yuz berdi.';
           if (data.error === 'invalid_data') errMsg = 'Iltimos, barcha maydonlarni to\'g\'ri to\'ldiring.';
           else if (data.error === 'duplicate_document') errMsg = 'Bu metrika raqami allaqachon ro\'yxatdan o\'tgan.';
@@ -453,7 +485,7 @@
       })
       .catch(function (err) {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Yuborish';
+        submitBtn.textContent = isAlreadyRegistered ? 'Yangilash' : 'Yuborish';
         alert('Tarmoq xatoligi: ' + err.message);
       });
     });

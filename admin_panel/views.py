@@ -273,23 +273,57 @@ def reg_app_user_info_view(request):
     phone = ""
     phone_owner = ""
     is_registered = False
+    student_data = {}
+    
+    def strip_phone_prefix(raw_phone):
+        """Strip +998 prefix from phone number."""
+        raw = (raw_phone or "").strip()
+        if raw.startswith("+998"):
+            return raw[4:]
+        elif raw.startswith("998") and len(raw) > 9:
+            return raw[3:]
+        return raw
+    
     try:
         student = Student.objects.select_related('parent', 'teacher').get(telegram_id=int(telegram_id))
-        raw = (student.phone_number or "").strip()
-        if raw.startswith("+998"):
-            phone = raw[4:]
-        elif raw.startswith("998") and len(raw) > 9:
-            phone = raw[3:]
-        else:
-            phone = raw
+        phone = strip_phone_prefix(student.phone_number)
         phone_owner = student.phone_owner or ""
         is_registered = student.is_fully_registered
+        
+        # Prepare full student data for pre-filling form
+        student_data = {
+            "first_name": student.first_name or "",
+            "last_name": student.last_name or "",
+            "phone_number": phone,
+            "region": student.region or "",
+            "district": student.district or "",
+            "grade": student.grade if student.grade is not None else "",
+            "school_name": student.school_name or "",
+            "document_number": student.document_number or "",
+        }
+        
+        # Add parent/guardian info if exists
+        if hasattr(student, 'parent') and student.parent:
+            parent = student.parent
+            student_data["guardian_name"] = parent.full_name or ""
+            student_data["guardian_phone"] = strip_phone_prefix(parent.phone_number)
+        
+        # Add teacher info if exists
+        if hasattr(student, 'teacher') and student.teacher:
+            teacher = student.teacher
+            student_data["teacher_name"] = teacher.full_name or ""
+            student_data["teacher_phone"] = strip_phone_prefix(teacher.phone_number)
+            
     except (Student.DoesNotExist, ValueError, TypeError):
         pass
 
     resp = JsonResponse({
-        "ok": True, "phone": phone, "phone_owner": phone_owner,
-        "user_id": telegram_id, "is_registered": is_registered,
+        "ok": True,
+        "phone": phone,
+        "phone_owner": phone_owner,
+        "user_id": telegram_id,
+        "is_registered": is_registered,
+        "student_data": student_data,
     })
     return _add_cors_headers(resp)
 
@@ -356,7 +390,7 @@ def reg_app_submit_view(request):
         reply_markup = {
             "keyboard": [
                 [{"text": "\U0001f3c6 Konkursda qatnashish"}],
-                [{"text": "\U0001f4dd 1-bosqich testini yechish: 22-fevral"}],
+                [{"text": "\U0001f4dd 1-bosqich sinov testini yechish: 1-mart"}],
                 [{"text": "\u270f\ufe0f Taklif va shikoyatlar"}, {"text": "\U0001f525 Konkursdagi ballarim"}],
                 [{"text": "\U0001f3c6 Reyting"}],
             ],
