@@ -2126,7 +2126,7 @@ async def handle_my_info(message: Message, state: FSMContext):
     
     web_app_url = _reg_webapp_url_with_user(message.from_user.id)
     info_text = "Rahimov Matematika Olimpiadasi ishtirokchisisiz\n\nQuyidagi tugma orqali shaxsiy ma'lumotlaringizni tekshiringiz mumkin:"
-    button = InlineKeyboardButton(text="👤 Mening ma'lumotlarim", web_app=WebAppInfo(url=web_app_url)))
+    button = InlineKeyboardButton(text="👤 Mening ma'lumotlarim", web_app=WebAppInfo(url=web_app_url))
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
     await message.answer(info_text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
