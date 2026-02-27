@@ -61,3 +61,10 @@ class FeedbackStates(StatesGroup):
     """Feedback flow states."""
     waiting_for_type = State()
     waiting_for_text = State()
+
+
+class AdminStates(StatesGroup):
+    """Admin command flow states."""
+    waiting_for_broadcast_text = State()
+    waiting_for_broadcast_media = State()
+    waiting_for_broadcast_confirmation = State()

@@ -341,3 +341,72 @@ OTHER_GRADE_MESSAGE = (
     "<a href=\"http://t.me/RahimovSchool\">Telegram</a> | <a href=\"https://www.instagram.com/rahimovschool/\">Instagram</a> | <a href=\"https://www.youtube.com/@RahimovSchool\">YouTube</a>"
 )
 
+
+# ==================== ADMIN COMMANDS ====================
+
+ADMIN_BROADCAST_START = (
+    "📢 <b>Xabarnoma yuborish</b>\n\n"
+    "Yubormoqchi bo'lgan xabaringizni yuboring.\n\n"
+    "HTML formatdan foydalanishingiz mumkin:\n"
+    "• <b>qalin</b> - qalin matn\n"
+    "• <i>kursiv</i> - kursiv matn\n"
+    "• <a href='url'>havola</a> - havola\n\n"
+    "<i>Dinamik ma'lumotlar:</i>\n"
+    "• {student_name} - o'quvchi ismi o'rniga tushadi\n\n"
+    "Bekor qilish uchun /cancel yuboring."
+)
+
+ADMIN_BROADCAST_MEDIA = (
+    "📎 <b>Media qo'shish (ixtiyoriy)</b>\n\n"
+    "Rasm yoki video yuborishingiz mumkin (maksimal 10 ta).\n\n"
+    "Video yuborayotganda kanaldan forward qilsangiz, metadata saqlanadi.\n\n"
+    "• Media faylsiz davom etish: /skip\n"
+    "• Media yuklashni tugatish: /done\n"
+    "• Bekor qilish: /cancel"
+)
+
+ADMIN_BROADCAST_TARGET = (
+    "🎯 <b>Kimga yuborish kerak?</b>\n\n"
+    "Quyidagi tugmalarni bosib tanlang (bir nechta tanlov mumkin):\n\n"
+    "<b>Xabar matni:</b>\n{message}\n\n"
+    "{media_info}"
+    "Hozirgi tanlov: {current_targets}"
+)
+
+ADMIN_BROADCAST_CONFIRM = (
+    "✅ <b>Tasdiqlovchi</b>\n\n"
+    "<b>Xabar matni:</b>\n{message}\n\n"
+    "{media_info}"
+    "<b>Kimga:</b> {targets}\n\n"
+    "<b>Taxminiy qabul qiluvchilar:</b> {recipient_count}\n\n"
+    "Xabarnomani yuborish uchun ✅ Yuborish tugmasini bosing."
+)
+
+ADMIN_BROADCAST_SENDING = (
+    "📤 Xabarnoma yuborilmoqda...\n\n"
+    "Broadcast ID: {broadcast_id}\n\n"
+    "Xabar foydalanuvchilarga yuborilmoqda. Django admin panelida holatni kuzatib borishingiz mumkin."
+)
+
+ADMIN_BROADCAST_SUCCESS = (
+    "✅ <b>Xabarnoma yuborildi!</b>\n\n"
+    "Broadcast ID: {broadcast_id}\n\n"
+    "Yuborish yakunlandi. Admin panelda batafsil statistikani ko'rishingiz mumkin."
+)
+
+ADMIN_NOT_AUTHORIZED = (
+    "❌ Siz admin emassiz. Bu buyruq faqat adminlar uchun."
+)
+
+ADMIN_BROADCAST_CANCELLED = (
+    "❌ Xabarnoma bekor qilindi."
+)
+
+ADMIN_MEDIA_ADDED = (
+    "✅ Media qo'shildi: {count} ta\n\n"
+    "Yana media yuklash yoki /done bosing."
+)
+
+ADMIN_NO_TARGETS = (
+    "❌ Hech kim tanlanmagan. Kamida bitta maqsad tanlang."
+)

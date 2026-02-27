@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from bot.handlers import registration, test, feedback
+from bot.handlers import registration, test, feedback, admin
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,7 @@ bot = Bot(
 dp = Dispatcher()
 
 # Register routers
+dp.include_router(admin.router)  # Admin router should be first to have priority
 dp.include_router(registration.router)
 dp.include_router(test.router)
 dp.include_router(feedback.router)

@@ -187,3 +187,6 @@ WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 # Registration Web App (Mini App) – must be HTTPS for Telegram. Set in .env as REG_WEBAPP_URL.
 REG_WEBAPP_URL = os.getenv("REG_WEBAPP_URL", "").strip()
+
+# Admin User IDs (comma-separated list of Telegram user IDs who can use admin commands)
+ADMIN_IDS = [int(id.strip()) for id in os.getenv("ADMIN_IDS", "").split(",") if id.strip().isdigit()]
