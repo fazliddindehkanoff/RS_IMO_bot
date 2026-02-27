@@ -980,6 +980,7 @@ class BroadcastService:
         sent_count = 0
         blocked_count = 0
         failed_count = 0
+        error_messages = []
 
         for student in students:
             try:
@@ -1064,6 +1065,8 @@ class BroadcastService:
                     blocked_count += 1
                 else:
                     failed_count += 1
+                    if len(error_messages) < 50:
+                        error_messages.append(f"Student {student.telegram_id}: {str(e)}")
 
             await asyncio.sleep(0.05)
 
@@ -1071,6 +1074,8 @@ class BroadcastService:
                 broadcast.sent_count = sent_count
                 broadcast.blocked_count = blocked_count
                 broadcast.failed_count = failed_count
+                if error_messages:
+                    broadcast.error_log = "\n".join(error_messages)
                 await sync_to_async(broadcast.save)()
 
         broadcast.status = 'completed'
@@ -1078,5 +1083,7 @@ class BroadcastService:
         broadcast.sent_count = sent_count
         broadcast.blocked_count = blocked_count
         broadcast.failed_count = failed_count
+        if error_messages:
+            broadcast.error_log = "\n".join(error_messages)
         await sync_to_async(broadcast.save)()
 

@@ -601,6 +601,41 @@ class TeacherAdmin(ModelAdmin):
     list_display = ['full_name', 'student', 'phone_number', 'created_at']
     search_fields = ['full_name', 'phone_number', 'student__first_name', 'student__last_name']
     readonly_fields = ['created_at']
+    actions = ['export_teachers_csv']
+
+    def export_teachers_csv(self, request, queryset):
+        """Export selected teachers to CSV."""
+        if not queryset.exists():
+            self.message_user(request, "Eksport qilish uchun kamida bitta o'qituvchini tanlang.", level=messages.WARNING)
+            return
+
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        
+        headers = [
+            'O\'qituvchi FIO', 'Telefon raqam', 'Ish joyi', 'O\'quvchi', 'Yaratilgan vaqt'
+        ]
+        writer.writerow(headers)
+
+        for obj in queryset:
+            student_name = obj.student.first_name + " " + (obj.student.last_name or "") if obj.student else ""
+            row = [
+                obj.full_name or "",
+                obj.phone_number or "",
+                obj.workplace or "",
+                student_name.strip(),
+                obj.created_at.strftime("%Y-%m-%d %H:%M") if obj.created_at else "",
+            ]
+            writer.writerow(row)
+
+        response = HttpResponse(
+            buffer.getvalue().encode('utf-8-sig'),
+            content_type='text/csv; charset=utf-8-sig'
+        )
+        response['Content-Disposition'] = 'attachment; filename="teachers.csv"'
+        return response
+
+    export_teachers_csv.short_description = "Tanlanganlarni CSV ga eksport qilish"
 
 
 @admin.register(Certificate)
@@ -968,7 +1003,7 @@ class BroadcastMessageAdmin(ModelAdmin):
     list_filter = ['status', 'created_at']
     readonly_fields = [
         'status', 'recipient_count', 'sent_count', 'blocked_count', 
-        'failed_count', 'started_at', 'completed_at', 'created_at'
+        'failed_count', 'error_log', 'started_at', 'completed_at', 'created_at'
     ]
     inlines = [BroadcastMediaInline]
     actions = ['send_broadcast_action']

@@ -1046,6 +1046,8 @@ class BroadcastMessage(models.Model):
     blocked_count = models.IntegerField(default=0, verbose_name="Bloklaganlar")
     failed_count = models.IntegerField(default=0, verbose_name="Xatoliklar")
     
+    error_log = models.TextField(null=True, blank=True, verbose_name="Xatoliklar tarixi")
+
     started_at = models.DateTimeField(null=True, blank=True, verbose_name="Boshlangan vaqt")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Tugallangan vaqt")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
