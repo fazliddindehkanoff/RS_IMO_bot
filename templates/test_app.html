@@ -830,7 +830,7 @@
       document.getElementById('progressFill').style.width = pct + '%';
       document.getElementById('progressCountText').textContent = answeredCount + ' / ' + totalQuestions;
       document.getElementById('answeredStatus').innerHTML =
-        '<strong>' + answeredCount + '</strong> / ' + totalQuestions + ' savol javoblandi';
+        '<strong>' + answeredCount + '</strong> / ' + totalQuestions + ' savol belgilandi';
     }
 
     function markCardAnswered(cardEl) {
@@ -898,7 +898,7 @@
         let html = `
           <div class="q-meta">
             <span class="q-badge">📌 ${idx + 1}-savol</span>
-            <span class="q-answered-pill">✓ Javoblandi</span>
+            <span class="q-answered-pill">✓ belgilandi</span>
           </div>`;
 
         if (q.image_url) html += `<img src="${q.image_url}" class="q-img" loading="lazy" alt="Savol ${idx+1}">`;
@@ -1073,8 +1073,8 @@
 
       const sub = document.getElementById('reviewHeaderSub');
       sub.textContent = unansweredCount > 0
-        ? `${answeredCount}/${totalQuestions} savol javoblandi — ${unansweredCount} ta javobsiz`
-        : `Barcha ${totalQuestions} ta savol javoblandi ✓`;
+        ? `${answeredCount}/${totalQuestions} savol belgilandi — ${unansweredCount} ta javobsiz`
+        : `Barcha ${totalQuestions} ta savol belgilandi ✓`;
       sub.style.color = unansweredCount > 0 ? '#b45309' : '#0a6e38';
 
       document.getElementById('reviewBackdrop').classList.add('open');
