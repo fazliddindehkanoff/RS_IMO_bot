@@ -624,6 +624,54 @@ async def cmd_stats(message: Message):
         await message.answer(f"❌ Xatolik yuz berdi: {str(e)}")
 
 
+@router.message(Command("backup"))
+async def cmd_backup(message: Message):
+    """Send a JSON backup of the database to the requesting admin."""
+    if not is_admin(message.from_user.id):
+        await message.answer(ADMIN_NOT_AUTHORIZED)
+        return
+
+    status_msg = await message.answer("⏳ Ma'lumotlar bazasi zaxira nusxasi tayyorlanmoqda...")
+
+    try:
+        from admin_panel.management.commands.send_db_backup import generate_backup_json
+        from aiogram.types import BufferedInputFile
+        from datetime import datetime
+
+        @sync_to_async
+        def _generate():
+            return generate_backup_json()
+
+        json_bytes, stats = await _generate()
+
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        filename = f"backup_{timestamp}.json"
+
+        total_records = sum(v for v in stats.values() if isinstance(v, int))
+        table_lines = "\n".join(
+            f"  • {path.split('.')[1]}: {count}"
+            for path, count in stats.items()
+        )
+        caption = (
+            f"🗄 <b>Database Backup</b>\n"
+            f"📅 {timestamp}\n"
+            f"📦 Jami yozuvlar: <b>{total_records}</b>\n\n"
+            f"<b>Jadvallar:</b>\n{table_lines}\n\n"
+            f"✅ Faylni yuklab oling va kerak bo'lganda qayta yuklash uchun foydalaning."
+        )
+
+        await message.answer_document(
+            document=BufferedInputFile(json_bytes, filename=filename),
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+        )
+        await status_msg.delete()
+
+    except Exception as e:
+        logger.error(f"Backup command error: {e}", exc_info=True)
+        await status_msg.edit_text(f"❌ Zaxira nusxa yaratishda xatolik: {e}")
+
+
 @router.message(Command("help_admin"))
 async def cmd_help_admin(message: Message):
     """Show admin commands (admin only)."""
@@ -635,6 +683,7 @@ async def cmd_help_admin(message: Message):
         "🔧 <b>Admin buyruqlari</b>\n\n"
         "/broadcast - Xabarnoma yuborish (media qo'llab-quvvatlash bilan)\n"
         "/stats - Bot statistikasi\n"
+        "/backup - Ma'lumotlar bazasi zaxira nusxasini yuborish\n"
         "/help_admin - Admin buyruqlari ro'yxati\n"
         "/cancel - Joriy amalni bekor qilish\n\n"
         "<b>Broadcast jarayoni:</b>\n"
