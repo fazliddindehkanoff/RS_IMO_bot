@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a5f2a" />
+  <title>Test Yechish</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --primary: #1a5f2a;
+      --primary-light: #2d7a3e;
+      --primary-dark: #0d3d1a;
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #6c757d;
+      --border: #dee2e6;
+      --error: #c62828;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    body {
+      padding: 16px;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+    .container { max-width: 600px; margin: 0 auto; }
+    
+    .card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 8px;
+      color: var(--primary-dark);
+    }
+    .timer {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--error);
+      background: #ffebee;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: inline-block;
+    }
+    
+    .question-block {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+    }
+    .question-block:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .q-number {
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .q-text {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .q-img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .options {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .option {
+      position: relative;
+      flex: 1;
+    }
+    .option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .option-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-label:active {
+      transform: scale(0.95);
+    }
+    .option input[type="radio"]:checked ~ .option-label {
+      border-color: var(--primary);
+      background: var(--primary);
+    }
+    .option input[type="radio"]:checked ~ .option-label .option-letter {
+      color: #fff;
+    }
+    .option-letter {
+      font-weight: bold;
+      font-size: 1.2rem;
+      color: var(--primary);
+    }
+    
+    button[type="submit"] {
+      width: 100%;
+      padding: 16px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #fff;
+      background: var(--primary);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button[type="submit"]:hover { background: var(--primary-light); }
+    button[type="submit"]:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    /* Overlay for Loading/Blocking */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(255,255,255,0.98);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px;
+    }
+    .loader {
+      border: 4px solid var(--border);
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="overlay">
+    <div class="loader"></div>
+    <div style="font-size:1.1rem; color:#333;">Savollar yuklanmoqda...</div>
+  </div>
+
+  <!-- Message/Block Overlay -->
+  <div id="blockOverlay" class="overlay" style="display:none;">
+    <div>
+      <div id="blockIcon" style="font-size:3rem;margin-bottom:16px;">⚠️</div>
+      <div id="blockMessage" style="font-size:1.2rem;color:#333;line-height:1.6;max-width:400px;font-weight:500;"></div>
+      <button id="closeAppBtn" style="margin-top:24px;padding:12px 24px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;display:none;">Yopish</button>
+    </div>
+  </div>
+
+  <div class="container" id="startScreen" style="display:none; margin-top: 40px;">
+    <div class="card" style="text-align:center;">
+      <h2 style="color:var(--primary); margin-bottom:16px;">Testga tayyorgarlik</h2>
+      <p style="font-size:1.1rem; line-height:1.5; margin-bottom:24px;">
+        Sizga barcha savollarni yechish uchun umumiy hisobda <strong><span id="startDuration">--</span> daqiqa</strong> vaqt beriladi.<br><br>
+        Testda jami <strong><span id="startQuestionsCount">--</span> ta</strong> savol qatnashgan. Tayyor bo'lsangiz, vaqtni boshlash uchun quyidagi tugmani bosing.
+      </p>
+      <button id="startTestBtn" style="width:100%; padding: 16px; font-size:1.1rem; font-weight:bold; color:#fff; background:var(--primary); border:none; border-radius:8px; cursor:pointer;">Testni boshlash</button>
+    </div>
+  </div>
+
+  <div class="container" id="mainContainer" style="display:none;">
+    <div class="header">
+      <h1 id="testTitle">Test</h1>
+      <div id="timerContainer" style="display:none;">
+        <span class="timer">⏱ <span id="timeRemaining">--:--</span></span>
+      </div>
+    </div>
+    
+    <form id="testForm">
+      <div id="questionsContainer" class="card">
+        <!-- Questions injected here via JS -->
+      </div>
+      
+      <button type="submit" id="submitBtn">Testni yakunlash</button>
+    </form>
+  </div>
+
+  <script>
+    var testAppQuestionsUrl = "{{ test_app_questions_url|default:'/test-app/questions/'|escapejs }}";
+    var testAppSubmitUrl = "{{ test_app_submit_url|default:'/test-app/submit/'|escapejs }}";
+    
+    const tg = window.Telegram?.WebApp;
+    var tgInitData = (tg && tg.initData) ? tg.initData : "";
+    var tgUserId = "";
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    var urlTgUid = urlParams.get('tg_uid');
+
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try { if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen(); } catch (_) {}
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        tgUserId = String(tg.initDataUnsafe.user.id || "");
+      }
+    }
+    
+    // Fallback to URL parameter if initData fails
+    if (!tgUserId && urlTgUid) {
+        tgUserId = urlTgUid;
+    }
+
+    function showBlock(msg, isSuccess = false) {
+      document.getElementById('loadingOverlay').style.display = 'none';
+      document.getElementById('mainContainer').style.display = 'none';
+      
+      const overlay = document.getElementById('blockOverlay');
+      document.getElementById('blockMessage').innerHTML = msg;
+      document.getElementById('blockIcon').innerHTML = isSuccess ? '✅' : '⚠️';
+      document.getElementById('closeAppBtn').style.display = isSuccess ? 'inline-block' : 'none';
+      overlay.style.display = 'flex';
+    }
+
+    document.getElementById('closeAppBtn').addEventListener('click', () => {
+      if (tg && typeof tg.close === 'function') tg.close();
+    });
+    
+    document.getElementById('startTestBtn').addEventListener('click', () => {
+      document.getElementById('startScreen').style.display = 'none';
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      loadQuestions(true);
+    });
+
+    if (!tgUserId) {
+      const debugInfo = "TG Object: " + !!tg + ", InitData: " + !!tgInitData + ", UnsafeUser: " + !!(tg && tg.initDataUnsafe && tg.initDataUnsafe.user) + ", URLUid: " + !!urlTgUid;
+      showBlock("Iltimos, ilovani Telegram bot orqali oching.<br><br><span style='font-size: 0.8rem; color: #666;'>" + debugInfo + "</span>");
+    }
+
+    let endTimestamp = null;
+    let timerInterval = null;
+
+    function startTimer() {
+      if (!endTimestamp) return;
+      document.getElementById('timerContainer').style.display = 'block';
+      
+      function updateTimer() {
+        const now = Math.floor(Date.now() / 1000);
+        let diff = endTimestamp - now;
+        
+        if (diff <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById('timeRemaining').innerText = "00:00";
+          showBlock("Vaqt tugadi! Test avtomatik tarzda yakunlandi.");
+          submitTest(true); // Auto-submit
+          return;
+        }
+        
+        const m = Math.floor(diff / 60);
+        const s = diff % 60;
+        document.getElementById('timeRemaining').innerText = 
+          (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+      }
+      
+      updateTimer();
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    // Load Questions
+    function loadQuestions(start_test = false) {
+      if (!tgUserId) return;
+      
+      fetch(testAppQuestionsUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ init_data: tgInitData, fallback_uid: tgUserId, start_test: start_test })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok) {
+          return showBlock(data.error_text || "Xatolik yuz berdi. Testlarni yuklash imkonsiz.");
+        }
+        
+        if (data.status === 'SUBMITTED_FINAL') {
+          return showBlock("Siz allaqachon bu testni topshirgansiz. Natijani kuting!", true);
+        }
+        
+        if (data.status === 'PENDING') {
+          document.getElementById('loadingOverlay').style.display = 'none';
+          document.getElementById('startScreen').style.display = 'block';
+          document.getElementById('startDuration').innerText = data.duration_minutes || "0";
+          document.getElementById('startQuestionsCount').innerText = data.questions_count || "0";
+          return;
+        }
+        
+        // Render Title
+        document.getElementById('testTitle').innerText = data.test_title || "Test";
+        
+        // Setup Timer
+        if (data.expires_at) {
+          endTimestamp = data.expires_at;
+          startTimer();
+        }
+
+        const qContainer = document.getElementById('questionsContainer');
+        qContainer.innerHTML = '';
+
+        if (!data.questions || data.questions.length === 0) {
+          return showBlock("Bu testda savollar yo'q.");
+        }
+
+        data.questions.forEach((q, idx) => {
+          const div = document.createElement('div');
+          div.className = 'question-block';
+          
+          let html = `<div class="q-number">${idx + 1}-savol</div>`;
+          // Text usually won't exist now, but we keep the fallback just in case
+          if (q.text) html += `<div class="q-text">${q.text.replace(/\\n/g, '<br>')}</div>`;
+          // Image takes main priority
+          if (q.image_url) html += `<img src="${q.image_url}" class="q-img" />`;
+          
+          html += `<div class="options">`;
+          
+          // Render only the option letters ignoring the text value in JS
+          Object.keys(q.options).forEach(optKey => {
+            const isChecked = q.current_answer === optKey ? 'checked' : '';
+            html += `
+              <label class="option">
+                <input type="radio" name="q_${q.id}" value="${optKey}" ${isChecked}>
+                <div class="option-label">
+                  <span class="option-letter">${optKey}</span>
+                </div>
+              </label>
+            `;
+          });
+          
+          html += `</div>`;
+          div.innerHTML = html;
+          qContainer.appendChild(div);
+        });
+
+        // Show main UI
+        document.getElementById('loadingOverlay').style.display = 'none';
+        document.getElementById('mainContainer').style.display = 'block';
+      })
+      .catch(err => {
+        showBlock("Tarmoq xatoligi: " + err.message);
+      });
+    }
+
+    loadQuestions();
+
+    function submitTest(isAutoSubmit = false) {
+      const btn = document.getElementById('submitBtn');
+      if (btn) btn.disabled = true;
+      if (btn && !isAutoSubmit) btn.textContent = 'Yakunlanmoqda...';
+
+      const formData = new FormData(document.getElementById('testForm'));
+      const answers = {};
+      for (const [key, value] of formData.entries()) {
+         if (key.startsWith('q_')) {
+            const qId = key.replace('q_', '');
+            answers[qId] = value;
+         }
+      }
+
+      fetch(testAppSubmitUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          init_data: tgInitData,
+          fallback_uid: tgUserId,
+          answers: answers
+        })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok) {
+           alert("Xatolik: " + (data.error_text || "saqlab bo'lmadi."));
+           if (btn) { btn.disabled = false; btn.textContent = 'Testni yakunlash'; }
+           return;
+        }
+        showBlock("Test muvaffaqiyatli topshirildi!\n\nTez orada bot orqali xabar olasiz.", true);
+        if (tg && typeof tg.close === 'function') {
+           setTimeout(() => { tg.close(); }, 3000);
+        }
+      })
+      .catch(err => {
+        alert("Tarmoq xatoligi: " + err.message);
+        if (btn) { btn.disabled = false; btn.textContent = 'Testni yakunlash'; }
+      });
+    }
+
+    document.getElementById('testForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const unanswered = document.querySelectorAll('.question-block').length - 
+                        document.querySelectorAll('input[type="radio"]:checked').length;
+      
+      if (unanswered > 0) {
+        if (!confirm(`Sizda ${unanswered} ta javobsiz savol qoldi. Testni rostdan ham yakunlamoqchimisiz?`)) {
+          return;
+        }
+      }
+      
+      submitTest(false);
+    });
+  </script>
+</body>
+</html>

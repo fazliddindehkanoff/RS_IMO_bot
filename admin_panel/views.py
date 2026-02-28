@@ -16,9 +16,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.views.generic import TemplateView
 from django.conf import settings
+from django.utils import timezone
 
 from exam_bot_admin.webhook import bot, dp
-from admin_panel.models import Student, Parent, Teacher, BotState
+from admin_panel.models import Student, Parent, Teacher, BotState, Test, TestAttempt, TestQuestion, TestAnswer
 from bot.constants import SUCCESS_MESSAGE, OTHER_GRADE_SUCCESS_MESSAGE, PROMO_AFTER_REG_TEXT, OTHER_GRADE_PROMO_MESSAGE, CONTEST_PROMO_REPLY
 
 logger = logging.getLogger(__name__)
@@ -494,3 +495,211 @@ class RegAppView(TemplateView):
         ctx["logo_url"] = "/media/rmo_logo.jpg"
         ctx["reg_app_submit_url"] = "/reg-app/submit/"
         return ctx
+
+class TestAppView(TemplateView):
+    """Serves the test Mini App (Web App) opened from Telegram menu button."""
+    template_name = "test_app.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["test_app_questions_url"] = "/test-app/questions/"
+        ctx["test_app_submit_url"] = "/test-app/submit/"
+        return ctx
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def test_app_questions_view(request):
+    """Return questions for the user's active test."""
+    if request.method == "OPTIONS":
+        return _add_cors_headers(HttpResponse(status=200))
+
+    try:
+        body = json.loads(request.body)
+    except (ValueError, TypeError):
+        return _add_cors_headers(JsonResponse({"ok": False}, status=400))
+
+    init_data = body.get("init_data", "")
+    fallback_uid = body.get("fallback_uid")
+    start_test = body.get("start_test", False)
+    
+    telegram_id = None
+    if init_data:
+        validated = validate_telegram_init_data(init_data, settings.BOT_TOKEN)
+        if validated and "user" in validated:
+            telegram_id = validated["user"].get("id")
+            
+    if not telegram_id and fallback_uid:
+        telegram_id = fallback_uid
+        
+    if not telegram_id:
+        return _add_cors_headers(JsonResponse({"ok": False, "error": "auth_failed"}, status=403))
+
+    try:
+        student = Student.objects.get(telegram_id=int(telegram_id))
+    except (Student.DoesNotExist, ValueError):
+        return _add_cors_headers(JsonResponse({"ok": False, "error_text": "O'quvchi topilmadi. Ro'yxatdan o'ting!"}, status=404))
+
+    # Find active test for their grade
+    test = Test.objects.filter(grade=student.grade, is_active=True).first()
+    if not test:
+        return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Sizning sinfingiz uchun faol test topilmadi."}, status=404))
+
+    # Check time window
+    now = timezone.now()
+    if test.starts_at and now < test.starts_at:
+        return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Test hali boshlanmadi."}, status=403))
+    if test.finish_at and now > test.finish_at:
+        return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Test vaqti tugadi."}, status=403))
+
+    # Attempt tracking
+    attempt = TestAttempt.objects.filter(student=student, test=test).order_by('-created_at').first()
+    if attempt and attempt.status == 'SUBMITTED_FINAL':
+        return _add_cors_headers(JsonResponse({"ok": True, "status": "SUBMITTED_FINAL"}))
+    
+    if not attempt or attempt.status == 'PENDING':
+        from datetime import timedelta
+        if not attempt:
+            attempt = TestAttempt.objects.create(student=student, test=test, status='PENDING')
+        
+        if not start_test:
+            # Tell frontend we are pending so it can show the start screen
+            questions_count = TestQuestion.objects.filter(test=test).count()
+            return _add_cors_headers(JsonResponse({
+                "ok": True, 
+                "status": "PENDING",
+                "test_title": test.title,
+                "duration_minutes": test.duration_minutes,
+                "questions_count": questions_count
+            }))
+            
+        # If start_test is sent, start the timer
+        attempt.status = 'IN_PROGRESS'
+        attempt.started_at = now
+        attempt.expires_at = now + timedelta(minutes=test.duration_minutes)
+        attempt.save()
+
+    # If active but expired, force submit
+    if attempt.expires_at and now > attempt.expires_at:
+        attempt.status = 'SUBMITTED_FINAL'
+        attempt.submitted_at = now
+        attempt.save()
+        return _add_cors_headers(JsonResponse({"ok": True, "status": "SUBMITTED_FINAL"}))
+
+    questions_qs = TestQuestion.objects.filter(test=test).order_by('question_number')
+    existing_answers = {a.question_id: a.answer_choice for a in TestAnswer.objects.filter(attempt=attempt)}
+    
+    questions_data = []
+    for q in questions_qs:
+        options = {
+            "A": q.option_a or "A",
+            "B": q.option_b or "B",
+            "C": q.option_c or "C",
+            "D": q.option_d or "D",
+        }
+        
+        q_data = {
+            "id": q.id,
+            "text": q.text,
+            "options": options,
+            "current_answer": existing_answers.get(q.id)
+        }
+        if q.image:
+            q_data["image_url"] = request.build_absolute_uri(q.image.url)
+        questions_data.append(q_data)
+
+    resp = JsonResponse({
+        "ok": True,
+        "test_title": test.title,
+        "expires_at": int(attempt.expires_at.timestamp()) if attempt.expires_at else None,
+        "questions": questions_data
+    })
+    return _add_cors_headers(resp)
+
+
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def test_app_submit_view(request):
+    """Accept submitted answers, calculate score, and send Telegram success message."""
+    if request.method == "OPTIONS":
+        return _add_cors_headers(HttpResponse(status=200))
+
+    try:
+        body = json.loads(request.body)
+    except (ValueError, TypeError):
+        return _add_cors_headers(JsonResponse({"ok": False, "error": "invalid_json"}, status=400))
+
+    init_data = body.get("init_data", "")
+    fallback_uid = body.get("fallback_uid")
+    answers_data = body.get("answers", {})
+
+    telegram_id = None
+    if init_data:
+        validated = validate_telegram_init_data(init_data, settings.BOT_TOKEN)
+        if validated and "user" in validated:
+            telegram_id = validated["user"].get("id")
+
+    if not telegram_id and fallback_uid:
+        telegram_id = fallback_uid
+
+    if not telegram_id:
+        return _add_cors_headers(JsonResponse({"ok": False, "error": "auth_failed"}, status=403))
+
+    try:
+        student = Student.objects.get(telegram_id=int(telegram_id))
+    except Student.DoesNotExist:
+        return _add_cors_headers(JsonResponse({"ok": False, "error_text": "O'quvchi topilmadi"}, status=404))
+
+    test = Test.objects.filter(grade=student.grade, is_active=True).first()
+    if not test:
+        return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Faol test topilmadi"}, status=404))
+
+    attempt = TestAttempt.objects.filter(student=student, test=test).order_by('-created_at').first()
+    if not attempt or attempt.status == 'SUBMITTED_FINAL':
+        return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Test allaqachon topshirilgan"}, status=400))
+
+    with transaction.atomic():
+        questions = TestQuestion.objects.filter(test=test)
+        question_map = {str(q.id): q for q in questions}
+        
+        for q_id_str, answer_choice in answers_data.items():
+            question = question_map.get(q_id_str)
+            if question and answer_choice:
+                TestAnswer.objects.update_or_create(
+                    attempt=attempt,
+                    question=question,
+                    defaults={
+                        'answer_choice': answer_choice,
+                        'is_correct': (answer_choice == question.correct_answer),
+                        'points_earned': question.ball_weight if (answer_choice == question.correct_answer) else 0.0,
+                    }
+                )
+
+        # Calculate final score
+        all_answers = TestAnswer.objects.filter(attempt=attempt).select_related('question')
+        total_points = sum(q.ball_weight for q in questions)
+        earned_points = sum(a.points_earned for a in all_answers)
+        score = (earned_points / total_points * 100) if total_points > 0 else 0
+
+        attempt.status = 'SUBMITTED_FINAL'
+        attempt.submitted_at = timezone.now()
+        attempt.total_points = total_points
+        attempt.earned_points = earned_points
+        attempt.score = score
+        attempt.save()
+
+    # Send Success message
+    from bot.keyboards import get_main_menu_keyboard
+    success_text = "✅ Test muvaffaqiyatli topshirildi!\n\n🏆 Kanalimizda umumiy natijalarni tez kunda e'lon qilamiz, kuzatishda davom eting:\n\n@rs_olimpiada"
+    is_other_grade = (student.grade == 0)
+    reply_markup = get_main_menu_keyboard(other_grade=is_other_grade, telegram_id=telegram_id)
+    
+    # We serialize the reply markup correctly for Telegram API
+    # ReplyKeyboardMarkup -> dict
+    if hasattr(reply_markup, "model_dump"):
+        rm_dict = reply_markup.model_dump(exclude_none=True)
+    else:
+        rm_dict = dict(reply_markup)
+
+    _send_telegram_message(telegram_id, success_text, reply_markup=rm_dict)
+
+    return _add_cors_headers(JsonResponse({"ok": True}))

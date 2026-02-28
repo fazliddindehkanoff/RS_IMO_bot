@@ -1,5 +1,5 @@
 """Keyboard builders for bot."""
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 from admin_panel.models import Student
@@ -197,12 +197,23 @@ def get_referral_menu_confirm_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def get_main_menu_keyboard(other_grade: bool = False) -> ReplyKeyboardMarkup:
-    """Get main menu keyboard. If other_grade=True, excludes test button."""
+def get_main_menu_keyboard(other_grade: bool = False, telegram_id: int = None) -> ReplyKeyboardMarkup:
+    """Get main menu keyboard. If other_grade=True, excludes test button. Provide telegram_id if available."""
+    from django.conf import settings
+    
     builder = ReplyKeyboardBuilder()
     builder.button(text="🏆 Konkursda qatnashish")
     if not other_grade:
-        builder.button(text="📝 1-bosqich sinov testini yechish: 1-mart")
+        test_webapp_url = getattr(settings, "TEST_WEBAPP_URL", "").strip()
+        if test_webapp_url:
+            if telegram_id:
+                sep = "&" if "?" in test_webapp_url else "?"
+                url_with_id = f"{test_webapp_url}{sep}tg_uid={telegram_id}"
+            else:
+                url_with_id = test_webapp_url
+            builder.row(KeyboardButton(text="📝 1-bosqich sinov testini yechish: 1-mart", web_app=WebAppInfo(url=url_with_id)))
+        else:
+            builder.button(text="📝 1-bosqich sinov testini yechish: 1-mart")
     builder.button(text="✏️ Taklif va shikoyatlar")
     builder.button(text="🔥 Konkursdagi ballarim")
     builder.button(text="🏆 Reyting")
@@ -210,8 +221,34 @@ def get_main_menu_keyboard(other_grade: bool = False) -> ReplyKeyboardMarkup:
     if other_grade:
         builder.adjust(1, 2, 1)
     else:
-        builder.adjust(1, 1, 2, 1)
-    return builder.as_markup(resize_keyboard=True)
+        # We manually added a row for the web_app button if condition met, 
+        # so adjust might need to skip that row or re-layout.
+        # Actually Builder.adjust doesn't affect manually inserted rows via `builder.row()` nicely if mixed.
+        # Let's rebuild properly:
+        pass
+        
+    # Rebuilding safely for layout:
+    b2 = ReplyKeyboardBuilder()
+    b2.button(text="🏆 Konkursda qatnashish")
+    b2.adjust(1)
+    
+    if not other_grade:
+        test_webapp_url = getattr(settings, "TEST_WEBAPP_URL", "").strip()
+        if test_webapp_url:
+            if telegram_id:
+                sep = "&" if "?" in test_webapp_url else "?"
+                url_with_id = f"{test_webapp_url}{sep}tg_uid={telegram_id}"
+            else:
+                url_with_id = test_webapp_url
+            b2.row(KeyboardButton(text="📝 1-bosqich sinov testini yechish: 1-mart", web_app=WebAppInfo(url=url_with_id)))
+        else:
+            b2.row(KeyboardButton(text="📝 1-bosqich sinov testini yechish: 1-mart"))
+            
+    b2.row(KeyboardButton(text="✏️ Taklif va shikoyatlar"), KeyboardButton(text="🔥 Konkursdagi ballarim"))
+    b2.row(KeyboardButton(text="🏆 Reyting"))
+    b2.row(KeyboardButton(text="👤 Mening ma'lumotlarim"))
+
+    return b2.as_markup(resize_keyboard=True)
 
 
 def get_reg_success_keyboard() -> InlineKeyboardMarkup:

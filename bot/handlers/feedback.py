@@ -52,5 +52,5 @@ async def process_feedback_text(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
         "Rahmat! Fikringiz qabul qilindi.",
-        reply_markup=get_main_menu_keyboard()
+        reply_markup=get_main_menu_keyboard(telegram_id=message.from_user.id)
     )

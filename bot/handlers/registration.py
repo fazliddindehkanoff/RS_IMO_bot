@@ -281,7 +281,7 @@ async def _get_continuation_for_state(telegram_id: int, state_name: str, data: d
         if subscription_status["subscribed"]:
             after = d.get("after_channels")
             if after == "full_reg":
-                return (SUCCESS_MESSAGE, get_main_menu_keyboard())
+                return (SUCCESS_MESSAGE, get_main_menu_keyboard(telegram_id=telegram_id))
             if after == "other_grade":
                 return (OTHER_GRADE_PROMO_MESSAGE, get_post_reg_promo_keyboard())
             return (CHECK_SUBS_SUCCESS, None)
@@ -595,7 +595,7 @@ async def check_subs(callback: CallbackQuery, state: FSMContext):
         if after_channels == "full_reg":
             await _award_referral_and_notify(telegram_id, callback.bot)
             await callback.message.answer(SUCCESS_MESSAGE)
-            await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
+            await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard(telegram_id=callback.from_user.id))
             await state.clear()
             await BotStateService.clear_state(telegram_id)
         elif after_channels == "other_grade":
@@ -727,7 +727,7 @@ async def cmd_start(message: Message, state: FSMContext):
         display_name = student.first_name or student.initial_full_name or ""
         await message.answer(
             ALREADY_REGISTERED.format(first_name=display_name),
-            reply_markup=get_main_menu_keyboard()
+            reply_markup=get_main_menu_keyboard(telegram_id=telegram_id)
         )
         await state.clear()
         
@@ -854,7 +854,7 @@ async def handle_reg_webapp_data(message: Message, state: FSMContext):
 
     is_other_grade = (grade == 0)
     success_text = OTHER_GRADE_SUCCESS_MESSAGE if is_other_grade else SUCCESS_MESSAGE
-    await message.answer(success_text, reply_markup=get_main_menu_keyboard(other_grade=is_other_grade))
+    await message.answer(success_text, reply_markup=get_main_menu_keyboard(other_grade=is_other_grade, telegram_id=telegram_id))
 
     # Schedule 30-second delayed promo message (different for "other" grade)
     if is_other_grade:
@@ -868,7 +868,7 @@ async def callback_reg_main_menu(callback: CallbackQuery, state: FSMContext):
     """After Web App reg: show main menu."""
     await callback.answer()
     await state.clear()
-    await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
+    await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard(telegram_id=callback.from_user.id))
 
 
 @router.callback_query(F.data == "reg_participate_contest")
@@ -1199,7 +1199,7 @@ async def accept_referral_promo(callback: CallbackQuery, state: FSMContext):
     else:
         await callback.message.edit_text(promo_text)
     
-    await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard())
+    await callback.message.answer(MENU_PROMPT, reply_markup=get_main_menu_keyboard(telegram_id=callback.from_user.id))
     await callback.answer()
 
 
@@ -1380,6 +1380,7 @@ async def handle_test_from_menu(message: Message, state: FSMContext):
         test = tests[0]
 
     await send_test_to_user(message, student, test)
+
 
 @router.message(F.text == "👤 Mening ma'lumotlarim")
 async def handle_my_info(message: Message, state: FSMContext):
