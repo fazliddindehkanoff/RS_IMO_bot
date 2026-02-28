@@ -1273,7 +1273,7 @@ async def _send_contest_promo_with_referral(message_or_bot, telegram_id: int, ch
     promo_text = CONTEST_PROMO_MESSAGE.format(referral_link=referral_link)
 
     target_chat = chat_id or telegram_id
-    photo_path = os.path.join(settings.MEDIA_ROOT, "poster.png")
+    photo_path = os.path.join(settings.MEDIA_ROOT, "poster.jpg")
 
     if os.path.exists(photo_path):
         sent_msg = await bot_instance.send_photo(
