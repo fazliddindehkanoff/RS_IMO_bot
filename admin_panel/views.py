@@ -547,7 +547,15 @@ def test_app_questions_view(request):
     # Check time window
     now = timezone.now()
     if test.starts_at and now < test.starts_at:
-        return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Test hali boshlanmadi."}, status=403))
+        return _add_cors_headers(JsonResponse({
+            "ok": False,
+            "error_text": f"Test {test.starts_at.strftime('%d.%m.%Y %H:%M')} da boshlanadi."
+        }, status=403))
+    if hasattr(test, 'ends_at') and test.ends_at and now > test.ends_at:
+        return _add_cors_headers(JsonResponse({
+            "ok": False,
+            "error_text": f"Test {test.ends_at.strftime('%d.%m.%Y %H:%M')} da yakunlandi."
+        }, status=403))
     if test.finish_at and now > test.finish_at:
         return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Test vaqti tugadi."}, status=403))
 
