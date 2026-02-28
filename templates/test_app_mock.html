@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#14c767" />
+  <title>Test Yechish — Mock Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary:        #14c767;
+      --primary-dark:   #08522a;
+      --primary-glow:   rgba(20, 199, 103, 0.18);
+      --secondary-blue: #115999;
+      --secondary-purp: #7b48a3;
+      --accent-yellow:  #ffbe15;
+      --white:          #ffffff;
+
+      --bg:             #f0faf5;
+      --surface:        #ffffff;
+      --surface-2:      #f7fdf9;
+      --text:           #0d1f14;
+      --text-muted:     #6b8275;
+      --border:         #d4ead9;
+      --error:          #e53935;
+
+      --radius-sm:  8px;
+      --radius-md:  14px;
+      --radius-lg:  20px;
+      --radius-xl:  28px;
+      --shadow-sm:  0 1px 4px rgba(8,82,42,0.06);
+      --shadow-md:  0 4px 20px rgba(8,82,42,0.10);
+      --shadow-lg:  0 8px 40px rgba(8,82,42,0.14);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { padding: 0 0 24px; }
+
+    /* ── MOCK SWITCHER (dev only) ── */
+    .mock-bar {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 8px 16px;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mock-bar span { opacity: .6; }
+    .mock-btn {
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.07);
+      color: #cdd6f4;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .mock-btn:hover { background: rgba(255,255,255,0.15); }
+    .mock-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* ── TOP BAR ── */
+    .top-bar {
+      background: linear-gradient(135deg, var(--primary-dark) 0%, #0a6e38 100%);
+      padding: 18px 20px 22px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-md);
+    }
+    .top-bar-brand { display: flex; align-items: center; gap: 10px; }
+    .top-bar-logo {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      box-shadow: 0 0 12px rgba(20,199,103,0.45);
+      flex-shrink: 0;
+    }
+    .top-bar-title   { font-size: 1rem; font-weight: 700; color: var(--white); letter-spacing: -0.01em; }
+    .top-bar-subtitle{ font-size: 0.72rem; color: rgba(255,255,255,0.6); font-weight: 400; }
+
+    .timer-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.13);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 40px;
+      padding: 6px 14px;
+    }
+    .timer-badge.urgent { background: rgba(229,57,53,0.22); border-color: rgba(229,57,53,0.5); animation: pulse-urgent 1s ease-in-out infinite; }
+    @keyframes pulse-urgent { 0%,100%{opacity:1;} 50%{opacity:.75;} }
+    .timer-text { font-size: 1rem; font-weight: 700; color: var(--white); font-variant-numeric: tabular-nums; }
+
+    /* ── PROGRESS ── */
+    .progress-wrap { background: var(--bg); padding: 12px 20px 0; }
+    .progress-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+    .progress-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .progress-count { font-size: 0.82rem; font-weight: 700; color: var(--primary-dark); }
+    .progress-track { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #0de97e); border-radius: 99px; transition: width 0.4s cubic-bezier(.4,0,.2,1); }
+
+    /* ── CONTAINER ── */
+    .container { max-width: 580px; margin: 0 auto; padding: 16px 16px 0; }
+
+    /* ── OVERLAY ── */
+    .overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(240, 250, 245, 0.97);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 32px 24px; backdrop-filter: blur(6px);
+    }
+    .loader-ring {
+      width: 52px; height: 52px; border-radius: 50%;
+      border: 4px solid var(--border); border-top-color: var(--primary);
+      animation: spin 0.9s linear infinite; margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay-icon   { font-size: 3.5rem; margin-bottom: 16px; line-height: 1; }
+    .overlay-title  { font-size: 1.3rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .overlay-msg    { font-size: 1rem; color: var(--text-muted); line-height: 1.6; max-width: 360px; }
+    .overlay-close-btn {
+      margin-top: 28px; padding: 14px 32px;
+      background: linear-gradient(135deg, var(--primary), #0dc45e);
+      color: var(--white); border: none; border-radius: 40px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(20,199,103,0.3);
+    }
+
+    /* ── START SCREEN ── */
+    #startScreen { display: none; padding-top: 10px; }
+    .start-hero {
+      background: linear-gradient(135deg, var(--primary-dark) 0%, #0a6e38 50%, #0d8247 100%);
+      border-radius: var(--radius-xl); padding: 32px 24px;
+      text-align: center; margin-bottom: 16px;
+      position: relative; overflow: hidden; box-shadow: var(--shadow-lg);
+    }
+    .start-hero::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 160px; height: 160px; border-radius: 50%; background: rgba(255,255,255,0.05);
+    }
+    .start-hero::after {
+      content: ''; position: absolute; bottom: -50px; left: -30px;
+      width: 180px; height: 180px; border-radius: 50%; background: rgba(20,199,103,0.12);
+    }
+    .start-emoji       { font-size: 3.2rem; margin-bottom: 12px; position: relative; z-index: 1; }
+    .start-hero-title  { font-size: 1.5rem; font-weight: 800; color: var(--white); margin-bottom: 6px; position: relative; z-index: 1; }
+    .start-hero-sub    { font-size: 0.9rem; color: rgba(255,255,255,0.7); position: relative; z-index: 1; }
+
+    .info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .info-card {
+      background: var(--surface); border-radius: var(--radius-md);
+      padding: 16px; text-align: center;
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+    }
+    .info-card-icon  { font-size: 1.6rem; margin-bottom: 6px; }
+    .info-card-value { font-size: 1.5rem; font-weight: 800; color: var(--primary-dark); }
+    .info-card-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+    .rules-card { background: var(--surface); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+    .rules-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 10px; }
+    .rule-item { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; color: var(--text); line-height: 1.5; margin-bottom: 8px; }
+    .rule-item:last-child { margin-bottom: 0; }
+    .rule-dot {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--primary-glow); color: var(--primary-dark);
+      font-size: 0.7rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+    }
+    .start-btn {
+      width: 100%; padding: 17px; font-size: 1.1rem; font-weight: 800;
+      color: var(--white); background: linear-gradient(135deg, var(--primary) 0%, #0dc45e 100%);
+      border: none; border-radius: var(--radius-lg); cursor: pointer;
+      box-shadow: 0 6px 24px rgba(20,199,103,0.38);
+      transition: transform .15s, box-shadow .15s; position: relative; overflow: hidden;
+    }
+    .start-btn:active { transform: scale(0.98); }
+    .start-btn::after { content:''; position:absolute; inset:0; background: linear-gradient(to bottom,rgba(255,255,255,0.12),transparent); pointer-events:none; }
+
+    /* ── QUESTION CARDS ── */
+    #mainContainer { display: none; }
+    .question-card {
+      background: var(--surface); border-radius: var(--radius-lg);
+      padding: 20px; margin-bottom: 12px;
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+      transition: box-shadow .2s;
+      animation: fadeSlideIn 0.3s ease forwards; opacity: 0;
+    }
+    .question-card.answered { border-color: rgba(20,199,103,0.4); box-shadow: 0 0 0 1px rgba(20,199,103,0.2), var(--shadow-sm); }
+    @keyframes fadeSlideIn { from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:translateY(0);} }
+
+    .q-meta { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .q-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--primary-glow); color: var(--primary-dark);
+      font-size: 0.75rem; font-weight: 700; padding: 4px 10px;
+      border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .q-answered-pill {
+      display: none; align-items: center; gap: 4px;
+      background: #e6faf0; color: #0a6e38;
+      font-size: 0.72rem; font-weight: 700;
+      padding: 4px 10px; border-radius: 20px;
+    }
+    .q-answered-pill.visible { display: inline-flex; }
+    .q-text { font-size: 1rem; font-weight: 500; line-height: 1.6; color: var(--text); margin-bottom: 14px; }
+    .q-img {
+      width: 100%;
+      height: auto;
+      max-height: 360px;
+      object-fit: contain;
+      border-radius: var(--radius-md);
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      display: block;
+      background: var(--surface-2);
+      cursor: zoom-in;
+    }
+    .q-img:hover { opacity: .92; }
+
+    /* ── LIGHTBOX ── */
+    .lightbox {
+      position: fixed; inset: 0; z-index: 10000;
+      background: rgba(0,0,0,0.92);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; opacity: 0; pointer-events: none;
+      transition: opacity .22s ease;
+    }
+    .lightbox.open { opacity: 1; pointer-events: all; }
+    .lightbox-img {
+      max-width: 100%; max-height: 90vh;
+      border-radius: var(--radius-md); object-fit: contain;
+      transform: scale(0.86);
+      transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 0 8px 48px rgba(0,0,0,0.6);
+    }
+    .lightbox.open .lightbox-img { transform: scale(1); }
+    .lightbox-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 1.5px solid rgba(255,255,255,0.3);
+      color: #fff; font-size: 1.1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px); transition: background .15s;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,0.28); }
+    .lightbox-hint {
+      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+      font-size: 0.72rem; color: rgba(255,255,255,0.45);
+      letter-spacing: 0.05em; white-space: nowrap;
+    }
+
+    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .option { position: relative; }
+    .option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+    .option-label {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 10px; background: var(--surface-2);
+      border: 2px solid var(--border); border-radius: var(--radius-md);
+      cursor: pointer; transition: background .18s, border-color .18s, transform .12s, box-shadow .18s;
+      user-select: none; -webkit-tap-highlight-color: transparent; min-height: 52px;
+    }
+    .option-label:active { transform: scale(0.96); }
+    .option-letter-wrap {
+      width: 28px; height: 28px; border-radius: 8px; background: var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background .18s;
+    }
+    .option-letter { font-size: 0.88rem; font-weight: 800; color: var(--text-muted); transition: color .18s; }
+    .option input[type="radio"]:checked ~ .option-label {
+      background: linear-gradient(135deg, var(--primary-dark), #0a6e38);
+      border-color: var(--primary-dark);
+      box-shadow: 0 4px 16px rgba(8,82,42,0.22);
+    }
+    .option input[type="radio"]:checked ~ .option-label .option-letter-wrap { background: rgba(255,255,255,0.18); }
+    .option input[type="radio"]:checked ~ .option-label .option-letter { color: var(--white); }
+
+    /* ── SUBMIT SECTION ── */
+    .submit-section {
+      padding: 16px;
+      background: linear-gradient(to top, var(--bg) 70%, transparent);
+      position: sticky; bottom: 0; z-index: 50;
+    }
+    .submit-inner { max-width: 580px; margin: 0 auto; }
+    .answered-status { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; font-weight: 500; }
+    .answered-status strong { color: var(--primary-dark); }
+    .unanswered-warning {
+      display: none; background: #fff8e1; border: 1.5px solid #ffbe15;
+      border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 10px;
+      text-align: center; font-size: 0.85rem; color: #7a5500; font-weight: 500;
+      align-items: center; gap: 8px;
+    }
+    .unanswered-warning.visible { display: flex; }
+    .submit-btn {
+      width: 100%; padding: 17px; font-size: 1.05rem; font-weight: 800;
+      color: var(--white); background: linear-gradient(135deg, var(--primary-dark) 0%, #0a6e38 100%);
+      border: none; border-radius: var(--radius-lg); cursor: pointer;
+      box-shadow: 0 6px 24px rgba(8,82,42,0.28);
+      transition: transform .15s, box-shadow .15s, opacity .2s; position: relative; overflow: hidden;
+    }
+    .submit-btn::after { content:''; position:absolute; inset:0; background: linear-gradient(to bottom,rgba(255,255,255,0.08),transparent); pointer-events:none; }
+    .submit-btn:active { transform: scale(0.98); }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── SCROLL TO TOP ── */
+    .scroll-top-btn {
+      position: fixed; bottom: 90px; right: 16px;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--primary-dark); color: var(--white);
+      border: none; cursor: pointer; font-size: 1.1rem;
+      box-shadow: var(--shadow-md);
+      display: none; align-items: center; justify-content: center; z-index: 60;
+      transition: opacity .2s, transform .15s;
+    }
+    .scroll-top-btn.visible { display: flex; }
+    .scroll-top-btn:active { transform: scale(0.92); }
+
+    /* ── REVIEW SHEET ── */
+    .review-backdrop { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.45); opacity:0; pointer-events:none; transition:opacity .28s ease; }
+    .review-backdrop.open { opacity:1; pointer-events:all; }
+    .review-sheet {
+      position:fixed; left:0; right:0; bottom:0; z-index:201;
+      background:var(--surface); border-radius:24px 24px 0 0;
+      padding:0 0 24px; max-height:88vh;
+      display:flex; flex-direction:column;
+      transform:translateY(100%);
+      transition:transform .32s cubic-bezier(.32,1,.4,1);
+      box-shadow:0 -8px 40px rgba(8,82,42,0.16);
+    }
+    .review-sheet.open { transform:translateY(0); }
+    .review-handle { width:40px; height:4px; background:var(--border); border-radius:99px; margin:14px auto 0; flex-shrink:0; }
+    .review-header {
+      padding:16px 20px 12px; display:flex; align-items:center; justify-content:space-between;
+      flex-shrink:0; border-bottom:1px solid var(--border);
+    }
+    .review-header-title { font-size:1rem; font-weight:800; color:var(--text); }
+    .review-header-sub   { font-size:0.78rem; color:var(--text-muted); margin-top:2px; }
+    .review-close-btn { width:32px; height:32px; border-radius:50%; background:var(--bg); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1rem; color:var(--text-muted); flex-shrink:0; }
+    .review-list { flex:1; overflow-y:auto; padding:14px 16px; display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:10px; align-content:start; }
+    .review-item { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 6px; border-radius:var(--radius-md); border:1.5px solid var(--border); background:var(--surface-2); gap:4px; }
+    .review-item.answered  { border-color:rgba(20,199,103,0.5); background:#edfaf3; }
+    .review-item.unanswered{ border-color:rgba(255,190,21,0.6);  background:#fff8e1; }
+    .review-item-num { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); }
+    .review-item-ans { font-size:1.1rem; font-weight:800; color:var(--primary-dark); }
+    .review-item.unanswered .review-item-ans { color:#b45309; font-size:0.8rem; }
+    .review-footer { padding:12px 16px 0; display:flex; flex-direction:column; gap:10px; flex-shrink:0; border-top:1px solid var(--border); }
+    .review-confirm-btn { width:100%; padding:16px; font-size:1.05rem; font-weight:800; color:var(--white); background:linear-gradient(135deg,var(--primary) 0%,#0dc45e 100%); border:none; border-radius:var(--radius-lg); cursor:pointer; box-shadow:0 4px 20px rgba(20,199,103,0.32); transition:transform .15s,opacity .2s; }
+    .review-confirm-btn:active { transform:scale(0.98); }
+    .review-confirm-btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .review-back-btn { width:100%; padding:14px; font-size:0.95rem; font-weight:700; color:var(--text-muted); background:transparent; border:1.5px solid var(--border); border-radius:var(--radius-lg); cursor:pointer; transition:border-color .15s,color .15s; }
+    .review-back-btn:hover { border-color:var(--primary-dark); color:var(--primary-dark); }
+  </style>
+</head>
+<body>
+
+  <!-- ── MOCK DEV BAR ── -->
+  <div class="mock-bar">
+    <span>🔧 Mock Preview</span>
+    <button class="mock-btn active" onclick="showScreen('start')">Start Screen</button>
+    <button class="mock-btn" onclick="showScreen('test')">Test UI</button>
+    <button class="mock-btn" onclick="showScreen('loading')">Loading</button>
+    <button class="mock-btn" onclick="showScreen('success')">Success</button>
+    <button class="mock-btn" onclick="showScreen('error')">Error</button>
+  </div>
+
+  <!-- ── LOADING OVERLAY ── -->
+  <div id="loadingOverlay" class="overlay" style="display:none;">
+    <div class="loader-ring"></div>
+    <div class="overlay-title">Yuklanmoqda...</div>
+    <div class="overlay-msg">Savollar tayyorlanmoqda, iltimos kuting.</div>
+  </div>
+
+  <!-- ── BLOCK / RESULT OVERLAY ── -->
+  <div id="blockOverlay" class="overlay" style="display:none;">
+    <div id="blockIcon" class="overlay-icon">⚠️</div>
+    <div id="blockTitle" class="overlay-title"></div>
+    <div id="blockMessage" class="overlay-msg"></div>
+    <div style="display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; justify-content:center;">
+      <button id="blockBackBtn" style="display:none; padding:14px 24px; background:transparent; color:var(--primary-dark); border:2px solid var(--primary-dark); border-radius:40px; font-size:1rem; font-weight:700; cursor:pointer;">← Orqaga</button>
+      <button id="closeAppBtn" class="overlay-close-btn" style="display:none; margin-top:0;">Yopish</button>
+    </div>
+  </div>
+
+  <!-- ── TOP BAR ── -->
+  <div class="top-bar" id="topBar" style="display:none;">
+    <div class="top-bar-brand">
+      <div class="top-bar-logo">
+        <img src="../static/img/logo_rmo.png" alt="RMO" style="width:32px;height:32px;object-fit:contain;">
+      </div>
+      <div>
+        <div class="top-bar-title">Matematika — 7-sinf</div>
+        <div class="top-bar-subtitle">10 ta savol</div>
+      </div>
+    </div>
+    <div class="timer-badge" id="timerBadge">
+      <span>⏱</span>
+      <span class="timer-text" id="timeRemaining">18:42</span>
+    </div>
+  </div>
+
+  <!-- ── PROGRESS BAR ── -->
+  <div id="progressWrap" style="display:none;">
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span class="progress-label">Javoblar</span>
+        <span class="progress-count" id="progressCountText">0 / 10</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── START SCREEN ── -->
+  <div id="startScreen" style="display:none;">
+    <div class="container">
+      <div class="start-hero">
+        <div style="display:flex; align-items:center; justify-content:center; margin-bottom:18px; position:relative; z-index:1;">
+          <img src="../static/img/logo_rs.png" alt="Rahimov School" style="height:72px; object-fit:contain; filter:brightness(0) invert(1);">
+        </div>
+        <div class="start-emoji">📋</div>
+        <div class="start-hero-title">Testga tayyor bo'ling!</div>
+        <div class="start-hero-sub">Barcha savollarni e'tibor bilan o'qing</div>
+      </div>
+      <div class="info-cards">
+        <div class="info-card">
+          <div class="info-card-icon">❓</div>
+          <div class="info-card-value">10</div>
+          <div class="info-card-label">Savollar</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-icon">⏱</div>
+          <div class="info-card-value">20</div>
+          <div class="info-card-label">Daqiqa</div>
+        </div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-title">📌 Qoidalar</div>
+        <div class="rule-item"><div class="rule-dot">1</div><span>Har bir savolga faqat bitta javob tanlang.</span></div>
+        <div class="rule-item"><div class="rule-dot">2</div><span>Vaqt tugaganda test avtomatik yakunlanadi.</span></div>
+        <div class="rule-item"><div class="rule-dot">3</div><span>Test boshlanganidan so'ng tark etib bo'lmaydi.</span></div>
+        <div class="rule-item"><div class="rule-dot">4</div><span>Barcha savollarga javob berishga harakat qiling.</span></div>
+      </div>
+      <button class="start-btn" onclick="showScreen('test')">🚀 Testni boshlash</button>
+    </div>
+  </div>
+
+  <!-- ── MAIN TEST UI ── -->
+  <div id="mainContainer" style="display:none;">
+    <div class="container" id="questionsContainer"></div>
+    <div class="submit-section">
+      <div class="submit-inner">
+        <div class="unanswered-warning" id="unansweredWarning">
+          <span>⚠️</span>
+          <span id="unansweredText">3 ta savol javobsiz qoldi</span>
+        </div>
+        <div class="answered-status" id="answeredStatus"><strong>0</strong> / 10 savol javoblandi</div>
+        <button class="submit-btn" id="submitBtn" type="button" onclick="openReview()">✅ Testni yakunlash</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SCROLL TO TOP ── -->
+  <button class="scroll-top-btn" id="scrollTopBtn" aria-label="Tepaga qaytish">↑</button>
+
+
+  <!-- ── REVIEW SHEET ── -->
+  <div id="reviewBackdrop" class="review-backdrop"></div>
+  <div id="reviewSheet" class="review-sheet" role="dialog" aria-modal="true">
+    <div class="review-handle"></div>
+    <div class="review-header">
+      <div>
+        <div class="review-header-title">📝 Javoblarni tekshiring</div>
+        <div class="review-header-sub" id="reviewHeaderSub"></div>
+      </div>
+      <button class="review-close-btn" id="reviewCloseBtn">&times;</button>
+    </div>
+    <div class="review-list" id="reviewList"></div>
+    <div class="review-footer">
+      <button class="review-confirm-btn" id="reviewConfirmBtn">✅ Tasdiqlash va yuborish</button>
+      <button class="review-back-btn"   id="reviewBackBtn">← Orqaga qaytish</button>
+    </div>
+  </div>
+
+  <!-- ── LIGHTBOX ── -->
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true">
+    <button class="lightbox-close" id="lightboxClose">&times;</button>
+    <img id="lightboxImg" class="lightbox-img" src="" alt="Kattalashtirish">
+    <div class="lightbox-hint">Yopish uchun bosing</div>
+  </div>
+
+  <script>
+    // ── MOCK DATA (questions are always images) ──
+    const MOCK_QUESTIONS = [
+      { id: 1,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=1-savol+(Matematika)",   options: { A:null, B:null, C:null, D:null }, current_answer: null },
+      { id: 2,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=2-savol+(Algebra)",      options: { A:null, B:null, C:null, D:null }, current_answer: "B"   },
+      { id: 3,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=3-savol+(Geometriya)",   options: { A:null, B:null, C:null, D:null }, current_answer: null },
+      { id: 4,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=4-savol+(Tenglama)",     options: { A:null, B:null, C:null, D:null }, current_answer: null },
+      { id: 5,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=5-savol+(Kvadrat+ildiz)",options: { A:null, B:null, C:null, D:null }, current_answer: "A"  },
+      { id: 6,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=6-savol+(Kasrlar)",      options: { A:null, B:null, C:null, D:null }, current_answer: null },
+      { id: 7,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=7-savol+(Foizlar)",      options: { A:null, B:null, C:null, D:null }, current_answer: null },
+      { id: 8,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=8-savol+(Uchburchak)",   options: { A:null, B:null, C:null, D:null }, current_answer: null },
+      { id: 9,  image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=9-savol+(O'rtacha)",     options: { A:null, B:null, C:null, D:null }, current_answer: null },
+      { id: 10, image_url: "https://placehold.co/560x220/e8f5e9/08522a?text=10-savol+(Daraja)",      options: { A:null, B:null, C:null, D:null }, current_answer: null }
+    ];
+
+    let totalQuestions = MOCK_QUESTIONS.length;
+    let answeredCount  = 0;
+
+    function updateProgress() {
+      const pct = (answeredCount / totalQuestions) * 100;
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressCountText').textContent = answeredCount + ' / ' + totalQuestions;
+      document.getElementById('answeredStatus').innerHTML = '<strong>' + answeredCount + '</strong> / ' + totalQuestions + ' savol javoblandi';
+      const remaining = totalQuestions - answeredCount;
+      const warn = document.getElementById('unansweredWarning');
+      const txt  = document.getElementById('unansweredText');
+      if (remaining > 0) { txt.textContent = remaining + ' ta savol javobsiz qoldi'; warn.classList.add('visible'); }
+      else { warn.classList.remove('visible'); }
+    }
+
+    function markCardAnswered(cardEl) {
+      if (!cardEl.classList.contains('answered')) {
+        cardEl.classList.add('answered');
+        const pill = cardEl.querySelector('.q-answered-pill');
+        if (pill) pill.classList.add('visible');
+        answeredCount++;
+        updateProgress();
+      }
+    }
+
+    function renderQuestions() {
+      answeredCount = 0;
+      const container = document.getElementById('questionsContainer');
+      container.innerHTML = '';
+
+      MOCK_QUESTIONS.forEach((q, idx) => {
+        const card = document.createElement('div');
+        card.className = 'question-card';
+        card.style.animationDelay = (idx * 40) + 'ms';
+
+        let html = `
+          <div class="q-meta">
+            <span class="q-badge">📌 ${idx + 1}-savol</span>
+            <span class="q-answered-pill">✓ Javoblandi</span>
+          </div>
+          <img src="${q.image_url}" class="q-img" loading="lazy" alt="${idx+1}-savol">
+          <div class="options">`;
+
+        Object.keys(q.options).forEach(optKey => {
+          const isChecked = q.current_answer === optKey ? 'checked' : '';
+          html += `
+            <label class="option">
+              <input type="radio" name="q_${q.id}" value="${optKey}" ${isChecked}>
+              <div class="option-label">
+                <div class="option-letter-wrap">
+                  <span class="option-letter">${optKey}</span>
+                </div>
+              </div>
+            </label>`;
+        });
+
+        html += `</div>`;
+        card.innerHTML = html;
+
+        if (q.current_answer) {
+          card.classList.add('answered');
+          card.querySelector('.q-answered-pill').classList.add('visible');
+          answeredCount++;
+        }
+
+        card.querySelectorAll('input[type="radio"]').forEach(radio => {
+          radio.addEventListener('change', () => markCardAnswered(card));
+        });
+
+        // Image lightbox
+        const img = card.querySelector('.q-img');
+        if (img) img.addEventListener('click', () => openLightbox(img.src));
+
+        container.appendChild(card);
+      });
+
+      updateProgress();
+    }
+
+    // ── SCREEN SWITCHER ──
+    function showScreen(screen) {
+      // Hide all
+      document.getElementById('loadingOverlay').style.display = 'none';
+      document.getElementById('blockOverlay').style.display   = 'none';
+      document.getElementById('startScreen').style.display    = 'none';
+      document.getElementById('mainContainer').style.display  = 'none';
+      document.getElementById('topBar').style.display         = 'none';
+      document.getElementById('progressWrap').style.display   = 'none';
+
+      document.querySelectorAll('.mock-btn').forEach(b => b.classList.remove('active'));
+
+      if (screen === 'loading') {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        document.querySelector('.mock-btn:nth-child(4)').classList.add('active');
+      } else if (screen === 'start') {
+        document.getElementById('topBar').style.display    = 'flex';
+        document.getElementById('startScreen').style.display = 'block';
+        document.querySelector('.mock-btn:nth-child(2)').classList.add('active');
+      } else if (screen === 'test') {
+        document.getElementById('topBar').style.display       = 'flex';
+        document.getElementById('progressWrap').style.display = 'block';
+        document.getElementById('mainContainer').style.display = 'block';
+        renderQuestions();
+        document.querySelector('.mock-btn:nth-child(3)').classList.add('active');
+        // Mock live timer
+        let sec = 18 * 60 + 42;
+        const timerEl = document.getElementById('timeRemaining');
+        const badge   = document.getElementById('timerBadge');
+        clearInterval(window._mockTimer);
+        window._mockTimer = setInterval(() => {
+          if (--sec <= 0) { clearInterval(window._mockTimer); return; }
+          if (sec <= 60) badge.classList.add('urgent');
+          const m = Math.floor(sec / 60), s = sec % 60;
+          timerEl.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        }, 1000);
+      } else if (screen === 'success') {
+        const overlay = document.getElementById('blockOverlay');
+        document.getElementById('blockIcon').innerHTML    = '🎉';
+        document.getElementById('blockTitle').textContent = 'Test topshirildi!';
+        document.getElementById('blockMessage').innerHTML = 'Javoblaringiz muvaffaqiyatli qabul qilindi!<br><br>Natijangizni bot orqali tez orada bilib olasiz.';
+        document.getElementById('closeAppBtn').style.display = 'inline-block';
+        overlay.style.display = 'flex';
+        document.querySelector('.mock-btn:nth-child(5)').classList.add('active');
+      } else if (screen === 'error') {
+        const overlay = document.getElementById('blockOverlay');
+        document.getElementById('blockIcon').innerHTML    = '⚠️';
+        document.getElementById('blockTitle').textContent = 'Xatolik yuz berdi';
+        document.getElementById('blockMessage').innerHTML = 'Iltimos, ilovani Telegram bot orqali oching.';
+        document.getElementById('closeAppBtn').style.display = 'none';
+        document.getElementById('blockBackBtn').style.display = 'inline-block';
+        overlay.style.display = 'flex';
+        document.querySelector('.mock-btn:nth-child(6)').classList.add('active');
+      }
+    }
+
+    // Scroll to top btn
+    const scrollBtn = document.getElementById('scrollTopBtn');
+    window.addEventListener('scroll', () => scrollBtn.classList.toggle('visible', window.scrollY > 300));
+    scrollBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+    document.getElementById('closeAppBtn').addEventListener('click', () => showScreen('start'));
+    document.getElementById('blockBackBtn').addEventListener('click', () => {
+      document.getElementById('blockBackBtn').style.display = 'none';
+      showScreen('start');
+    });
+
+    // ── LIGHTBOX ──
+    function openLightbox(src) {
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('lightbox').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      document.body.style.overflow = '';
+      setTimeout(() => { document.getElementById('lightboxImg').src = ''; }, 250);
+    }
+    document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox').addEventListener('click', function(e) { if (e.target === this) closeLightbox(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+    // \u2500\u2500 REVIEW SHEET \u2500\u2500
+    function openReview() {
+      const list = document.getElementById('reviewList');
+      list.innerHTML = '';
+      let unansweredCount = 0;
+
+      MOCK_QUESTIONS.forEach((q, idx) => {
+        const radios = document.querySelectorAll(`input[name="q_${q.id}"]`);
+        let selected = null;
+        radios.forEach(r => { if (r.checked) selected = r.value; });
+        if (!selected) unansweredCount++;
+
+        const item = document.createElement('div');
+        item.className = 'review-item ' + (selected ? 'answered' : 'unanswered');
+        item.dataset.qidx = idx;
+        item.innerHTML = `
+          <span class="review-item-num">${idx + 1}-savol</span>
+          <span class="review-item-ans">${selected || 'Yo\'q'}</span>`;
+        if (!selected) {
+          item.style.cursor = 'pointer';
+          item.addEventListener('click', () => {
+            closeReview();
+            setTimeout(() => {
+              const cards = document.querySelectorAll('.question-card');
+              const card = cards[idx];
+              if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 350);
+          });
+        }
+        list.appendChild(item);
+      });
+
+      const sub = document.getElementById('reviewHeaderSub');
+      const answered = MOCK_QUESTIONS.length - unansweredCount;
+      sub.textContent = unansweredCount > 0
+        ? `${answered}/${MOCK_QUESTIONS.length} savol javoblandi — ${unansweredCount} ta javobsiz`
+        : `Barcha ${MOCK_QUESTIONS.length} ta savol javoblandi ✓`;
+      sub.style.color = unansweredCount > 0 ? '#b45309' : '#0a6e38';
+
+      document.getElementById('reviewBackdrop').classList.add('open');
+      document.getElementById('reviewSheet').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeReview() {
+      document.getElementById('reviewBackdrop').classList.remove('open');
+      document.getElementById('reviewSheet').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    document.getElementById('reviewCloseBtn').addEventListener('click', closeReview);
+    document.getElementById('reviewBackBtn').addEventListener('click', closeReview);
+    document.getElementById('reviewBackdrop').addEventListener('click', closeReview);
+
+    document.getElementById('reviewConfirmBtn').addEventListener('click', function() {
+      this.disabled = true;
+      this.textContent = '⏳ Yuborilmoqda...';
+      closeReview();
+      // Mock: simulate network delay then show success
+      setTimeout(() => showScreen('success'), 900);
+    });
+
+    // Boot to start screen
+    showScreen('start');
+  </script>
+</body>
+</html>
