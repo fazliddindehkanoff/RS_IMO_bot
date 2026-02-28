@@ -212,18 +212,17 @@ PROMO_AFTER_REG_TEXT = (
 
 # Contest promo message with referral link (sent with logo photo)
 CONTEST_PROMO_MESSAGE = (
-    "Aloqadamisiz? Sizga maxsus xabar bor!\n\n"
-    "Rahimov Matematika Olimpiadasini eng ko'p tarqatganlar uchun mukofotlar o'ynayapmiz:\n\n"
+    "Sovg'alarimiz:\n\n"
     "<b>1-o'rin</b> — 100$\n"
     "<b>2-o'rin</b> — 500 000 so'm\n"
     "<b>3-o'rin</b> — 250 000 so'm\n"
-    "4-o'rin — 100 000 so'm\n"
-    "5-10-o'rinlar — Telegram premium obunasiz\n"
-    "11-20-o'rinlar — Parallel Muhit obunasi\n"
-    "21-25-o'rinlar — \"Zehn tuzoqlari\" kitobi\n\n"
-    "25 ta o'ringa kira olmaganlar uchun <b>EKSKLYUZIV YANGILIK— 5 nafardan ko'p do'st taklif qilgan</b> "
-    "har bir ishtirokchi uchun <b>50 000 so'm</b> yutish imkoniyati mavjud.\n\n"
-    "Shoshiling sizlar uchun bunday imkoniyat qayta bo'lmasligi mumkin:\n\n"
+    "<b>4-o'rin</b> — 100 000 so'm\n"
+    "<b>5-10-o'rinlar</b> — Telegram premium obunasiz\n"
+    "<b>11-20-o'rinlar</b> — Parallel Muhit obunasi\n"
+    "<b>21-25-o'rinlar</b> — \"Zehn tuzoqlari\" kitobi\n\n"
+    "25 ta o'ringa kira olmaganlar uchun <b>EKSKLYUZIV YANGILIK— 5 nafardan ko'p</b> do'st taklif qilgan "
+    "<b>har bir ishtirokchi</b> uchun <b>50 000 so'm</b> yutish imkoniyati mavjud.\n\n"
+    "<b>Shoshiling sizlar uchun bunday imkoniyat qayta bo'lmasligi mumkin:</b>\n\n"
     "{referral_link}"
 )
 
