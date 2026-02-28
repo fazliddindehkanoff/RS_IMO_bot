@@ -1,5 +1,6 @@
 """Service layer for database operations."""
 import logging
+from html import escape
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -902,8 +903,12 @@ from admin_panel.models import BroadcastMessage
 from admin_panel.registration_filters import filter_students_by_registration_steps
 
 from aiogram.types import FSInputFile, InputMediaPhoto, InputMediaVideo
+from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError
 from django.conf import settings
 import os
+
+# Telegram allows max 30 messages/second globally; we stay slightly under that.
+_BROADCAST_RATE_LIMIT = 1 / 30  # seconds between sends
 
 
 class BroadcastService:
@@ -983,11 +988,13 @@ class BroadcastService:
         error_messages = []
 
         for student in students:
-            try:
+            async def _do_send():
+                """Inner helper: actually send the message/media to student."""
                 display_name = (student.first_name or student.initial_full_name or "O'quvchi").strip()
+                safe_name = escape(display_name)
                 text = broadcast.message.format(
-                    student_name=display_name,
-                    user_name=display_name
+                    student_name=safe_name,
+                    user_name=safe_name
                 )
 
                 if len(media_list) == 0:
@@ -1057,19 +1064,32 @@ class BroadcastService:
                         media=group,
                     )
 
+            try:
+                try:
+                    await _do_send()
+                except TelegramRetryAfter as e:
+                    # Telegram is rate-limiting us — wait the required time, then retry once
+                    logger.warning(
+                        "Broadcast rate-limited by Telegram (retry_after=%ss), waiting…",
+                        e.retry_after,
+                    )
+                    await asyncio.sleep(e.retry_after)
+                    await _do_send()  # one retry after waiting
                 sent_count += 1
 
+            except TelegramForbiddenError:
+                # User blocked the bot or deactivated their account
+                blocked_count += 1
+
             except Exception as e:
-                e_str = str(e).lower()
-                if "blocked" in e_str or "user is deactivated" in e_str:
-                    blocked_count += 1
-                else:
-                    failed_count += 1
-                    if len(error_messages) < 50:
-                        error_messages.append(f"Student {student.telegram_id}: {str(e)}")
+                failed_count += 1
+                if len(error_messages) < 50:
+                    error_messages.append(f"Student {student.telegram_id}: {str(e)}")
 
-            await asyncio.sleep(0.05)
+            # Enforce Telegram's global limit: max 30 messages/second
+            await asyncio.sleep(_BROADCAST_RATE_LIMIT)
 
+            # Periodically save progress to DB every 50 students
             if (sent_count + blocked_count + failed_count) % 50 == 0:
                 broadcast.sent_count = sent_count
                 broadcast.blocked_count = blocked_count
@@ -1077,6 +1097,7 @@ class BroadcastService:
                 if error_messages:
                     broadcast.error_log = "\n".join(error_messages)
                 await sync_to_async(broadcast.save)()
+
 
         broadcast.status = 'completed'
         broadcast.completed_at = timezone.now()

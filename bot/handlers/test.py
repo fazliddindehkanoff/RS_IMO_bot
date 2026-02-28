@@ -54,6 +54,9 @@ async def send_test_to_user(message: Message, student, test):
         else "Test"
     )
 
+    # Pre-create the attempt so we can embed its ID in the Web App URL
+    attempt = await TestService.create_test_attempt(student, test)
+
     text = (
         f"Hurmatli {student.first_name}, sizga {grade_label} grant imtihoni savollari yuborildi.\n\n"
         f"Vaqt: {test.duration_minutes} daqiqa. Yakuniy topshirish 1 marta."
@@ -61,7 +64,7 @@ async def send_test_to_user(message: Message, student, test):
 
     await message.answer(
         text,
-        reply_markup=get_start_test_keyboard(test_id=test.id)
+        reply_markup=get_start_test_keyboard(test_id=test.id, attempt_id=attempt.id)
     )
 
 

@@ -669,10 +669,10 @@ class TestQuestionInline(StackedInline):
 @admin.register(Test)
 class TestAdmin(ModelAdmin):
     """Admin for Test model."""
-    list_display = ['title', 'grade', 'language', 'version', 'duration_minutes', 'questions_count', 'is_active', 'created_at']
+    list_display = ['title', 'grade', 'language', 'version', 'duration_minutes', 'questions_count', 'sent_count', 'blocked_count', 'is_active', 'created_at']
     list_filter = ['grade', 'language', 'is_active', 'created_at']
     search_fields = ['title', 'version']
-    readonly_fields = ['created_at', 'updated_at', 'questions_count']
+    readonly_fields = ['created_at', 'updated_at', 'questions_count', 'sent_count', 'blocked_count', 'blocked_users_display']
     ordering = ['grade', 'title', 'version']
     inlines = [TestQuestionInline]
     actions = ['send_test_to_students_action']
@@ -680,6 +680,9 @@ class TestAdmin(ModelAdmin):
     fieldsets = (
         ('Asosiy ma\'lumotlar', {
             'fields': ('title', 'grade', 'target_students', 'language', 'version', 'duration_minutes', 'is_active', "starts_at", "finish_at")
+        }),
+        ('Yuborish statistikasi', {
+            'fields': ('sent_count', 'blocked_count', 'blocked_users_display'),
         }),
         ('Statistika', {
             'fields': ('questions_count',),
@@ -696,8 +699,24 @@ class TestAdmin(ModelAdmin):
         """Return the number of questions."""
         return obj.get_questions_count()
 
+    @display(description="Bloklagan foydalanuvchilar")
+    def blocked_users_display(self, obj):
+        """Render blocked_users JSON list as human-readable text."""
+        if not obj.blocked_users:
+            return "—"
+        lines = []
+        for entry in obj.blocked_users:
+            tid = entry.get('telegram_id', '?')
+            name = entry.get('name', '')
+            lines.append(f"{tid} — {name}" if name else str(tid))
+        return "\n".join(lines)
+
     def send_test_to_students_action(self, request, queryset):
-        """Assign test to students (create PENDING attempt) and send Telegram notification."""
+        """Assign test to students (create PENDING attempt) and send Telegram notification.
+        
+        Runs the actual sending in a background thread so the admin UI responds immediately.
+        Updates sent_count, blocked_count, and blocked_users on the Test model.
+        """
         if queryset.count() != 1:
             self.message_user(
                 request,
@@ -708,6 +727,14 @@ class TestAdmin(ModelAdmin):
 
         test = queryset.first()
 
+        if not test.is_active:
+            self.message_user(
+                request,
+                "❌ Bu test faol emas. Yuborish uchun avval testni faollashtiring (Faol ✓).",
+                level=messages.ERROR
+            )
+            return
+
         if test.get_questions_count() == 0:
             self.message_user(
                 request,
@@ -716,84 +743,130 @@ class TestAdmin(ModelAdmin):
             )
             return
 
+
         if test.grade is not None:
             query = Q(grade=test.grade, is_active=True)
-            students = Student.objects.filter(query)
+            students = list(Student.objects.filter(query))
         else:
-            students = test.target_students.filter(is_active=True)
-            if not students.exists():
+            students = list(test.target_students.filter(is_active=True))
+            if not students:
                 self.message_user(
                     request,
                     "Sinf bo'sh. Iltimos, tanlangan o'quvchilarni qo'shing yoki sinfni tanlang.",
                     level=messages.ERROR
                 )
                 return
+
         available_tests = Test.objects.filter(grade=test.grade, is_active=True) if test.grade is not None else None
         available_languages = []
         if available_tests is not None:
             available_languages = sorted({t.language for t in available_tests if t.language})
 
-        sent_count = 0
-        skip_count = 0
-        error_count = 0
+        test_id = test.id  # capture before background thread
 
-        for student in students:
-            if available_languages and len(available_languages) > 1:
-                attempt_exists = TestAttempt.objects.filter(
-                    student=student,
-                    status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
-                    test__grade=test.grade,
-                ).exists()
-            else:
-                attempt_exists = TestAttempt.objects.filter(
-                    test=test,
-                    student=student,
-                    status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
-                ).exists()
+        def _do_send_in_background():
+            """Background thread: send to each student, track stats, save to DB."""
+            import django
+            django.setup() if not django.conf.settings.configured else None
 
-            if attempt_exists:
-                skip_count += 1
-                continue
+            new_sent = 0
+            new_blocked = 0
+            new_blocked_users = list(test.blocked_users or [])
+            existing_blocked_ids = {entry.get('telegram_id') for entry in new_blocked_users}
 
-            attempt = None
-            try:
+            for student in students:
                 if available_languages and len(available_languages) > 1:
-                    send_test_assignment_message(
-                        student.telegram_id,
-                        test,
-                        with_start_button=False,
-                        language_options=available_languages,
-                    )
-                else:
-                    attempt = TestAttempt.objects.create(
+                    attempt_exists = TestAttempt.objects.filter(
                         student=student,
+                        status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
+                        test__grade=test.grade,
+                    ).exists()
+                else:
+                    attempt_exists = TestAttempt.objects.filter(
                         test=test,
-                        status='PENDING',
-                        started_at=None,
-                        expires_at=None,
-                    )
-                    send_test_assignment_message(student.telegram_id, test, with_start_button=True)
-                sent_count += 1
-                
-                # Wait 1 second between messages to avoid rate limiting
-                time.sleep(1.0)
-            except Exception as e:
-                error_count += 1
-                logger.error("Failed to send test to student %s (ID: %s): %s", 
-                           student.first_name, student.telegram_id, e, exc_info=True)
-                if attempt:
-                    attempt.delete()
+                        student=student,
+                        status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
+                    ).exists()
 
-        message = f"Yuborildi: {sent_count} | O'tkazib yuborildi: {skip_count} (oldin yuborilgan)"
-        if error_count > 0:
-            message += f" | Xatolar: {error_count}"
-        
+                if attempt_exists:
+                    continue
+
+                attempt = None
+                try:
+                    if available_languages and len(available_languages) > 1:
+                        send_test_assignment_message(
+                            student.telegram_id,
+                            test,
+                            with_start_button=False,
+                            language_options=available_languages,
+                        )
+                    else:
+                        attempt = TestAttempt.objects.create(
+                            student=student,
+                            test=test,
+                            status='PENDING',
+                            started_at=None,
+                            expires_at=None,
+                        )
+                        send_test_assignment_message(student.telegram_id, test, with_start_button=True)
+                    new_sent += 1
+
+                    # Throttle: 1 message per second to avoid rate limiting
+                    time.sleep(1.0)
+
+                except Exception as e:
+                    err_str = str(e).lower()
+                    is_blocked = (
+                        "forbidden" in err_str
+                        or "blocked" in err_str
+                        or "user is deactivated" in err_str
+                        or "bot was blocked" in err_str
+                    )
+                    if is_blocked:
+                        new_blocked += 1
+                        if student.telegram_id not in existing_blocked_ids:
+                            existing_blocked_ids.add(student.telegram_id)
+                            name = f"{student.first_name or ''} {student.last_name or ''}".strip()
+                            new_blocked_users.append({
+                                'telegram_id': student.telegram_id,
+                                'name': name,
+                                'username': student.username or '',
+                            })
+                    else:
+                        logger.error(
+                            "Failed to send test to student %s (ID: %s): %s",
+                            student.first_name, student.telegram_id, e, exc_info=True
+                        )
+                    if attempt:
+                        attempt.delete()
+
+            # Save aggregated stats back to the Test model
+            try:
+                t = Test.objects.get(pk=test_id)
+                t.sent_count = (t.sent_count or 0) + new_sent
+                t.blocked_count = (t.blocked_count or 0) + new_blocked
+                t.blocked_users = new_blocked_users
+                t.save(update_fields=['sent_count', 'blocked_count', 'blocked_users'])
+                logger.info(
+                    "Test #%s send completed: sent=%s blocked=%s",
+                    test_id, new_sent, new_blocked,
+                )
+            except Exception as save_err:
+                logger.error("Failed to save test send stats: %s", save_err)
+
+        thread = threading.Thread(target=_do_send_in_background, daemon=True)
+        thread.start()
+
+        student_count = len(students)
         self.message_user(
             request,
-            message,
-            level=messages.SUCCESS if error_count == 0 else messages.WARNING
+            f"✅ Test {student_count} ta o'quvchiga yuborilmoqda (fon rejimida). "
+            f"Statistikani ko'rish uchun testni yangilang.",
+            level=messages.SUCCESS
         )
+
     send_test_to_students_action.short_description = "Testni o'quvchilarga yuborish"
+
 
 
 @admin.register(TestQuestion)

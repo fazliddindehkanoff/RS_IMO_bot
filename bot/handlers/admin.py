@@ -517,7 +517,7 @@ async def send_broadcast(message: Message, state: FSMContext):
         return broadcast.id
     
     try:
-        # Show sending message
+        # Show preparing message
         await message.edit_text(
             "⏳ Xabarnoma tayyorlanmoqda...",
             parse_mode=ParseMode.HTML
@@ -525,14 +525,10 @@ async def send_broadcast(message: Message, state: FSMContext):
         
         broadcast_id = await create_broadcast()
         
-        await message.edit_text(
-            ADMIN_BROADCAST_SENDING.format(broadcast_id=broadcast_id),
-            parse_mode=ParseMode.HTML
-        )
-        
-        # Trigger broadcast sending
+        # Fire broadcast in the background — admin gets instant feedback
         from exam_bot_admin.webhook import bot
-        await BroadcastService.send_broadcast(broadcast_id, bot)
+        import asyncio
+        asyncio.create_task(BroadcastService.send_broadcast(broadcast_id, bot))
         
         await message.edit_text(
             ADMIN_BROADCAST_SUCCESS.format(broadcast_id=broadcast_id),
@@ -548,6 +544,7 @@ async def send_broadcast(message: Message, state: FSMContext):
             parse_mode=ParseMode.HTML
         )
         await state.clear()
+
 
 
 @router.message(Command("stats"))

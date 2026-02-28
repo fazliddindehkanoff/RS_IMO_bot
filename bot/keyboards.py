@@ -264,21 +264,37 @@ def get_reg_success_keyboard() -> InlineKeyboardMarkup:
 
 # ==================== TEST KEYBOARDS ====================
 
-def get_start_test_keyboard(test_id: int = None) -> InlineKeyboardMarkup:
+def get_start_test_keyboard(test_id: int = None, attempt_id: int = None) -> InlineKeyboardMarkup:
     """Get start test button keyboard.
-    
+
+    Opens the test Mini App (WebApp) if TEST_WEBAPP_URL is configured in settings,
+    otherwise falls back to an inline callback button.
+
     Args:
-        test_id: Optional test ID to include in callback data
-    
-    Returns:
-        InlineKeyboardMarkup with start button
+        test_id: Optional test ID passed as a URL query param to the Web App.
+        attempt_id: Optional attempt ID passed as a URL query param to the Web App.
     """
+    from django.conf import settings
+    base_url = getattr(settings, "TEST_WEBAPP_URL", "").strip()
+
     builder = InlineKeyboardBuilder()
-    if test_id:
-        builder.button(text="🚀 Boshlash", callback_data=f"test_start_{test_id}")
+    if base_url:
+        params = []
+        if attempt_id:
+            params.append(f"attempt_id={attempt_id}")
+        if test_id:
+            params.append(f"test_id={test_id}")
+        url = f"{base_url}?{'&'.join(params)}" if params else base_url
+        builder.button(text="🚀 Boshlash", web_app=WebAppInfo(url=url))
     else:
-        builder.button(text="🚀 Boshlash", callback_data="test_start")
+        # Fallback: no WebApp URL configured — use regular callback
+        if test_id:
+            builder.button(text="🚀 Boshlash", callback_data=f"test_start_{test_id}")
+        else:
+            builder.button(text="🚀 Boshlash", callback_data="test_start")
+
     return builder.as_markup()
+
 
 
 def get_test_selection_keyboard(tests) -> InlineKeyboardMarkup:

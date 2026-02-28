@@ -657,7 +657,27 @@ class Test(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="Faol")
     starts_at = models.DateTimeField(null=True, blank=True, verbose_name="Boshlanish vaqti", help_text="Agar belgilansa, test faqat shu vaqtdan keyin boshlanishi mumkin.")
     finish_at = models.DateTimeField(null=True, blank=True, verbose_name="Tugash vaqti", help_text="Agar belgilansa, test faqat shu vaqtdan oldin boshlanishi mumkin.")
+
+    # Send-tracking statistics (updated by the admin "send to students" action)
+    sent_count = models.IntegerField(
+        default=0,
+        verbose_name="Yuborilganlar soni",
+        help_text="Test o'quvchilarga yuborilganda avtomatik yangilanadi.",
+    )
+    blocked_count = models.IntegerField(
+        default=0,
+        verbose_name="Bot bloklagan foydalanuvchilar soni",
+        help_text="Test yuborishda botni bloklagan foydalanuvchilar soni.",
+    )
+    blocked_users = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Bloklagan foydalanuvchilar ro'yxati",
+        help_text="Bot bloklagan foydalanuvchilar ro'yxati (telegram_id, ism). Avtomatik to'ldiriladi.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqt")
+
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan vaqt")
 
     class Meta:
