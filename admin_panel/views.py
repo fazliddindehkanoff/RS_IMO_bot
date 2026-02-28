@@ -612,7 +612,8 @@ def test_app_questions_view(request):
             "current_answer": existing_answers.get(q.id)
         }
         if q.image:
-            q_data["image_url"] = request.build_absolute_uri(q.image.url)
+            # Use relative URL to avoid http:// mixed-content blocking on Android WebView
+            q_data["image_url"] = q.image.url
         questions_data.append(q_data)
 
     resp = JsonResponse({

@@ -92,22 +92,45 @@
       font-weight: 400;
     }
 
-    /* Timer badge in top bar */
-    .timer-badge {
+    /* ───── TIMER BAR ───── */
+    .timer-bar {
       display: none;
       align-items: center;
-      gap: 6px;
-      background: rgba(255,255,255,0.13);
-      border: 1px solid rgba(255,255,255,0.22);
-      border-radius: 40px;
-      padding: 6px 14px;
-      backdrop-filter: blur(8px);
+      justify-content: center;
+      gap: 10px;
+      background: var(--primary-dark);
+      padding: 10px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 99;
+      box-shadow: 0 2px 8px rgba(8,82,42,0.18);
+      transition: background 0.4s;
     }
-    .timer-badge.visible { display: flex; }
-    .timer-badge.urgent { background: rgba(229,57,53,0.22); border-color: rgba(229,57,53,0.5); animation: pulse-urgent 1s ease-in-out infinite; }
-    @keyframes pulse-urgent { 0%,100%{opacity:1;} 50%{opacity:.75;} }
-    .timer-icon { font-size: 1rem; }
-    .timer-text { font-size: 1rem; font-weight: 700; color: var(--white); font-variant-numeric: tabular-nums; letter-spacing: 0.03em; }
+    .timer-bar.visible { display: flex; }
+    .timer-bar.urgent {
+      background: #c62828;
+      animation: pulse-urgent 0.9s ease-in-out infinite;
+    }
+    .timer-bar.warning {
+      background: #e65100;
+    }
+    @keyframes pulse-urgent { 0%,100%{opacity:1;} 50%{opacity:.82;} }
+    .timer-bar-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.72);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .timer-bar-time {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.06em;
+      line-height: 1;
+    }
+    .timer-bar-icon { font-size: 1.1rem; line-height: 1; }
 
     /* ───── PROGRESS BAR ───── */
     .progress-wrap {
@@ -669,10 +692,13 @@
         <div class="top-bar-subtitle" id="topBarSubtitle">Savollar yuklanmoqda</div>
       </div>
     </div>
-    <div class="timer-badge" id="timerBadge">
-      <span class="timer-icon">⏱</span>
-      <span class="timer-text" id="timeRemaining">--:--</span>
-    </div>
+  </div>
+
+  <!-- ── TIMER BAR ── -->
+  <div class="timer-bar" id="timerBar">
+    <span class="timer-bar-icon">⏱️</span>
+    <span class="timer-bar-label">Qolgan vaqt</span>
+    <span class="timer-bar-time" id="timeRemaining">--:--</span>
   </div>
 
   <!-- ── PROGRESS BAR ── -->
@@ -800,6 +826,8 @@
       document.getElementById('mainContainer').style.display  = 'none';
       document.getElementById('startScreen').style.display    = 'none';
       document.getElementById('topBar').style.display         = 'none';
+      const timerBar = document.getElementById('timerBar');
+      if (timerBar) timerBar.style.display = 'none';
       document.getElementById('progressAnswered').classList.remove('visible');
 
       const overlay = document.getElementById('blockOverlay');
@@ -857,20 +885,22 @@
     // ─── TIMER ───
     function startTimer() {
       if (!endTimestamp) return;
-      const badge = document.getElementById('timerBadge');
-      badge.classList.add('visible');
+      const bar = document.getElementById('timerBar');
+      bar.classList.add('visible');
 
       function tick() {
         const diff = endTimestamp - Math.floor(Date.now() / 1000);
         if (diff <= 0) {
           clearInterval(timerInterval);
           document.getElementById('timeRemaining').textContent = '00:00';
-          badge.classList.add('urgent');
+          bar.classList.add('urgent');
           showOverlay('Vaqt tugadi! Test avtomatik tarzda yakunlandi.', 'Vaqt tugadi ⏰', false);
           submitTest(true);
           return;
         }
-        if (diff <= 60) badge.classList.add('urgent');
+        if (diff <= 60)       { bar.classList.add('urgent');  bar.classList.remove('warning'); }
+        else if (diff <= 300) { bar.classList.add('warning'); bar.classList.remove('urgent');  }
+        else                  { bar.classList.remove('urgent', 'warning'); }
         const m = Math.floor(diff / 60);
         const s = diff % 60;
         document.getElementById('timeRemaining').textContent =
@@ -1078,12 +1108,17 @@
       document.getElementById('reviewBackdrop').classList.add('open');
       document.getElementById('reviewSheet').classList.add('open');
       document.body.style.overflow = 'hidden';
+      document.getElementById('scrollTopBtn').style.display = 'none';
     }
 
     function closeReview() {
       document.getElementById('reviewBackdrop').classList.remove('open');
       document.getElementById('reviewSheet').classList.remove('open');
       document.body.style.overflow = '';
+      // Restore scroll button only if user has scrolled past threshold
+      if (window.scrollY > 300) {
+        document.getElementById('scrollTopBtn').style.display = 'flex';
+      }
     }
 
     document.getElementById('reviewCloseBtn').addEventListener('click', closeReview);
