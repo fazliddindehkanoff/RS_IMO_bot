@@ -59,14 +59,12 @@ def generate_backup_json() -> tuple[bytes, dict]:
     return json_bytes, stats
 
 
-async def _send_backup_to_admins():
+async def _send_backup_to_admins(json_bytes: bytes, stats: dict):
     """Generate backup JSON and send it to every admin user."""
     from exam_bot_admin.webhook import bot
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     filename = f"backup_{timestamp}.json"
-
-    json_bytes, stats = generate_backup_json()
 
     # Build stats caption
     total_records = sum(v for v in stats.values() if isinstance(v, int))
@@ -81,9 +79,16 @@ async def _send_backup_to_admins():
         f"<b>Jadvallar:</b>\n{table_lines}\n\n"
         f"✅ Faylni yuklab oling va kerak bo'lganda qayta yuklash uchun foydalaning."
     )
-
-    file_obj = io.BytesIO(json_bytes)
-    file_obj.name = filename
+    
+    if len(caption) > 1024:
+        table_lines = table_lines[:800] + "\n  • ... (qisqartirildi)"
+        caption = (
+            f"🗄 <b>Database Backup</b>\n"
+            f"📅 {timestamp}\n"
+            f"📦 Jami yozuvlar: <b>{total_records}</b>\n\n"
+            f"<b>Jadvallar:</b>\n{table_lines}\n\n"
+            f"✅ Faylni yuklab oling va..."
+        )
 
     errors = []
     for admin_id in settings.ADMIN_IDS:
@@ -101,7 +106,7 @@ async def _send_backup_to_admins():
             errors.append((admin_id, str(e)))
 
     await bot.session.close()
-    return stats, errors
+    return errors
 
 
 class Command(BaseCommand):
@@ -111,7 +116,8 @@ class Command(BaseCommand):
         self.stdout.write("📦 Generating database backup...")
 
         try:
-            stats, errors = asyncio.run(_send_backup_to_admins())
+            json_bytes, stats = generate_backup_json()
+            errors = asyncio.run(_send_backup_to_admins(json_bytes, stats))
 
             self.stdout.write("\n📊 Backup stats:")
             for model_path, count in stats.items():

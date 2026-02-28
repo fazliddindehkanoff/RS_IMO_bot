@@ -953,19 +953,16 @@ class BroadcastService:
                 base = base.none()
 
             if target_not_fully_registered:
+                # A user IS fully registered when they have filled in the reg-app required
+                # fields: first_name, last_name, and phone_number (the fields validated by
+                # _save_reg_app_data in views.py).  All other fields (grade, guardian, etc.)
+                # are optional in the web form, so we don't require them here.
                 fully_registered = Student.objects.filter(
-                    Q(first_name__gt=''),
-                    Q(last_name__isnull=False) & ~Q(last_name=''),
-                    date_of_birth__isnull=False,
-                    document_number__isnull=False,
-                    document_number__gt='',
-                ).filter(
-                    parent__isnull=False,
-                ).filter(
-                    Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt=''),
-                ).filter(
-                    teacher__isnull=False,
-                    teacher__phone_number__gt='',
+                    first_name__isnull=False,
+                    last_name__isnull=False,
+                    phone_number__isnull=False,
+                ).exclude(
+                    Q(first_name='') | Q(last_name='') | Q(phone_number='')
                 )
                 base = base.exclude(pk__in=fully_registered.values_list('pk', flat=True))
 
@@ -987,86 +984,74 @@ class BroadcastService:
         failed_count = 0
         error_messages = []
 
+        # ── Step 1: Send the message to the first admin to get a stable message_id.
+        # Then copy_message from that chat for every student — avoids re-uploading
+        # files on disk and is much faster for large broadcasts.
+        from_chat_id: int | None = None
+        from_message_id: int | None = None
+
+        if students:
+            admin_ids = list(getattr(settings, 'ADMIN_IDS', []))
+            if admin_ids:
+                first_admin_id = admin_ids[0]
+                # Build the first message for the admin (use the first student's name as preview)
+                first_student = students[0]
+                preview_name = (
+                    first_student.first_name
+                    or first_student.initial_full_name
+                    or "O'quvchi"
+                ).strip()
+                preview_text = broadcast.message.format(
+                    student_name=escape(preview_name),
+                    user_name=escape(preview_name),
+                )
+                try:
+                    sent_msg = await BroadcastService._send_raw(
+                        bot, first_admin_id, preview_text, media_list
+                    )
+                    if sent_msg is not None:
+                        from_chat_id = first_admin_id
+                        from_message_id = sent_msg.message_id
+                        sent_count += 1
+                        students = students[1:]  # already sent to admin
+                except Exception as e:
+                    logger.warning("Could not send preview to admin %s: %s", first_admin_id, e)
+
         for student in students:
-            async def _do_send():
-                """Inner helper: actually send the message/media to student."""
-                display_name = (student.first_name or student.initial_full_name or "O'quvchi").strip()
+            async def _do_send(s=student):
+                """Send to a single student — via copy_message if possible, else raw send."""
+                display_name = (s.first_name or s.initial_full_name or "O'quvchi").strip()
                 safe_name = escape(display_name)
                 text = broadcast.message.format(
                     student_name=safe_name,
                     user_name=safe_name
                 )
 
-                if len(media_list) == 0:
-                    await bot.send_message(
-                        chat_id=student.telegram_id,
-                        text=text,
-                        parse_mode=ParseMode.HTML,
+                if from_chat_id and from_message_id:
+                    # Use copy_message — does NOT show a "Forwarded from" header and
+                    # reuses Telegram's cached file_ids (no disk I/O per recipient).
+                    await bot.copy_message(
+                        chat_id=s.telegram_id,
+                        from_chat_id=from_chat_id,
+                        message_id=from_message_id,
+                        caption=text if media_list else None,
+                        parse_mode=ParseMode.HTML if media_list else None,
                     )
-                elif len(media_list) == 1:
-                    media_type, file_name, duration, width, height, thumb = media_list[0]
-                    file_path = os.path.join(settings.MEDIA_ROOT, file_name)
-                    fs_input = FSInputFile(file_path)
-                    if media_type == 'video':
-                        video_kwargs = {
-                            'chat_id': student.telegram_id,
-                            'video': fs_input,
-                            'caption': text,
-                            'parse_mode': ParseMode.HTML,
-                            'supports_streaming': True,
-                        }
-                        if duration:
-                            video_kwargs['duration'] = duration
-                        if width:
-                            video_kwargs['width'] = width
-                        if height:
-                            video_kwargs['height'] = height
-                        if thumb:
-                            thumb_path = os.path.join(settings.MEDIA_ROOT, thumb)
-                            if os.path.isfile(thumb_path):
-                                video_kwargs['thumbnail'] = FSInputFile(thumb_path)
-                        await bot.send_video(**video_kwargs)
-                    else:
-                        await bot.send_photo(
-                            chat_id=student.telegram_id,
-                            photo=fs_input,
-                            caption=text,
+                    if not media_list:
+                        # Text-only: copy_message ignores caption for text messages;
+                        # we must send the personalised text separately.
+                        # So fall back to raw send for text messages.
+                        await bot.send_message(
+                            chat_id=s.telegram_id,
+                            text=text,
                             parse_mode=ParseMode.HTML,
                         )
                 else:
-                    group = []
-                    for idx, (media_type, file_name, duration, width, height, thumb) in enumerate(media_list):
-                        file_path = os.path.join(settings.MEDIA_ROOT, file_name)
-                        fs_input = FSInputFile(file_path)
-                        caption_kwargs = {}
-                        if idx == 0:
-                            caption_kwargs = {'caption': text, 'parse_mode': ParseMode.HTML}
-                        if media_type == 'video':
-                            vid_extra = {}
-                            if duration:
-                                vid_extra['duration'] = duration
-                            if width:
-                                vid_extra['width'] = width
-                            if height:
-                                vid_extra['height'] = height
-                            if thumb:
-                                thumb_path = os.path.join(settings.MEDIA_ROOT, thumb)
-                                if os.path.isfile(thumb_path):
-                                    vid_extra['thumbnail'] = FSInputFile(thumb_path)
-                            group.append(InputMediaVideo(
-                                media=fs_input, supports_streaming=True,
-                                **caption_kwargs, **vid_extra,
-                            ))
-                        else:
-                            group.append(InputMediaPhoto(media=fs_input, **caption_kwargs))
-                    await bot.send_media_group(
-                        chat_id=student.telegram_id,
-                        media=group,
-                    )
+                    await BroadcastService._send_raw(bot, s.telegram_id, text, media_list)
 
             try:
                 try:
-                    await _do_send()
+                    await _do_send(student)
                 except TelegramRetryAfter as e:
                     # Telegram is rate-limiting us — wait the required time, then retry once
                     logger.warning(
@@ -1074,7 +1059,7 @@ class BroadcastService:
                         e.retry_after,
                     )
                     await asyncio.sleep(e.retry_after)
-                    await _do_send()  # one retry after waiting
+                    await _do_send(student)  # one retry after waiting
                 sent_count += 1
 
             except TelegramForbiddenError:
@@ -1107,4 +1092,72 @@ class BroadcastService:
         if error_messages:
             broadcast.error_log = "\n".join(error_messages)
         await sync_to_async(broadcast.save)()
+
+    @staticmethod
+    async def _send_raw(bot, chat_id: int, text: str, media_list: list):
+        """Send a message/media directly (without copy_message). Returns the sent Message object."""
+        if len(media_list) == 0:
+            return await bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode=ParseMode.HTML,
+            )
+        elif len(media_list) == 1:
+            media_type, file_name, duration, width, height, thumb = media_list[0]
+            file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+            fs_input = FSInputFile(file_path)
+            if media_type == 'video':
+                video_kwargs = {
+                    'chat_id': chat_id,
+                    'video': fs_input,
+                    'caption': text,
+                    'parse_mode': ParseMode.HTML,
+                    'supports_streaming': True,
+                }
+                if duration:
+                    video_kwargs['duration'] = duration
+                if width:
+                    video_kwargs['width'] = width
+                if height:
+                    video_kwargs['height'] = height
+                if thumb:
+                    thumb_path = os.path.join(settings.MEDIA_ROOT, thumb)
+                    if os.path.isfile(thumb_path):
+                        video_kwargs['thumbnail'] = FSInputFile(thumb_path)
+                return await bot.send_video(**video_kwargs)
+            else:
+                return await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=fs_input,
+                    caption=text,
+                    parse_mode=ParseMode.HTML,
+                )
+        else:
+            group = []
+            for idx, (media_type, file_name, duration, width, height, thumb) in enumerate(media_list):
+                file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+                fs_input = FSInputFile(file_path)
+                caption_kwargs = {}
+                if idx == 0:
+                    caption_kwargs = {'caption': text, 'parse_mode': ParseMode.HTML}
+                if media_type == 'video':
+                    vid_extra = {}
+                    if duration:
+                        vid_extra['duration'] = duration
+                    if width:
+                        vid_extra['width'] = width
+                    if height:
+                        vid_extra['height'] = height
+                    if thumb:
+                        thumb_path = os.path.join(settings.MEDIA_ROOT, thumb)
+                        if os.path.isfile(thumb_path):
+                            vid_extra['thumbnail'] = FSInputFile(thumb_path)
+                    group.append(InputMediaVideo(
+                        media=fs_input, supports_streaming=True,
+                        **caption_kwargs, **vid_extra,
+                    ))
+                else:
+                    group.append(InputMediaPhoto(media=fs_input, **caption_kwargs))
+            msgs = await bot.send_media_group(chat_id=chat_id, media=group)
+            return msgs[0] if msgs else None
 
