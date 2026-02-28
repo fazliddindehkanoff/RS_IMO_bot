@@ -646,11 +646,19 @@
 </head>
 <body>
 
-  <!-- ── LOADING OVERLAY ── -->
-  <div id="loadingOverlay" class="overlay">
-    <div class="loader-ring"></div>
-    <div class="overlay-title">Yuklanmoqda...</div>
-    <div class="overlay-msg">Savollar tayyorlanmoqda, iltimos kuting.</div>
+
+  <!-- ── DEBUG PANEL ── -->
+  <div id="debugPanel" style="
+    position:fixed; bottom:0; left:0; right:0; z-index:99999;
+    background:rgba(0,0,0,0.88); color:#0f0; font-family:monospace;
+    font-size:11px; max-height:200px; overflow-y:auto;
+    padding:8px; display:block; border-top:2px solid #0f0;
+  ">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <b style="color:#0f0;">🐛 DEBUG LOG</b>
+      <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 8px;cursor:pointer;border-radius:4px;">✕</button>
+    </div>
+    <div id="debugLog"></div>
   </div>
 
   <div id="blockOverlay" class="overlay" style="display:none;">
@@ -767,9 +775,32 @@
   <!-- ── SCROLL TO TOP ── -->
   <button class="scroll-top-btn" id="scrollTopBtn" aria-label="Tepaga qaytish">↑</button>
 
+  <!-- ── LIGHTBOX ── -->
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Kattalashtirish">
+    <button class="lightbox-close" id="lightboxClose" aria-label="Yopish">&times;</button>
+    <img id="lightboxImg" class="lightbox-img" src="" alt="Kattalashtirish">
+    <div class="lightbox-hint">Yopish uchun bosing</div>
+  </div>
+
   <script>
+    // ─── DEBUG LOGGER ───
+    function dbg(msg, color) {
+      const el = document.getElementById('debugLog');
+      if (!el) return;
+      const line = document.createElement('div');
+      line.style.color = color || '#0f0';
+      line.style.borderBottom = '1px solid #1a1a1a';
+      line.style.paddingBottom = '2px';
+      line.style.marginBottom = '2px';
+      line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+      console.log('[DBG]', msg);
+    }
+
     var testAppQuestionsUrl = "{{ test_app_questions_url|default:'/test-app/questions/'|escapejs }}";
     var testAppSubmitUrl    = "{{ test_app_submit_url|default:'/test-app/submit/'|escapejs }}";
+    dbg('questionsUrl: ' + testAppQuestionsUrl);
 
     const tg = window.Telegram?.WebApp;
     var tgInitData = (tg && tg.initData) ? tg.initData : "";
@@ -788,6 +819,11 @@
     }
     if (!tgUserId && urlTgUid) tgUserId = urlTgUid;
 
+    dbg('tg object: ' + !!tg, '#8ff');
+    dbg('tgInitData present: ' + !!tgInitData, '#8ff');
+    dbg('tgUserId: ' + (tgUserId || '(empty)'), tgUserId ? '#0f0' : '#f44');
+    dbg('urlTgUid: ' + (urlTgUid || '(none)'), '#8ff');
+
     // ─── STATE ───
     let totalQuestions  = 0;
     let answeredCount   = 0;
@@ -797,7 +833,6 @@
 
     // ─── HELPERS ───
     function showOverlay(msg, title, isSuccess) {
-      document.getElementById('loadingOverlay').style.display = 'none';
       document.getElementById('mainContainer').style.display  = 'none';
       document.getElementById('startScreen').style.display    = 'none';
       document.getElementById('topBar').style.display         = 'none';
@@ -945,15 +980,25 @@
 
     // ─── LOAD QUESTIONS ───
     function loadQuestions(start_test = false) {
-      if (!tgUserId) return;
+      dbg('loadQuestions called, start_test=' + start_test + ', tgUserId=' + (tgUserId||'EMPTY'), '#ff0');
+      if (!tgUserId) {
+        dbg('ABORT: no tgUserId', '#f44');
+        return;
+      }
 
+      dbg('Fetching: ' + testAppQuestionsUrl, '#ff0');
       fetch(testAppQuestionsUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ init_data: tgInitData, fallback_uid: tgUserId, start_test: start_test })
       })
-      .then(r => r.json())
+      .then(r => {
+        dbg('HTTP status: ' + r.status, r.ok ? '#0f0' : '#f44');
+        return r.json();
+      })
       .then(data => {
+        dbg('data.ok=' + data.ok + ' status=' + data.status + ' qs=' + (data.questions ? data.questions.length : 'none'), data.ok ? '#0f0' : '#f44');
+        if (data.error_text) dbg('error_text: ' + data.error_text, '#f44');
         if (!data.ok) {
           return showOverlay(data.error_text || "Xatolik yuz berdi. Testlarni yuklash imkonsiz.", "Xatolik", false);
         }
@@ -966,7 +1011,6 @@
         }
 
         if (data.status === 'PENDING') {
-          document.getElementById('loadingOverlay').style.display = 'none';
           document.getElementById('topBar').style.display = 'flex';
           document.getElementById('topBarTitle').textContent = data.test_title || 'Test';
           document.getElementById('topBarSubtitle').textContent = 'Tayyor bo\'lsangiz boshlang';
@@ -993,10 +1037,12 @@
           startTimer();
         }
 
-        document.getElementById('loadingOverlay').style.display = 'none';
         document.getElementById('mainContainer').style.display  = 'block';
       })
-      .catch(err => showOverlay("Tarmoq xatoligi: " + err.message, "Ulanish xatosi", false));
+      .catch(err => {
+        dbg('FETCH ERROR: ' + err.message, '#f44');
+        showOverlay("Tarmoq xatoligi: " + err.message, "Ulanish xatosi", false);
+      });
     }
 
     // ─── SUBMIT ───
@@ -1108,7 +1154,6 @@
     // ─── START BTN ───
     document.getElementById('startTestBtn').addEventListener('click', () => {
       document.getElementById('startScreen').style.display  = 'none';
-      document.getElementById('loadingOverlay').style.display = 'flex';
       loadQuestions(true);
     });
 
@@ -1135,23 +1180,19 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
     // ─── INIT ───
+    dbg('INIT: tgUserId=' + (tgUserId||'EMPTY'), '#ff0');
     if (!tgUserId) {
+      dbg('No tgUserId → showing block overlay', '#f44');
       showOverlay(
         "Iltimos, ilovani Telegram bot orqali oching.<br><span style='font-size:0.78rem;color:#999;'>TG: " + !!tg + " | InitData: " + !!tgInitData + "</span>",
         "Ruxsat yo'q 🔒",
         false
       );
     } else {
+      dbg('tgUserId found → calling loadQuestions()', '#0f0');
       loadQuestions();
     }
   </script>
-
-  <!-- ── LIGHTBOX ── -->
-  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Kattalashtirish">
-    <button class="lightbox-close" id="lightboxClose" aria-label="Yopish">&times;</button>
-    <img id="lightboxImg" class="lightbox-img" src="" alt="Kattalashtirish">
-    <div class="lightbox-hint">Yopish uchun bosing</div>
-  </div>
 
 </body>
 </html>

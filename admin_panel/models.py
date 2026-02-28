@@ -70,7 +70,6 @@ class Student(models.Model):
     LANGUAGE_CHOICES = [
         ('uz', 'O\'zbek'),
         ('ru', 'Rus'),
-        ('en', 'Ingliz'),
     ]
     telegram_id = models.BigIntegerField(unique=True, db_index=True, verbose_name="Telegram ID")
     username = models.CharField(max_length=255, null=True, blank=True, verbose_name="Foydalanuvchi nomi")
@@ -618,7 +617,6 @@ class Test(models.Model):
     LANGUAGE_CHOICES = [
         ('uz', 'O\'zbek'),
         ('ru', 'Rus'),
-        ('en', 'Ingliz'),
     ]
 
     title = models.CharField(max_length=255, verbose_name="Nomi")
