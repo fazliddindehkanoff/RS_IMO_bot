@@ -647,19 +647,6 @@
 <body>
 
 
-  <!-- ── DEBUG PANEL ── -->
-  <div id="debugPanel" style="
-    position:fixed; bottom:0; left:0; right:0; z-index:99999;
-    background:rgba(0,0,0,0.88); color:#0f0; font-family:monospace;
-    font-size:11px; max-height:200px; overflow-y:auto;
-    padding:8px; display:block; border-top:2px solid #0f0;
-  ">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <b style="color:#0f0;">🐛 DEBUG LOG</b>
-      <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 8px;cursor:pointer;border-radius:4px;">✕</button>
-    </div>
-    <div id="debugLog"></div>
-  </div>
 
   <div id="blockOverlay" class="overlay" style="display:none;">
     <div id="blockIcon" class="overlay-icon">⚠️</div>
@@ -783,24 +770,8 @@
   </div>
 
   <script>
-    // ─── DEBUG LOGGER ───
-    function dbg(msg, color) {
-      const el = document.getElementById('debugLog');
-      if (!el) return;
-      const line = document.createElement('div');
-      line.style.color = color || '#0f0';
-      line.style.borderBottom = '1px solid #1a1a1a';
-      line.style.paddingBottom = '2px';
-      line.style.marginBottom = '2px';
-      line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-      el.appendChild(line);
-      el.scrollTop = el.scrollHeight;
-      console.log('[DBG]', msg);
-    }
-
     var testAppQuestionsUrl = "{{ test_app_questions_url|default:'/test-app/questions/'|escapejs }}";
     var testAppSubmitUrl    = "{{ test_app_submit_url|default:'/test-app/submit/'|escapejs }}";
-    dbg('questionsUrl: ' + testAppQuestionsUrl);
 
     const tg = window.Telegram?.WebApp;
     var tgInitData = (tg && tg.initData) ? tg.initData : "";
@@ -818,11 +789,6 @@
       }
     }
     if (!tgUserId && urlTgUid) tgUserId = urlTgUid;
-
-    dbg('tg object: ' + !!tg, '#8ff');
-    dbg('tgInitData present: ' + !!tgInitData, '#8ff');
-    dbg('tgUserId: ' + (tgUserId || '(empty)'), tgUserId ? '#0f0' : '#f44');
-    dbg('urlTgUid: ' + (urlTgUid || '(none)'), '#8ff');
 
     // ─── STATE ───
     let totalQuestions  = 0;
@@ -980,25 +946,15 @@
 
     // ─── LOAD QUESTIONS ───
     function loadQuestions(start_test = false) {
-      dbg('loadQuestions called, start_test=' + start_test + ', tgUserId=' + (tgUserId||'EMPTY'), '#ff0');
-      if (!tgUserId) {
-        dbg('ABORT: no tgUserId', '#f44');
-        return;
-      }
+      if (!tgUserId) return;
 
-      dbg('Fetching: ' + testAppQuestionsUrl, '#ff0');
       fetch(testAppQuestionsUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ init_data: tgInitData, fallback_uid: tgUserId, start_test: start_test })
       })
-      .then(r => {
-        dbg('HTTP status: ' + r.status, r.ok ? '#0f0' : '#f44');
-        return r.json();
-      })
+      .then(r => r.json())
       .then(data => {
-        dbg('data.ok=' + data.ok + ' status=' + data.status + ' qs=' + (data.questions ? data.questions.length : 'none'), data.ok ? '#0f0' : '#f44');
-        if (data.error_text) dbg('error_text: ' + data.error_text, '#f44');
         if (!data.ok) {
           return showOverlay(data.error_text || "Xatolik yuz berdi. Testlarni yuklash imkonsiz.", "Xatolik", false);
         }
@@ -1039,10 +995,7 @@
 
         document.getElementById('mainContainer').style.display  = 'block';
       })
-      .catch(err => {
-        dbg('FETCH ERROR: ' + err.message, '#f44');
-        showOverlay("Tarmoq xatoligi: " + err.message, "Ulanish xatosi", false);
-      });
+      .catch(err => showOverlay("Tarmoq xatoligi: " + err.message, "Ulanish xatosi", false));
     }
 
     // ─── SUBMIT ───
@@ -1180,16 +1133,13 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
     // ─── INIT ───
-    dbg('INIT: tgUserId=' + (tgUserId||'EMPTY'), '#ff0');
     if (!tgUserId) {
-      dbg('No tgUserId → showing block overlay', '#f44');
       showOverlay(
         "Iltimos, ilovani Telegram bot orqali oching.<br><span style='font-size:0.78rem;color:#999;'>TG: " + !!tg + " | InitData: " + !!tgInitData + "</span>",
         "Ruxsat yo'q 🔒",
         false
       );
     } else {
-      dbg('tgUserId found → calling loadQuestions()', '#0f0');
       loadQuestions();
     }
   </script>
