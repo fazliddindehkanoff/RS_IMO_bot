@@ -746,13 +746,13 @@ class TestAdmin(ModelAdmin):
 
         if test.grade is not None:
             query = Q(grade=test.grade, is_active=True)
-            students = list(Student.objects.filter(query))
+            students = [s for s in Student.objects.filter(query) if s.is_fully_registered]
         else:
-            students = list(test.target_students.filter(is_active=True))
+            students = [s for s in test.target_students.filter(is_active=True) if s.is_fully_registered]
             if not students:
                 self.message_user(
                     request,
-                    "Sinf bo'sh. Iltimos, tanlangan o'quvchilarni qo'shing yoki sinfni tanlang.",
+                    "Sinf bo'sh yoki to'liq ro'yxatdan o'tgan o'quvchilar yo'q. Iltimos, tanlangan o'quvchilarni qo'shing yoki sinfni tanlang.",
                     level=messages.ERROR
                 )
                 return
