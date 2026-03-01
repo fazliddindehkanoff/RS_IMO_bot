@@ -126,27 +126,41 @@ def filter_students_by_registration_step(queryset, step: str):
 
     if v == 'source':
         has_all_before_source = queryset.filter(
-            Q(first_name__gt=''),
-            Q(last_name__isnull=False) & ~Q(last_name=''),
-            date_of_birth__isnull=False,
-            document_number__isnull=False,
-            document_number__gt='',
-        ).filter(parent__isnull=False).filter(
-            Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
-        ).filter(teacher__isnull=False, teacher__phone_number__gt='')
+            first_name__isnull=False,
+            last_name__isnull=False,
+            phone_number__isnull=False,
+        ).exclude(
+            Q(first_name='') | Q(last_name='') | Q(phone_number='')
+        )
         return has_all_before_source.filter(registration_source__isnull=True)
 
     if v == 'fully_registered':
-        base = queryset.filter(
-            Q(first_name__gt=''),
-            Q(last_name__isnull=False) & ~Q(last_name=''),
-            date_of_birth__isnull=False,
+        return queryset.filter(
+            first_name__isnull=False,
+            last_name__isnull=False,
+            phone_number__isnull=False,
             document_number__isnull=False,
-            document_number__gt='',
+            region__isnull=False,
+            district__isnull=False,
+            grade__isnull=False,
+            school_name__isnull=False,
+            parent__isnull=False,
+            parent__full_name__isnull=False,
+            parent__phone_number__isnull=False,
+            teacher__isnull=False,
+            teacher__full_name__isnull=False,
+        ).exclude(
+            Q(first_name='') | 
+            Q(last_name='') | 
+            Q(phone_number='') |
+            Q(document_number='') |
+            Q(region='') |
+            Q(district='') |
+            Q(school_name='') |
+            Q(parent__full_name='') |
+            Q(parent__phone_number='') |
+            Q(teacher__full_name='')
         )
-        return base.filter(parent__isnull=False).filter(
-            Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
-        ).filter(teacher__isnull=False, teacher__phone_number__gt='')
 
     return queryset.none()
 

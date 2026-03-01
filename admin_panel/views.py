@@ -146,8 +146,6 @@ def _save_reg_app_data(telegram_id: int, username: str, data: dict) -> str | Non
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
     phone_number = _normalize_phone((data.get("phone_number") or ""))
-    if len(first_name) < 2 or len(last_name) < 2 or len(phone_number) < 9 or len(phone_number) > 20:
-        return "invalid_data"
     region = (data.get("region") or "").strip() or None
     district = (data.get("district") or "").strip() or None
     grade_raw = data.get("grade")
@@ -165,14 +163,29 @@ def _save_reg_app_data(telegram_id: int, username: str, data: dict) -> str | Non
     school_name = (data.get("school_name") or "").strip() or None
     document_number = (data.get("document_number") or "").strip()
     document_number = document_number.upper() if document_number else None
+    
     guardian_name = (data.get("guardian_name") or "").strip() or None
     guardian_phone = _normalize_phone((data.get("guardian_phone") or "")) or None
     if guardian_phone and len(guardian_phone) > 20:
         guardian_phone = None
+        
     teacher_name = (data.get("teacher_name") or "").strip() or None
     teacher_phone = _normalize_phone((data.get("teacher_phone") or "")) or None
     if teacher_phone and len(teacher_phone) > 20:
         teacher_phone = None
+
+    # Validate all required fields
+    if len(first_name) < 2 or len(last_name) < 2 or len(phone_number) < 9 or len(phone_number) > 20:
+        return "invalid_data"
+        
+    if not document_number or not region or not district or grade is None or not school_name:
+        return "invalid_data"
+        
+    if not guardian_name or not guardian_phone or len(guardian_phone) < 9:
+        return "invalid_data"
+        
+    if not teacher_name:
+        return "invalid_data"
 
     try:
         with transaction.atomic():

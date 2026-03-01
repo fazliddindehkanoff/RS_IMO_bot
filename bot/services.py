@@ -953,18 +953,13 @@ class BroadcastService:
                 base = base.none()
 
             if target_not_fully_registered:
-                # A user IS fully registered when they have filled in the reg-app required
-                # fields: first_name, last_name, and phone_number (the fields validated by
-                # _save_reg_app_data in views.py).  All other fields (grade, guardian, etc.)
-                # are optional in the web form, so we don't require them here.
-                fully_registered = Student.objects.filter(
-                    first_name__isnull=False,
-                    last_name__isnull=False,
-                    phone_number__isnull=False,
-                ).exclude(
-                    Q(first_name='') | Q(last_name='') | Q(phone_number='')
+                from admin_panel.registration_filters import filter_students_by_registration_step
+                admin_ids = list(getattr(settings, 'ADMIN_IDS', []))
+                fully_registered = filter_students_by_registration_step(Student.objects.all(), 'fully_registered')
+                base = base.exclude(
+                    Q(pk__in=fully_registered.values_list('pk', flat=True)) | 
+                    Q(telegram_id__in=admin_ids)
                 )
-                base = base.exclude(pk__in=fully_registered.values_list('pk', flat=True))
 
             return list(base)
 
@@ -975,6 +970,7 @@ class BroadcastService:
             )
 
         students = await sync_to_async(_get_broadcast_students)()
+        print(f"Found {len(students)} students for broadcast. Telegram IDs: {students}")
         media_list = await sync_to_async(_get_media_files)()
         broadcast.recipient_count = len(students)
         await sync_to_async(broadcast.save)()
@@ -1013,7 +1009,6 @@ class BroadcastService:
                         from_chat_id = first_admin_id
                         from_message_id = sent_msg.message_id
                         sent_count += 1
-                        students = students[1:]  # already sent to admin
                 except Exception as e:
                     logger.warning("Could not send preview to admin %s: %s", first_admin_id, e)
 
@@ -1021,29 +1016,36 @@ class BroadcastService:
             async def _do_send(s=student):
                 """Send to a single student — via copy_message if possible, else raw send."""
                 display_name = (s.first_name or s.initial_full_name or "O'quvchi").strip()
+                # Use escape to ensure any < or > in the user's name don't break HTML parsing
                 safe_name = escape(display_name)
-                text = broadcast.message.format(
-                    student_name=safe_name,
-                    user_name=safe_name
-                )
+                
+                # If there's no text (e.g. media without caption), don't format it
+                if broadcast.message:
+                    text = broadcast.message.format(
+                        student_name=safe_name,
+                        user_name=safe_name
+                    )
+                else:
+                    text = ""
 
                 if from_chat_id and from_message_id:
-                    # Use copy_message — does NOT show a "Forwarded from" header and
-                    # reuses Telegram's cached file_ids (no disk I/O per recipient).
-                    await bot.copy_message(
-                        chat_id=s.telegram_id,
-                        from_chat_id=from_chat_id,
-                        message_id=from_message_id,
-                        caption=text if media_list else None,
-                        parse_mode=ParseMode.HTML if media_list else None,
-                    )
                     if not media_list:
-                        # Text-only: copy_message ignores caption for text messages;
-                        # we must send the personalised text separately.
-                        # So fall back to raw send for text messages.
+                        # For text-only messages, copy_message copies the exact text.
+                        # We cannot customize {student_name} per user if we copy a text message,
+                        # because copy_message ignores the 'caption' parameter for text messages.
+                        # Therefore, we MUST use send_message to allow personalizing the text.
                         await bot.send_message(
                             chat_id=s.telegram_id,
                             text=text,
+                            parse_mode=ParseMode.HTML,
+                        )
+                    else:
+                        # For media messages, copy_message replaces the caption with our new personalized caption.
+                        await bot.copy_message(
+                            chat_id=s.telegram_id,
+                            from_chat_id=from_chat_id,
+                            message_id=from_message_id,
+                            caption=text,
                             parse_mode=ParseMode.HTML,
                         )
                 else:
@@ -1096,10 +1098,14 @@ class BroadcastService:
     @staticmethod
     async def _send_raw(bot, chat_id: int, text: str, media_list: list):
         """Send a message/media directly (without copy_message). Returns the sent Message object."""
+        clean_text = text if text else None
+        
         if len(media_list) == 0:
+            if not clean_text:
+                return None  # Cannot send a text message without text
             return await bot.send_message(
                 chat_id=chat_id,
-                text=text,
+                text=clean_text,
                 parse_mode=ParseMode.HTML,
             )
         elif len(media_list) == 1:
@@ -1110,8 +1116,8 @@ class BroadcastService:
                 video_kwargs = {
                     'chat_id': chat_id,
                     'video': fs_input,
-                    'caption': text,
-                    'parse_mode': ParseMode.HTML,
+                    'caption': clean_text,
+                    'parse_mode': ParseMode.HTML if clean_text else None,
                     'supports_streaming': True,
                 }
                 if duration:
@@ -1129,8 +1135,8 @@ class BroadcastService:
                 return await bot.send_photo(
                     chat_id=chat_id,
                     photo=fs_input,
-                    caption=text,
-                    parse_mode=ParseMode.HTML,
+                    caption=clean_text,
+                    parse_mode=ParseMode.HTML if clean_text else None,
                 )
         else:
             group = []
@@ -1138,8 +1144,8 @@ class BroadcastService:
                 file_path = os.path.join(settings.MEDIA_ROOT, file_name)
                 fs_input = FSInputFile(file_path)
                 caption_kwargs = {}
-                if idx == 0:
-                    caption_kwargs = {'caption': text, 'parse_mode': ParseMode.HTML}
+                if idx == 0 and clean_text:
+                    caption_kwargs = {'caption': clean_text, 'parse_mode': ParseMode.HTML}
                 if media_type == 'video':
                     vid_extra = {}
                     if duration:

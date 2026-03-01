@@ -116,7 +116,8 @@ async def process_broadcast_text(message: Message, state: FSMContext):
         return
     
     # Save the message text
-    await state.update_data(message_text=message.text)
+    # Use html_text to preserve the actual formatting used by the admin (bold, links, etc.)
+    await state.update_data(message_text=message.html_text)
     await state.set_state(AdminStates.waiting_for_broadcast_media)
     await message.answer(ADMIN_BROADCAST_MEDIA, parse_mode=ParseMode.HTML)
 
@@ -143,6 +144,11 @@ async def process_media(message: Message, state: FSMContext):
     
     data = await state.get_data()
     media_files = data.get('media_files', [])
+    
+    # If the user sends a photo right away instead of text, capture its caption
+    # as the broadcast text if we don't already have one
+    if not data.get('message_text'):
+        await state.update_data(message_text=(message.html_text or ""))
     
     if len(media_files) >= 10:
         await message.answer("❌ Maksimal 10 ta media yuklash mumkin. /done bosing.")
@@ -215,8 +221,11 @@ async def show_target_selection(message: Message, state: FSMContext):
     # Format current targets
     current_targets = format_selected_targets(selected_targets)
     
+    from html import escape
+    preview_text = message_text[:200] + "..." if len(message_text) > 200 else message_text
+    
     text = ADMIN_BROADCAST_TARGET.format(
-        message=message_text[:200] + "..." if len(message_text) > 200 else message_text,
+        message=escape(preview_text),
         media_info=media_info,
         current_targets=current_targets
     )
@@ -318,8 +327,11 @@ async def handle_target_toggle(callback: CallbackQuery, state: FSMContext):
     
     current_targets = format_selected_targets(selected_targets)
     
+    from html import escape
+    preview_text = message_text[:200] + "..." if len(message_text) > 200 else message_text
+
     text = ADMIN_BROADCAST_TARGET.format(
-        message=message_text[:200] + "..." if len(message_text) > 200 else message_text,
+        message=escape(preview_text),
         media_info=media_info,
         current_targets=current_targets
     )
@@ -357,8 +369,11 @@ async def show_confirmation(message: Message, state: FSMContext):
     # Get recipient count
     recipient_count = await get_recipient_count(selected_targets)
     
+    from html import escape
+    preview_text = message_text[:300] + "..." if len(message_text) > 300 else message_text
+
     text = ADMIN_BROADCAST_CONFIRM.format(
-        message=message_text[:300] + "..." if len(message_text) > 300 else message_text,
+        message=escape(preview_text),
         media_info=media_info,
         targets=format_selected_targets(selected_targets),
         recipient_count=recipient_count
@@ -387,21 +402,15 @@ def get_recipient_count(selected_targets: dict) -> int:
     # Not fully registered filter
     if selected_targets.get('not_fully_registered'):
         from django.db.models import Q
-        fully_registered = Student.objects.filter(
-            Q(first_name__gt=''),
-            Q(last_name__isnull=False) & ~Q(last_name=''),
-            date_of_birth__isnull=False,
-            document_number__isnull=False,
-            document_number__gt='',
-        ).filter(
-            parent__isnull=False,
-        ).filter(
-            Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt=''),
-        ).filter(
-            teacher__isnull=False,
-            teacher__phone_number__gt='',
+        # A user IS fully registered when they have filled in the reg-app required
+        # fields: first_name, last_name, and phone_number.
+        from admin_panel.registration_filters import filter_students_by_registration_step
+        admin_ids = list(getattr(settings, 'ADMIN_IDS', []))
+        fully_registered = filter_students_by_registration_step(Student.objects.all(), 'fully_registered')
+        queryset = queryset.exclude(
+            Q(pk__in=fully_registered.values_list('pk', flat=True)) | 
+            Q(telegram_id__in=admin_ids)
         )
-        queryset = queryset.exclude(pk__in=fully_registered.values_list('pk', flat=True))
     
     # If no filters selected, return 0
     if not grades and not selected_targets.get('not_fully_registered'):
@@ -524,8 +533,6 @@ async def send_broadcast(message: Message, state: FSMContext):
         )
         
         broadcast_id = await create_broadcast()
-        
-        # Fire broadcast in the background — admin gets instant feedback
         from exam_bot_admin.webhook import bot
         import asyncio
         asyncio.create_task(BroadcastService.send_broadcast(broadcast_id, bot))
