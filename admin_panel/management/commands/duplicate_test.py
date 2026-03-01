@@ -30,6 +30,11 @@ class Command(BaseCommand):
             help='Duplicate for all languages (uz, ru, en)'
         )
         parser.add_argument(
+            '--target-grade',
+            type=int,
+            help='Specific target grade to duplicate the test to'
+        )
+        parser.add_argument(
             '--new-title',
             type=str,
             help='Title for the new test (if not using --by-grades or --by-languages)'
@@ -89,6 +94,7 @@ class Command(BaseCommand):
         by_grades = options.get('by_grades')
         by_languages = options.get('by_languages')
         new_title = options.get('new_title')
+        target_grade = options.get('target_grade')
         
         # Find original test
         if test_id:
@@ -120,14 +126,26 @@ class Command(BaseCommand):
             except Test.DoesNotExist:
                 self.stdout.write(self.style.ERROR(f"❌ Test with ID {test_id} not found"))
                 return
+            
+            target_grade_str = input(f"Enter the target grade to duplicate to (leave empty to keep original: {original_test.grade}): ")
+            if target_grade_str.strip():
+                try:
+                    target_grade = int(target_grade_str.strip())
+                except ValueError:
+                    self.stdout.write(self.style.ERROR("❌ Target grade must be an integer"))
+                    return
         
         # Determine duplication strategy
-        if by_grades or by_languages:
+        if by_grades or by_languages or target_grade is not None:
             # Duplicate by grades and/or languages
             grade_choices = [5, 6, 7, 8]
             language_choices = ['uz', 'ru', 'en']
             
-            grades_to_create = grade_choices if by_grades else [original_test.grade]
+            if target_grade is not None:
+                grades_to_create = [target_grade]
+            else:
+                grades_to_create = grade_choices if by_grades else [original_test.grade]
+                
             languages_to_create = language_choices if by_languages else [original_test.language]
             
             self.stdout.write(
