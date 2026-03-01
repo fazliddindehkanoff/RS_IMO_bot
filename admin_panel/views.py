@@ -389,6 +389,14 @@ def reg_app_submit_view(request):
     grade_raw = data.get("grade")
     is_other_grade = (str(grade_raw) == 'other' or str(grade_raw) == '0')
 
+    test_webapp_url = getattr(settings, "TEST_WEBAPP_URL", "").strip()
+    if test_webapp_url:
+        sep = "&" if "?" in test_webapp_url else "?"
+        url_with_id = f"{test_webapp_url}{sep}tg_uid={telegram_id}"
+        test_btn = {"text": "\U0001f4dd 1-bosqich sinov testini yechish: 1-mart", "web_app": {"url": url_with_id}}
+    else:
+        test_btn = {"text": "\U0001f4dd 1-bosqich sinov testini yechish: 1-mart"}
+
     # Send SUCCESS_MESSAGE with Reply keyboard (main menu buttons)
     if is_other_grade:
         reply_markup = {
@@ -405,7 +413,7 @@ def reg_app_submit_view(request):
         reply_markup = {
             "keyboard": [
                 [{"text": "\U0001f3c6 Konkursda qatnashish"}],
-                [{"text": "\U0001f4dd 1-bosqich sinov testini yechish: 1-mart"}],
+                [test_btn],
                 [{"text": "\u270f\ufe0f Taklif va shikoyatlar"}, {"text": "\U0001f525 Konkursdagi ballarim"}],
                 [{"text": "\U0001f3c6 Reyting"}],
                 [{"text": "\U0001f464 Mening ma'lumotlarim"}],
@@ -562,7 +570,7 @@ def test_app_questions_view(request):
     if test.starts_at and now < test.starts_at:
         return _add_cors_headers(JsonResponse({
             "ok": False,
-            "error_text": f"Test {test.starts_at.strftime('%d.%m.%Y %H:%M')} da boshlanadi."
+            "error_text": f"Test hali boshlanmadi\n\nTestlar kanaldagi vaqt jadvali asosida boshlanadi"
         }, status=403))
     if hasattr(test, 'ends_at') and test.ends_at and now > test.ends_at:
         return _add_cors_headers(JsonResponse({
