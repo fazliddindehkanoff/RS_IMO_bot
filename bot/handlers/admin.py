@@ -717,13 +717,22 @@ async def cmd_test_results(message: Message):
 
             from django.db.models import Count, Q
             
-            # Annotate with correct answers count
-            attempts = TestAttempt.objects.filter(test_id=tid).select_related('student').annotate(
-                correct_answers=Count('answers', filter=Q(answers__is_correct=True))
+            # Test 17 exception: consider answers for questions 18 and 25 correct
+            if tid == 17:
+                correct_filter = Q(answers__is_correct=True) | Q(answers__question__question_number__in=[18, 25])
+            else:
+                correct_filter = Q(answers__is_correct=True)
+            
+            # Annotate with correct answers count, filtering by SUBMITTED_FINAL
+            attempts = TestAttempt.objects.filter(
+                test_id=tid, 
+                status='SUBMITTED_FINAL'
+            ).select_related('student').annotate(
+                correct_answers=Count('answers', filter=correct_filter)
             )
             
             if not attempts.exists():
-                return None, None, "Ushbu test bo'yicha natijalar topilmadi."
+                return None, None, "Ushbu test bo'yicha yakuniy natijalar topilmadi."
 
             # Create an in-memory string buffer for CSV
             output = io.StringIO()
