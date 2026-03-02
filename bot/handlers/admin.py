@@ -679,6 +679,119 @@ async def cmd_backup(message: Message):
         await status_msg.edit_text(f"❌ Zaxira nusxa yaratishda xatolik: {e}")
 
 
+@router.message(Command("test_results"))
+async def cmd_test_results(message: Message):
+    """Download test results as CSV for a specific test (admin only)."""
+    if not is_admin(message.from_user.id):
+        await message.answer(ADMIN_NOT_AUTHORIZED)
+        return
+
+    # Extract test_id from the command
+    command_args = message.text.split()
+    if len(command_args) != 2:
+        await message.answer("❌ Iltimos, test ID sini kiriting. Misol: /test_results 123", parse_mode=ParseMode.HTML)
+        return
+
+    try:
+        test_id = int(command_args[1])
+    except ValueError:
+        await message.answer("❌ Test ID si raqam bo'lishi kerak.", parse_mode=ParseMode.HTML)
+        return
+
+    status_msg = await message.answer(f"⏳ {test_id}-test bo'yicha natijalar yig'ilmoqda...")
+
+    try:
+        from admin_panel.models import TestAttempt, Test
+        from aiogram.types import BufferedInputFile
+        from datetime import datetime
+        import csv
+        import io
+
+        @sync_to_async
+        def generate_csv_bytes(tid):
+            # Check if test exists
+            try:
+                test = Test.objects.get(id=tid)
+            except Test.DoesNotExist:
+                return None, None, "Test topilmadi."
+
+            attempts = TestAttempt.objects.filter(test_id=tid).select_related('student')
+            
+            if not attempts.exists():
+                return None, None, "Ushbu test bo'yicha natijalar topilmadi."
+
+            # Create an in-memory string buffer for CSV
+            output = io.StringIO()
+            writer = csv.writer(output)
+
+            # Write header
+            writer.writerow([
+                'Telegram ID',
+                'Ism',
+                'Familiya',
+                'Telefon',
+                'Sinf',
+                'Holat',
+                'Ball %',
+                'Olingan Ball',
+                'Jami Ball',
+                'Boshlangan Vaqt',
+                'Topshirilgan Vaqt'
+            ])
+
+            for attempt in attempts:
+                student = attempt.student
+                started_at = attempt.started_at.strftime('%Y-%m-%d %H:%M:%S') if attempt.started_at else ''
+                submitted_at = attempt.submitted_at.strftime('%Y-%m-%d %H:%M:%S') if attempt.submitted_at else ''
+                
+                writer.writerow([
+                    student.telegram_id,
+                    student.first_name,
+                    student.last_name or '',
+                    student.phone_number or '',
+                    student.grade or '',
+                    attempt.get_status_display(),
+                    attempt.score if attempt.score is not None else '',
+                    attempt.earned_points if attempt.earned_points is not None else '',
+                    attempt.total_points if attempt.total_points is not None else '',
+                    started_at,
+                    submitted_at
+                ])
+                
+            # Convert to bytes
+            csv_bytes = output.getvalue().encode('utf-8-sig') # Add BOM for Excel compatibility
+            return csv_bytes, test.title, None
+
+        csv_bytes, test_title, error_msg = await generate_csv_bytes(test_id)
+
+        if error_msg:
+            await status_msg.edit_text(f"❌ {error_msg}")
+            return
+
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        # Clean test title for filename
+        clean_title = "".join([c for c in test_title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+        clean_title = clean_title.replace(' ', '_')
+        filename = f"Natijalar_{test_id}_{clean_title}_{timestamp}.csv"
+
+        caption = (
+            f"📊 <b>{test_title}</b> natijalari\n"
+            f"ID: {test_id}\n"
+            f"Sana: {timestamp}"
+        )
+
+        await message.answer_document(
+            document=BufferedInputFile(csv_bytes, filename=filename),
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+        )
+        await status_msg.delete()
+
+    except Exception as e:
+        logger.error(f"Test results command error: {e}", exc_info=True)
+        await status_msg.edit_text(f"❌ Natijalarni yuklashda xatolik: {e}")
+
+
 @router.message(Command("help_admin"))
 async def cmd_help_admin(message: Message):
     """Show admin commands (admin only)."""
@@ -691,6 +804,7 @@ async def cmd_help_admin(message: Message):
         "/broadcast - Xabarnoma yuborish (media qo'llab-quvvatlash bilan)\n"
         "/stats - Bot statistikasi\n"
         "/backup - Ma'lumotlar bazasi zaxira nusxasini yuborish\n"
+        "/test_results <id> - Test natijalarini CSV formatida yuklash\n"
         "/help_admin - Admin buyruqlari ro'yxati\n"
         "/cancel - Joriy amalni bekor qilish\n\n"
         "<b>Broadcast jarayoni:</b>\n"
