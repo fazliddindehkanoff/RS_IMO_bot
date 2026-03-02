@@ -11,6 +11,7 @@ class AdminPanelConfig(AppConfig):
 
     def ready(self):
         """Initialize bot when Django is ready."""
+        import admin_panel.signals
         from exam_bot_admin.webhook import init_bot
 
         # Run async initialization

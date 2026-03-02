@@ -444,56 +444,6 @@ async def process_back_message(message: Message, state: FSMContext):
         await message.answer(GREETING_MESSAGE)
         await state.set_state(RegistrationStates.waiting_for_initial_full_name)
     
-    elif current_state == RegistrationStates.waiting_for_first_name:
-        await message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_olympiad_participation)
-        
-    elif current_state == RegistrationStates.waiting_for_last_name:
-        await message.answer(STEP_1_ASK_NAME, reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_first_name)
-        
-    elif current_state == RegistrationStates.waiting_for_date_of_birth:
-        first_name = data.get('first_name', '')
-        await message.answer(STEP_2_ASK_SURNAME.format(first_name=first_name), reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_last_name)
-        
-    elif current_state == RegistrationStates.waiting_for_document_number:
-        await message.answer(STEP_3_ASK_DOB, reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_date_of_birth)
-        
-    elif current_state == RegistrationStates.waiting_for_district:
-        document_number = data.get('document_number', '')
-        await message.answer(STEP_5_ASK_REGION.format(document_number=document_number), reply_markup=get_region_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_region)
-        
-    elif current_state == RegistrationStates.waiting_for_school_name:
-        region = data.get('region', '')
-        region_label = dict(Student.REGION_CHOICES).get(region, '')
-        await message.answer(STEP_6_ASK_DISTRICT.format(region_label=region_label), reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_district)
-        
-    elif current_state == RegistrationStates.waiting_for_achievements_description:
-        await message.answer(STEP_9_ASK_PHOTO)
-        await state.set_state(RegistrationStates.waiting_for_photo)
-        
-    elif current_state == RegistrationStates.waiting_for_guardian_name:
-        await message.answer(STEP_10_ASK_ACHIEVEMENTS, reply_markup=get_skip_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_achievements_description)
-        
-    elif current_state == RegistrationStates.waiting_for_guardian_phone:
-        await message.answer(STEP_12_ASK_RELATIONSHIP, reply_markup=get_relationship_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_guardian_relationship)
-        
-    elif current_state == RegistrationStates.waiting_for_teacher_name:
-        relation = data.get('guardian_relationship', '')
-        relation_text = RELATION_SUFFIX_MAP.get(relation, 'Vasiyingiz')
-        await message.answer(STEP_13_ASK_GUARDIAN_PHONE.format(relation_text=relation_text), reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_guardian_phone)
-        
-    elif current_state == RegistrationStates.waiting_for_teacher_phone:
-        await message.answer(STEP_14_ASK_TEACHER_NAME, reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_teacher_name)
-    
     # Update state in DB
     new_state = await state.get_state()
     await BotStateService.set_state(telegram_id, new_state)
@@ -515,53 +465,6 @@ async def process_back_callback(callback: CallbackQuery, state: FSMContext):
         await callback.message.delete()
         await callback.message.answer(STEP_PHONE_OWNER, reply_markup=get_phone_owner_keyboard())
         await state.set_state(RegistrationStates.waiting_for_phone_owner)
-        
-    elif current_state == RegistrationStates.waiting_for_region:
-        date_str = data.get('date_of_birth', '')
-        await callback.message.delete()
-        await callback.message.answer(STEP_4_ASK_METRIKA.format(date_str=date_str), reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_document_number)
-        
-    elif current_state == RegistrationStates.waiting_for_grade:
-        district = data.get('district', '')
-        await callback.message.delete()
-        await callback.message.answer(STEP_7_ASK_SCHOOL.format(district=district), reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_school_name)
-        
-    elif current_state == RegistrationStates.waiting_for_photo:
-        school_name = data.get('school_name', '')
-        await callback.message.delete()
-        await callback.message.answer(STEP_8_ASK_GRADE.format(school_name=school_name), reply_markup=get_grade_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_grade)
-        
-    elif current_state == RegistrationStates.waiting_for_guardian_relationship:
-        await callback.message.delete()
-        await callback.message.answer(STEP_11_ASK_GUARDIAN_NAME, reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_guardian_name)
-        
-    elif current_state == RegistrationStates.waiting_for_source:
-        await callback.message.delete()
-        await callback.message.answer(STEP_15_ASK_TEACHER_PHONE, reply_markup=get_back_reply_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_teacher_phone)
-        
-    elif current_state == RegistrationStates.waiting_for_confirmation:
-        await callback.message.delete()
-        await callback.message.answer(STEP_16_ASK_SOURCE, reply_markup=get_source_type_keyboard())
-        await state.set_state(RegistrationStates.waiting_for_source)
-
-    elif current_state == RegistrationStates.waiting_for_post_reg_promo:
-        # Determine origin (Other Grade vs No, Share)
-        school_name = data.get('school_name')
-        if school_name:
-             # Back to Grade
-             await callback.message.delete()
-             await callback.message.answer(STEP_8_ASK_GRADE.format(school_name=school_name), reply_markup=get_grade_keyboard())
-             await state.set_state(RegistrationStates.waiting_for_grade)
-        else:
-             # Back to Promo
-             await callback.message.delete()
-             await callback.message.answer(PROMO_TEXT, reply_markup=get_olympiad_participation_keyboard())
-             await state.set_state(RegistrationStates.waiting_for_olympiad_participation)
 
     new_state = await state.get_state()
     await BotStateService.set_state(telegram_id, new_state)

@@ -715,7 +715,12 @@ async def cmd_test_results(message: Message):
             except Test.DoesNotExist:
                 return None, None, "Test topilmadi."
 
-            attempts = TestAttempt.objects.filter(test_id=tid).select_related('student')
+            from django.db.models import Count, Q
+            
+            # Annotate with correct answers count
+            attempts = TestAttempt.objects.filter(test_id=tid).select_related('student').annotate(
+                correct_answers=Count('answers', filter=Q(answers__is_correct=True))
+            )
             
             if not attempts.exists():
                 return None, None, "Ushbu test bo'yicha natijalar topilmadi."
@@ -726,36 +731,28 @@ async def cmd_test_results(message: Message):
 
             # Write header
             writer.writerow([
-                'Telegram ID',
-                'Ism',
-                'Familiya',
-                'Telefon',
-                'Sinf',
-                'Holat',
-                'Ball %',
-                'Olingan Ball',
-                'Jami Ball',
-                'Boshlangan Vaqt',
-                'Topshirilgan Vaqt'
+                'Document (*)',
+                'Telefon (*)',
+                'To\'g\'ri javoblar',
+                'Ball'
             ])
 
             for attempt in attempts:
                 student = attempt.student
-                started_at = attempt.started_at.strftime('%Y-%m-%d %H:%M:%S') if attempt.started_at else ''
-                submitted_at = attempt.submitted_at.strftime('%Y-%m-%d %H:%M:%S') if attempt.submitted_at else ''
+                doc_num = (student.document_number or "")[-4:] if student.document_number else ""
+                doc_masked = f"***{doc_num}" if doc_num else ""
+                
+                phone_num = (student.phone_number or "")[-4:] if student.phone_number else ""
+                phone_masked = f"***{phone_num}" if phone_num else ""
+                
+                correct_ans = attempt.correct_answers
+                score = correct_ans * 2
                 
                 writer.writerow([
-                    student.telegram_id,
-                    student.first_name,
-                    student.last_name or '',
-                    student.phone_number or '',
-                    student.grade or '',
-                    attempt.get_status_display(),
-                    attempt.score if attempt.score is not None else '',
-                    attempt.earned_points if attempt.earned_points is not None else '',
-                    attempt.total_points if attempt.total_points is not None else '',
-                    started_at,
-                    submitted_at
+                    doc_masked,
+                    phone_masked,
+                    correct_ans,
+                    score
                 ])
                 
             # Convert to bytes
