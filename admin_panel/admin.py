@@ -283,10 +283,10 @@ class RegistrationSourceFilter(admin.SimpleListFilter):
 @admin.register(Partner)
 class PartnerAdmin(ModelAdmin):
     """Admin for Partner model — external referral partners."""
-    list_display = ['name', 'referral_code', 'referral_link_display', 'referred_count', 'is_active', 'created_at']
+    list_display = ['name', 'referral_code', 'referral_link_display', 'referred_count', 'fully_referred_count', 'is_active', 'created_at']
     list_filter = ['is_active', 'created_at']
     search_fields = ['name', 'referral_code']
-    readonly_fields = ['referral_code', 'referral_link_display', 'referred_count', 'created_at', 'updated_at']
+    readonly_fields = ['referral_code', 'referral_link_display', 'referred_count', 'fully_referred_count', 'created_at', 'updated_at']
     ordering = ['-created_at']
 
     fieldsets = (
@@ -294,7 +294,7 @@ class PartnerAdmin(ModelAdmin):
             'fields': ('name', 'description', 'is_active'),
         }),
         ('Referal', {
-            'fields': ('referral_code', 'referral_link_display', 'referred_count'),
+            'fields': ('referral_code', 'referral_link_display', 'referred_count', 'fully_referred_count'),
         }),
         ('Vaqt', {
             'fields': ('created_at', 'updated_at'),
@@ -322,6 +322,10 @@ class PartnerAdmin(ModelAdmin):
     @display(description="Foydalanuvchilar soni")
     def referred_count(self, obj):
         return obj.referred_students.count()
+
+    @display(description="To'liq ro'yxatdan o'tganlar")
+    def fully_referred_count(self, obj):
+        return obj.fully_referred_students_count
 
 
 @admin.register(Student)
@@ -506,6 +510,7 @@ class StudentRatingAdmin(ModelAdmin):
     """Admin for referral leaderboard: list only, no add/change/delete/view."""
     list_display = ['rank', 'first_name', 'last_name', 'telegram_id', 'referral_points', 'completed_referrals_display', 'total_referred_display']
     list_display_links = []  # no link to detail view
+    actions = ['export_rating_csv']
     ordering = ['-referral_points', '-created_at']
     search_fields = ['first_name', 'last_name', 'telegram_id']
     list_per_page = 50
@@ -559,6 +564,63 @@ class StudentRatingAdmin(ModelAdmin):
     @display(description="Jami taklif qilinganlar")
     def total_referred_display(self, obj):
         return getattr(obj, 'total_referred_count', 0)
+
+    def export_rating_csv(self, request, queryset):
+        """Export selected rating entries to CSV with rank."""
+        if not queryset.exists():
+            self.message_user(request, "Eksport qilish uchun kamida bitta qatorni tanlang.", level=messages.WARNING)
+            return
+
+        # Re-annotate to ensure we have computed rank and total_referred_count
+        # We reuse the logic from get_queryset but for the specific queryset
+        from django.db.models import Window, F, Max, Count
+        from django.db.models.functions import RowNumber, Coalesce
+        
+        qs = queryset.annotate(
+            last_referral_at=Coalesce(
+                Max('referrals_made__created_at'),
+                F('created_at'),
+            ),
+            computed_rank=Window(
+                expression=RowNumber(),
+                order_by=[
+                    F('referral_points').desc(),
+                    F('last_referral_at').asc(),
+                ]
+            ),
+            total_referred_count=Count('referred_students', distinct=True)
+        )
+
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        # Header row
+        headers = [
+            'Rank', 'First Name', 'Last Name', 'Telegram ID', 'Referral Points', 
+            'Fully Registered Referrals', 'Total Referrals'
+        ]
+        writer.writerow(headers)
+
+        for obj in qs:
+            row = [
+                getattr(obj, 'computed_rank', ''),
+                obj.first_name or "",
+                obj.last_name or "",
+                obj.telegram_id,
+                obj.referral_points or 0,
+                self.get_completed_referrals_count(obj),
+                getattr(obj, 'total_referred_count', 0),
+            ]
+            writer.writerow(row)
+
+        response = HttpResponse(
+            buffer.getvalue().encode('utf-8-sig'),
+            content_type='text/csv; charset=utf-8-sig'
+        )
+        response['Content-Disposition'] = 'attachment; filename="student_rating.csv"'
+        return response
+
+    export_rating_csv.short_description = "Tanlangan reytingni CSV ga eksport qilish"
+
 
     def has_add_permission(self, request):
         return False

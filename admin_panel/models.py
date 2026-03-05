@@ -42,6 +42,22 @@ class Partner(models.Model):
     def referred_students_count(self):
         return self.referred_students.count()
 
+    @property
+    def fully_referred_students_count(self):
+        """Count referred students who are fully registered."""
+        from django.db.models import Q
+        return self.referred_students.filter(
+            Q(registered_from_web=True) |
+            (
+                Q(first_name__gt='') &
+                Q(last_name__isnull=False) & ~Q(last_name='') &
+                Q(date_of_birth__isnull=False) &
+                Q(document_number__isnull=False) & Q(document_number__gt='') &
+                Q(parent__isnull=False) & (Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')) &
+                Q(teacher__isnull=False) & Q(teacher__phone_number__gt='')
+            )
+        ).count()
+
 
 class Student(models.Model):
     REGION_CHOICES = [

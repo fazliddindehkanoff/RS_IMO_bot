@@ -7,6 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from bot.handlers import registration, test, feedback, admin
+from bot.middleware import ChannelSubscriptionMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,11 @@ dp.include_router(admin.router)  # Admin router should be first to have priority
 dp.include_router(registration.router)
 dp.include_router(test.router)
 dp.include_router(feedback.router)
+
+# Register middlewares (outer: run before any router/handler)
+_channel_sub_middleware = ChannelSubscriptionMiddleware()
+dp.message.outer_middleware(_channel_sub_middleware)
+dp.callback_query.outer_middleware(_channel_sub_middleware)
 
 # Track initialization status
 _initialized = False

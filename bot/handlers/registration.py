@@ -46,7 +46,7 @@ from bot.keyboards import (
     get_post_reg_promo_keyboard, get_referral_menu_confirm_keyboard, get_phone_keyboard, get_phone_owner_keyboard,
     get_olympiad_participation_keyboard, get_back_reply_keyboard, get_back_keyboard,
 )
-from bot.services import BotStateService, StudentService, SubscriptionService, TestService
+from bot.services import BotStateService, StudentService, SubscriptionService, TestService, build_channel_keyboard
 from bot.states import RegistrationStates
 from admin_panel.models import RegistrationSource, Student, Parent, Teacher
 
@@ -96,18 +96,7 @@ def _reg_webapp_url_with_user(telegram_id: int, phone: str = "") -> str:
     return url
 
 
-def _build_channel_keyboard(missing_channels):
-    """Build inline keyboard for mandatory channels + check button."""
-    keyboard = []
-    for ch in missing_channels:
-        link = ch.channel_username
-        if not link and ch.channel_id.startswith('@'):
-            link = f"https://t.me/{ch.channel_id[1:]}"
-        if not link:
-            link = "https://t.me/"
-        keyboard.append([InlineKeyboardButton(text=f"📢 {ch.title}", url=link)])
-    keyboard.append([InlineKeyboardButton(text="✅ Obunani tekshirish", callback_data="check_subs")])
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+# build_channel_keyboard is imported from bot.services to avoid duplication and circular imports
 
 
 def _normalize_phone(raw_phone: str) -> str:
@@ -285,7 +274,7 @@ async def _get_continuation_for_state(telegram_id: int, state_name: str, data: d
             if after == "other_grade":
                 return (OTHER_GRADE_PROMO_MESSAGE, get_post_reg_promo_keyboard())
             return (CHECK_SUBS_SUCCESS, None)
-        kb = _build_channel_keyboard(subscription_status["missing_channels"])
+        kb = build_channel_keyboard(subscription_status["missing_channels"])
         return (CHECK_SUBS_START, kb)
     if state_name == "waiting_for_post_reg_promo":
         if d.get("school_name"):
@@ -479,7 +468,7 @@ async def check_subs(callback: CallbackQuery, state: FSMContext):
 
     if not subscription_status['subscribed']:
         channels = subscription_status['missing_channels']
-        keyboard = _build_channel_keyboard(channels)
+        keyboard = build_channel_keyboard(channels)
         try:
             await callback.message.edit_text(CHECK_SUBS_FAIL, reply_markup=keyboard)
         except Exception:

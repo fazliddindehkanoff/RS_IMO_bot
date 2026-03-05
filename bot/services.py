@@ -10,6 +10,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from asgiref.sync import sync_to_async
 from aiogram.enums import ParseMode
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from admin_panel.models import (
     Student, Parent, Teacher, RegistrationSource, BotState,
@@ -1167,3 +1168,17 @@ class BroadcastService:
             msgs = await bot.send_media_group(chat_id=chat_id, media=group)
             return msgs[0] if msgs else None
 
+
+def build_channel_keyboard(missing_channels) -> InlineKeyboardMarkup:
+    """Build inline keyboard listing mandatory channels the user hasn't joined yet,
+    plus a 'check subscription' button. Used by both registration flow and middleware."""
+    keyboard = []
+    for ch in missing_channels:
+        link = ch.channel_username
+        if not link and ch.channel_id.startswith('@'):
+            link = f"https://t.me/{ch.channel_id[1:]}"
+        if not link:
+            link = "https://t.me/"
+        keyboard.append([InlineKeyboardButton(text=f"📢 {ch.title}", url=link)])
+    keyboard.append([InlineKeyboardButton(text="✅ Obunani tekshirish", callback_data="check_subs")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
