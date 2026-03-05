@@ -1066,6 +1066,11 @@ class BroadcastMessage(models.Model):
         verbose_name="Ro'yxatdan o'tish bosqichi bo'yicha",
         help_text="Tanlangan bosqichlarda to'xtab qolgan o'quvchilarga yuborish. Bo'sh qoldirilsa, barcha bosqichlar hisobga olinmaydi (faqat sinf / to'liq ro'yxatdan o'tmagan filtrlari ishlatiladi).",
     )
+    include_register_button = models.BooleanField(
+        default=False,
+        verbose_name="Ro'yxatdan o'tish tugmasini qo'shish",
+        help_text="Xabar ostida maxsus Ro'yxatdan o'tish Web App tugmasi qo'shiladi."
+    )
 
     message = models.TextField(
         verbose_name="Xabar matni",

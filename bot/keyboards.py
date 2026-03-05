@@ -245,7 +245,7 @@ def get_main_menu_keyboard(other_grade: bool = False, telegram_id: int = None) -
             b2.row(KeyboardButton(text="📝 1-bosqich sinov testini yechish: 1-mart"))
             
     b2.row(KeyboardButton(text="✏️ Taklif va shikoyatlar"), KeyboardButton(text="🔥 Konkursdagi ballarim"))
-    b2.row(KeyboardButton(text="🏆 Reyting"))
+    b2.row(KeyboardButton(text="🏆 Reyting"), KeyboardButton(text="👨‍🏫 Ustozlar reytingi"))
     b2.row(KeyboardButton(text="👤 Mening ma'lumotlarim"))
 
     return b2.as_markup(resize_keyboard=True)

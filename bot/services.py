@@ -5,7 +5,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 from django.db import transaction
-from django.db.models import Q, Max, F
+from django.db.models import Q, Max, F, Count
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from asgiref.sync import sync_to_async
@@ -451,6 +451,33 @@ class StudentService:
             )
             .order_by('-referral_points', 'last_referral_at')
             .values('telegram_id', 'first_name', 'last_name', 'referral_points')[:limit]
+        )
+
+    @staticmethod
+    @sync_to_async
+    def get_teachers_leaderboard(limit: int = 10):
+        """Get top teachers by number of fully registered students, grouped by phone number."""
+        # Using exact requirements for "fully registered"
+        fully_registered_q = Q(student__registered_from_web=True) | (
+            Q(student__first_name__gt='') &
+            Q(student__last_name__isnull=False) & ~Q(student__last_name='') &
+            Q(student__date_of_birth__isnull=False) &
+            Q(student__document_number__isnull=False) & ~Q(student__document_number='') &
+            Q(student__parent__isnull=False) & (~Q(student__parent__phone_number='') | ~Q(student__parent__phone_number2='')) &
+            Q(student__teacher__isnull=False) & ~Q(student__teacher__phone_number='')
+        )
+
+        return list(
+            Teacher.objects.filter(phone_number__isnull=False)
+            .exclude(phone_number='')
+            .filter(fully_registered_q)
+            .values('phone_number')
+            .annotate(
+                student_count=Count('student'),
+                full_name=Max('full_name')
+            )
+            .filter(student_count__gt=0)
+            .order_by('-student_count', 'full_name')[:limit]
         )
 
     @staticmethod
@@ -1002,9 +1029,21 @@ class BroadcastService:
                     student_name=escape(preview_name),
                     user_name=escape(preview_name),
                 )
+                
+                # Check for registration button for admin preview
+                reply_markup = None
+                if getattr(broadcast, 'include_register_button', False):
+                    from bot.handlers.registration import _reg_webapp_url_with_user
+                    from aiogram.types import WebAppInfo
+                    url = _reg_webapp_url_with_user(first_admin_id, "")
+                    if url:
+                        reply_markup = InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="📝 Ro'yxatdan o'tish", web_app=WebAppInfo(url=url))]
+                        ])
+
                 try:
                     sent_msg = await BroadcastService._send_raw(
-                        bot, first_admin_id, preview_text, media_list
+                        bot, first_admin_id, preview_text, media_list, reply_markup=reply_markup
                     )
                     if sent_msg is not None:
                         from_chat_id = first_admin_id
@@ -1029,6 +1068,16 @@ class BroadcastService:
                 else:
                     text = ""
 
+                reply_markup = None
+                if getattr(broadcast, 'include_register_button', False):
+                    from bot.handlers.registration import _reg_webapp_url_with_user
+                    from aiogram.types import WebAppInfo
+                    url = _reg_webapp_url_with_user(s.telegram_id, s.phone_number or "")
+                    if url:
+                        reply_markup = InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="📝 Ro'yxatdan o'tish", web_app=WebAppInfo(url=url))]
+                        ])
+
                 if from_chat_id and from_message_id:
                     if not media_list:
                         # For text-only messages, copy_message copies the exact text.
@@ -1039,6 +1088,7 @@ class BroadcastService:
                             chat_id=s.telegram_id,
                             text=text,
                             parse_mode=ParseMode.HTML,
+                            reply_markup=reply_markup,
                         )
                     else:
                         # For media messages, copy_message replaces the caption with our new personalized caption.
@@ -1048,9 +1098,10 @@ class BroadcastService:
                             message_id=from_message_id,
                             caption=text,
                             parse_mode=ParseMode.HTML,
+                            reply_markup=reply_markup,
                         )
                 else:
-                    await BroadcastService._send_raw(bot, s.telegram_id, text, media_list)
+                    await BroadcastService._send_raw(bot, s.telegram_id, text, media_list, reply_markup=reply_markup)
 
             try:
                 try:
@@ -1097,7 +1148,7 @@ class BroadcastService:
         await sync_to_async(broadcast.save)()
 
     @staticmethod
-    async def _send_raw(bot, chat_id: int, text: str, media_list: list):
+    async def _send_raw(bot, chat_id: int, text: str, media_list: list, reply_markup=None):
         """Send a message/media directly (without copy_message). Returns the sent Message object."""
         clean_text = text if text else None
         
@@ -1108,6 +1159,7 @@ class BroadcastService:
                 chat_id=chat_id,
                 text=clean_text,
                 parse_mode=ParseMode.HTML,
+                reply_markup=reply_markup,
             )
         elif len(media_list) == 1:
             media_type, file_name, duration, width, height, thumb = media_list[0]
@@ -1120,6 +1172,7 @@ class BroadcastService:
                     'caption': clean_text,
                     'parse_mode': ParseMode.HTML if clean_text else None,
                     'supports_streaming': True,
+                    'reply_markup': reply_markup,
                 }
                 if duration:
                     video_kwargs['duration'] = duration
@@ -1138,6 +1191,7 @@ class BroadcastService:
                     photo=fs_input,
                     caption=clean_text,
                     parse_mode=ParseMode.HTML if clean_text else None,
+                    reply_markup=reply_markup,
                 )
         else:
             group = []
@@ -1166,6 +1220,13 @@ class BroadcastService:
                 else:
                     group.append(InputMediaPhoto(media=fs_input, **caption_kwargs))
             msgs = await bot.send_media_group(chat_id=chat_id, media=group)
+            if reply_markup and msgs:
+                # Media group doesn't support reply_markup, so we send it as a separate follow-up message if needed
+                await bot.send_message(
+                    chat_id=chat_id, 
+                    text="Ro'yxatdan o'tish uchun tugmani bosing:", 
+                    reply_markup=reply_markup
+                )
             return msgs[0] if msgs else None
 
 

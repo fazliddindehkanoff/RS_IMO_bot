@@ -56,6 +56,11 @@ def get_target_keyboard(selected_targets: dict) -> InlineKeyboardMarkup:
     not_reg_text = "✅ Faqat to'liq ro'yxatdan o'tmaganlarga" if not_reg else "⬜ To'liq ro'yxatdan o'tmaganlarga"
     keyboard.append([InlineKeyboardButton(text=not_reg_text, callback_data="target_not_reg")])
     
+    # Registration button option
+    include_reg_btn = selected_targets.get('include_reg_btn', False)
+    include_reg_btn_text = "✅ Ro'yxatdan o'tish tugmasini qo'shish" if include_reg_btn else "⬜ Ro'yxatdan o'tish tugmasini qo'shish"
+    keyboard.append([InlineKeyboardButton(text=include_reg_btn_text, callback_data="target_include_reg_btn")])
+    
     # Action buttons
     keyboard.append([
         InlineKeyboardButton(text="✅ Davom etish", callback_data="target_done"),
@@ -254,6 +259,9 @@ def format_selected_targets(selected_targets: dict) -> str:
     if selected_targets.get('not_fully_registered'):
         parts.append("To'liq ro'yxatdan o'tmaganlarga")
     
+    if selected_targets.get('include_reg_btn'):
+        parts.append("Ro'yxatdan o'tish tugmasi bilan")
+    
     return ", ".join(parts) if parts else "<i>Hali tanlanmagan</i>"
 
 
@@ -287,6 +295,9 @@ async def handle_target_toggle(callback: CallbackQuery, state: FSMContext):
         # Clear all users if this is selected
         if selected_targets['not_fully_registered']:
             selected_targets['all_users'] = False
+            
+    elif action == "include_reg_btn":
+        selected_targets['include_reg_btn'] = not selected_targets.get('include_reg_btn', False)
     
     elif action == "done":
         # Validate selection
@@ -456,6 +467,7 @@ async def send_broadcast(message: Message, state: FSMContext):
             target_grade_7=selected_targets.get('grade_7', False),
             target_grade_8=selected_targets.get('grade_8', False),
             target_not_fully_registered=selected_targets.get('not_fully_registered', False),
+            include_register_button=selected_targets.get('include_reg_btn', False),
             message=message_text,
             status='draft'
         )

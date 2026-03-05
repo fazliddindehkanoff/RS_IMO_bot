@@ -1060,6 +1060,33 @@ async def handle_leaderboard(message: Message, state: FSMContext):
     await message.answer(text)
 
 
+@router.message(F.text == "👨‍🏫 Ustozlar reytingi")
+async def handle_teachers_leaderboard(message: Message, state: FSMContext):
+    """Show teachers leaderboard by number of students."""
+    telegram_id = message.from_user.id
+    student = await StudentService.get_student(telegram_id)
+    if not student or not student.first_name:
+        await message.answer(ERROR_NOT_REGISTERED)
+        return
+
+    # Fetch teachers leaderboard
+    leaderboard = await StudentService.get_teachers_leaderboard(limit=10)
+
+    from bot.constants import TEACHER_LEADERBOARD_TITLE, TEACHER_LEADERBOARD_EMPTY, TEACHER_LEADERBOARD_ROW
+    text = TEACHER_LEADERBOARD_TITLE
+
+    if leaderboard:
+        # leaderboard is a list of dicts: {'phone_number': ..., 'student_count': ..., 'full_name': ...}
+        for i, row in enumerate(leaderboard, 1):
+            name = row.get('full_name', '') or "Noma'lum"
+            phone = row.get('phone_number', '') or "Noma'lum"
+            cnt = row.get('student_count') or 0
+            text += TEACHER_LEADERBOARD_ROW.format(rank=i, teacher_name=name, phone=phone, student_count=cnt)
+    else:
+        text += TEACHER_LEADERBOARD_EMPTY
+
+    await message.answer(text)
+
 
 
 
