@@ -80,24 +80,15 @@ class FullyRegisteredFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        # Core student fields
-        base = queryset.filter(
+        fully_registered = queryset.filter(
+            Q(phone_number__isnull=False) & ~Q(phone_number=''),
             Q(first_name__gt=''),
             Q(last_name__isnull=False) & ~Q(last_name=''),
-            date_of_birth__isnull=False,
-            document_number__isnull=False,
-            document_number__gt='',
-        )
-        # Parent exists and has at least one phone
-        with_parent_phone = base.filter(
-            parent__isnull=False,
-        ).filter(
-            Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt=''),
-        )
-        # Teacher exists and has phone
-        fully_registered = with_parent_phone.filter(
-            teacher__isnull=False,
-            teacher__phone_number__gt='',
+            Q(district__isnull=False) & ~Q(district=''),
+            Q(region__isnull=False) & ~Q(region=''),
+            Q(document_number__isnull=False) & ~Q(document_number=''),
+            Q(school_name__isnull=False) & ~Q(school_name=''),
+            grade__isnull=False,
         )
         if self.value() == 'yes':
             return fully_registered
@@ -247,16 +238,16 @@ class RegistrationStepFilter(admin.SimpleListFilter):
             return has_all_before_source.filter(registration_source__isnull=True)
 
         if v == 'fully_registered':
-            base = queryset.filter(
+            return queryset.filter(
+                Q(phone_number__isnull=False) & ~Q(phone_number=''),
                 Q(first_name__gt=''),
                 Q(last_name__isnull=False) & ~Q(last_name=''),
-                date_of_birth__isnull=False,
-                document_number__isnull=False,
-                document_number__gt='',
+                Q(district__isnull=False) & ~Q(district=''),
+                Q(region__isnull=False) & ~Q(region=''),
+                Q(document_number__isnull=False) & ~Q(document_number=''),
+                Q(school_name__isnull=False) & ~Q(school_name=''),
+                grade__isnull=False,
             )
-            return base.filter(parent__isnull=False).filter(
-                Q(parent__phone_number__gt='') | Q(parent__phone_number2__gt='')
-            ).filter(teacher__isnull=False, teacher__phone_number__gt='')
 
         return queryset
 
@@ -819,11 +810,6 @@ class TestAdmin(ModelAdmin):
                 )
                 return
 
-        available_tests = Test.objects.filter(grade=test.grade, is_active=True) if test.grade is not None else None
-        available_languages = []
-        if available_tests is not None:
-            available_languages = sorted({t.language for t in available_tests if t.language})
-
         test_id = test.id  # capture before background thread
 
         def _do_send_in_background():
@@ -835,34 +821,24 @@ class TestAdmin(ModelAdmin):
             new_blocked = 0
             new_blocked_users = list(test.blocked_users or [])
             existing_blocked_ids = {entry.get('telegram_id') for entry in new_blocked_users}
+            
+            active_tests_count = 1
+            if test.grade:
+                active_tests_count = Test.objects.filter(grade=test.grade, is_active=True).count()
 
             for student in students:
-                if available_languages and len(available_languages) > 1:
-                    attempt_exists = TestAttempt.objects.filter(
-                        student=student,
-                        status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
-                        test__grade=test.grade,
-                    ).exists()
-                else:
-                    attempt_exists = TestAttempt.objects.filter(
-                        test=test,
-                        student=student,
-                        status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
-                    ).exists()
+                attempt_exists = TestAttempt.objects.filter(
+                    student=student,
+                    status__in=['PENDING', 'IN_PROGRESS', 'FINISHED_REVIEW'],
+                    test__grade=test.grade,
+                ).exists()
 
                 if attempt_exists:
                     continue
 
-                attempt = None
                 try:
-                    if available_languages and len(available_languages) > 1:
-                        send_test_assignment_message(
-                            student.telegram_id,
-                            test,
-                            with_start_button=False,
-                            language_options=available_languages,
-                        )
-                    else:
+                    attempt = None
+                    if active_tests_count <= 1:
                         attempt = TestAttempt.objects.create(
                             student=student,
                             test=test,
@@ -870,7 +846,7 @@ class TestAdmin(ModelAdmin):
                             started_at=None,
                             expires_at=None,
                         )
-                        send_test_assignment_message(student.telegram_id, test, with_start_button=True)
+                    send_test_assignment_message(student.telegram_id, test, with_start_button=True)
                     new_sent += 1
 
                     # Throttle: 1 message per second to avoid rate limiting

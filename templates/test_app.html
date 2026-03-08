@@ -1,9 +1,11 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="uz">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#14c767" />
   <title>Test Yechish</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -11,35 +13,42 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary:        #14c767;
-      --primary-dark:   #08522a;
-      --primary-glow:   rgba(20, 199, 103, 0.18);
+      --primary: #14c767;
+      --primary-dark: #08522a;
+      --primary-glow: rgba(20, 199, 103, 0.18);
       --secondary-blue: #115999;
       --secondary-purp: #7b48a3;
-      --accent-yellow:  #ffbe15;
-      --white:          #ffffff;
+      --accent-yellow: #ffbe15;
+      --white: #ffffff;
 
-      --bg:             #f0faf5;
-      --surface:        #ffffff;
-      --surface-2:      #f7fdf9;
-      --text:           #0d1f14;
-      --text-muted:     #6b8275;
-      --border:         #d4ead9;
-      --error:          #e53935;
-      --success:        #14c767;
+      --bg: #f0faf5;
+      --surface: #ffffff;
+      --surface-2: #f7fdf9;
+      --text: #0d1f14;
+      --text-muted: #6b8275;
+      --border: #d4ead9;
+      --error: #e53935;
+      --success: #14c767;
 
-      --radius-sm:  8px;
-      --radius-md:  14px;
-      --radius-lg:  20px;
-      --radius-xl:  28px;
-      --shadow-sm:  0 1px 4px rgba(8,82,42,0.06);
-      --shadow-md:  0 4px 20px rgba(8,82,42,0.10);
-      --shadow-lg:  0 8px 40px rgba(8,82,42,0.14);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+      --shadow-sm: 0 1px 4px rgba(8, 82, 42, 0.06);
+      --shadow-md: 0 4px 20px rgba(8, 82, 42, 0.10);
+      --shadow-lg: 0 8px 40px rgba(8, 82, 42, 0.14);
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-    html, body {
+    html,
+    body {
       min-height: 100vh;
       background: var(--bg);
       color: var(--text);
@@ -63,11 +72,13 @@
       justify-content: space-between;
       box-shadow: var(--shadow-md);
     }
+
     .top-bar-brand {
       display: flex;
       align-items: center;
       gap: 10px;
     }
+
     .top-bar-logo {
       width: 38px;
       height: 38px;
@@ -77,18 +88,20 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      box-shadow: 0 0 12px rgba(20,199,103,0.45);
+      box-shadow: 0 0 12px rgba(20, 199, 103, 0.45);
       flex-shrink: 0;
     }
+
     .top-bar-title {
       font-size: 1rem;
       font-weight: 700;
       color: var(--white);
       letter-spacing: -0.01em;
     }
+
     .top-bar-subtitle {
       font-size: 0.72rem;
-      color: rgba(255,255,255,0.6);
+      color: rgba(255, 255, 255, 0.6);
       font-weight: 400;
     }
 
@@ -103,25 +116,43 @@
       position: sticky;
       top: 0;
       z-index: 99;
-      box-shadow: 0 2px 8px rgba(8,82,42,0.18);
+      box-shadow: 0 2px 8px rgba(8, 82, 42, 0.18);
       transition: background 0.4s;
     }
-    .timer-bar.visible { display: flex; }
+
+    .timer-bar.visible {
+      display: flex;
+    }
+
     .timer-bar.urgent {
       background: #c62828;
       animation: pulse-urgent 0.9s ease-in-out infinite;
     }
+
     .timer-bar.warning {
       background: #e65100;
     }
-    @keyframes pulse-urgent { 0%,100%{opacity:1;} 50%{opacity:.82;} }
+
+    @keyframes pulse-urgent {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .82;
+      }
+    }
+
     .timer-bar-label {
       font-size: 0.72rem;
       font-weight: 600;
-      color: rgba(255,255,255,0.72);
+      color: rgba(255, 255, 255, 0.72);
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
+
     .timer-bar-time {
       font-size: 1.45rem;
       font-weight: 800;
@@ -130,39 +161,68 @@
       letter-spacing: 0.06em;
       line-height: 1;
     }
-    .timer-bar-icon { font-size: 1.1rem; line-height: 1; }
+
+    .timer-bar-icon {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
 
     /* ───── PROGRESS BAR ───── */
     .progress-wrap {
       background: var(--bg);
       padding: 12px 20px 0;
     }
+
     .progress-meta {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 7px;
     }
-    .progress-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-    .progress-count { font-size: 0.82rem; font-weight: 700; color: var(--primary-dark); }
+
+    .progress-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .progress-count {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+
     .progress-track {
       height: 6px;
       background: var(--border);
       border-radius: 99px;
       overflow: hidden;
     }
+
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--primary), #0de97e);
       border-radius: 99px;
-      transition: width 0.4s cubic-bezier(.4,0,.2,1);
+      transition: width 0.4s cubic-bezier(.4, 0, .2, 1);
       width: 0%;
     }
-    #progressAnswered { display: none; }
-    #progressAnswered.visible { display: block; }
+
+    #progressAnswered {
+      display: none;
+    }
+
+    #progressAnswered.visible {
+      display: block;
+    }
 
     /* ───── CONTAINER ───── */
-    .container { max-width: 580px; margin: 0 auto; padding: 16px 16px 0; }
+    .container {
+      max-width: 580px;
+      margin: 0 auto;
+      padding: 16px 16px 0;
+    }
 
     /* ───── OVERLAY ───── */
     .overlay {
@@ -178,18 +238,43 @@
       padding: 32px 24px;
       backdrop-filter: blur(6px);
     }
+
     .loader-ring {
-      width: 52px; height: 52px;
+      width: 52px;
+      height: 52px;
       border-radius: 50%;
       border: 4px solid var(--border);
       border-top-color: var(--primary);
       animation: spin 0.9s linear infinite;
       margin-bottom: 20px;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .overlay-icon { font-size: 3.5rem; margin-bottom: 16px; line-height: 1; }
-    .overlay-title { font-size: 1.3rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
-    .overlay-msg { font-size: 1rem; color: var(--text-muted); line-height: 1.6; max-width: 360px; }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .overlay-icon {
+      font-size: 3.5rem;
+      margin-bottom: 16px;
+      line-height: 1;
+    }
+
+    .overlay-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .overlay-msg {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      max-width: 360px;
+    }
+
     .overlay-close-btn {
       margin-top: 28px;
       padding: 14px 32px;
@@ -201,13 +286,20 @@
       font-weight: 700;
       cursor: pointer;
       display: none;
-      box-shadow: 0 4px 16px rgba(20,199,103,0.3);
+      box-shadow: 0 4px 16px rgba(20, 199, 103, 0.3);
       transition: transform .15s, box-shadow .15s;
     }
-    .overlay-close-btn:active { transform: scale(0.97); }
+
+    .overlay-close-btn:active {
+      transform: scale(0.97);
+    }
 
     /* ───── START SCREEN ───── */
-    #startScreen { display: none; padding-top: 10px; }
+    #startScreen {
+      display: none;
+      padding-top: 10px;
+    }
+
     .start-hero {
       background: linear-gradient(135deg, var(--primary-dark) 0%, #0a6e38 50%, #0d8247 100%);
       border-radius: var(--radius-xl);
@@ -218,25 +310,51 @@
       overflow: hidden;
       box-shadow: var(--shadow-lg);
     }
+
     .start-hero::before {
       content: '';
       position: absolute;
-      top: -40px; right: -40px;
-      width: 160px; height: 160px;
+      top: -40px;
+      right: -40px;
+      width: 160px;
+      height: 160px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
     }
+
     .start-hero::after {
       content: '';
       position: absolute;
-      bottom: -50px; left: -30px;
-      width: 180px; height: 180px;
+      bottom: -50px;
+      left: -30px;
+      width: 180px;
+      height: 180px;
       border-radius: 50%;
-      background: rgba(20,199,103,0.12);
+      background: rgba(20, 199, 103, 0.12);
     }
-    .start-emoji { font-size: 3.2rem; margin-bottom: 12px; position: relative; z-index: 1; }
-    .start-hero-title { font-size: 1.5rem; font-weight: 800; color: var(--white); margin-bottom: 6px; position: relative; z-index: 1; }
-    .start-hero-sub { font-size: 0.9rem; color: rgba(255,255,255,0.7); position: relative; z-index: 1; }
+
+    .start-emoji {
+      font-size: 3.2rem;
+      margin-bottom: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .start-hero-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--white);
+      margin-bottom: 6px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .start-hero-sub {
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.7);
+      position: relative;
+      z-index: 1;
+    }
 
     .info-cards {
       display: grid;
@@ -244,6 +362,7 @@
       gap: 10px;
       margin-bottom: 16px;
     }
+
     .info-card {
       background: var(--surface);
       border-radius: var(--radius-md);
@@ -252,9 +371,26 @@
       box-shadow: var(--shadow-sm);
       border: 1px solid var(--border);
     }
-    .info-card-icon { font-size: 1.6rem; margin-bottom: 6px; }
-    .info-card-value { font-size: 1.5rem; font-weight: 800; color: var(--primary-dark); }
-    .info-card-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+    .info-card-icon {
+      font-size: 1.6rem;
+      margin-bottom: 6px;
+    }
+
+    .info-card-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+    }
+
+    .info-card-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
 
     .rules-card {
       background: var(--surface);
@@ -264,7 +400,16 @@
       border: 1px solid var(--border);
       box-shadow: var(--shadow-sm);
     }
-    .rules-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 10px; }
+
+    .rules-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
     .rule-item {
       display: flex;
       align-items: flex-start;
@@ -274,9 +419,14 @@
       line-height: 1.5;
       margin-bottom: 8px;
     }
-    .rule-item:last-child { margin-bottom: 0; }
+
+    .rule-item:last-child {
+      margin-bottom: 0;
+    }
+
     .rule-dot {
-      width: 20px; height: 20px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: var(--primary-glow);
       color: var(--primary-dark);
@@ -300,22 +450,29 @@
       border-radius: var(--radius-lg);
       cursor: pointer;
       letter-spacing: 0.01em;
-      box-shadow: 0 6px 24px rgba(20,199,103,0.38);
+      box-shadow: 0 6px 24px rgba(20, 199, 103, 0.38);
       transition: transform .15s, box-shadow .15s;
       position: relative;
       overflow: hidden;
     }
-    .start-btn:active { transform: scale(0.98); box-shadow: 0 3px 12px rgba(20,199,103,0.25); }
+
+    .start-btn:active {
+      transform: scale(0.98);
+      box-shadow: 0 3px 12px rgba(20, 199, 103, 0.25);
+    }
+
     .start-btn::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(to bottom, rgba(255,255,255,0.12), transparent);
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.12), transparent);
       pointer-events: none;
     }
 
     /* ───── QUESTION CARDS ───── */
-    #mainContainer { display: none; }
+    #mainContainer {
+      display: none;
+    }
 
     .question-card {
       background: var(--surface);
@@ -328,8 +485,23 @@
       animation: fadeSlideIn 0.3s ease forwards;
       opacity: 0;
     }
-    .question-card.answered { border-color: rgba(20,199,103,0.4); box-shadow: 0 0 0 1px rgba(20,199,103,0.2), var(--shadow-sm); }
-    @keyframes fadeSlideIn { from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:translateY(0);} }
+
+    .question-card.answered {
+      border-color: rgba(20, 199, 103, 0.4);
+      box-shadow: 0 0 0 1px rgba(20, 199, 103, 0.2), var(--shadow-sm);
+    }
+
+    @keyframes fadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
     .q-meta {
       display: flex;
@@ -337,6 +509,7 @@
       justify-content: space-between;
       margin-bottom: 14px;
     }
+
     .q-badge {
       display: inline-flex;
       align-items: center;
@@ -350,6 +523,7 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
+
     .q-answered-pill {
       display: none;
       align-items: center;
@@ -361,7 +535,10 @@
       padding: 4px 10px;
       border-radius: 20px;
     }
-    .q-answered-pill.visible { display: inline-flex; }
+
+    .q-answered-pill.visible {
+      display: inline-flex;
+    }
 
     .q-text {
       font-size: 1rem;
@@ -370,6 +547,7 @@
       color: var(--text);
       margin-bottom: 14px;
     }
+
     .q-img {
       width: 100%;
       height: auto;
@@ -382,42 +560,78 @@
       background: var(--surface-2);
       cursor: zoom-in;
     }
-    .q-img:hover { opacity: .92; }
+
+    .q-img:hover {
+      opacity: .92;
+    }
 
     /* ─── LIGHTBOX ─── */
     .lightbox {
-      position: fixed; inset: 0; z-index: 10000;
-      background: rgba(0,0,0,0.92);
-      display: flex; align-items: center; justify-content: center;
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: rgba(0, 0, 0, 0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 20px;
-      opacity: 0; pointer-events: none;
+      opacity: 0;
+      pointer-events: none;
       transition: opacity .22s ease;
     }
-    .lightbox.open { opacity: 1; pointer-events: all; }
+
+    .lightbox.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
     .lightbox-img {
-      max-width: 100%; max-height: 90vh;
+      max-width: 100%;
+      max-height: 90vh;
       border-radius: var(--radius-md);
       object-fit: contain;
       transform: scale(0.86);
-      transition: transform .25s cubic-bezier(.34,1.56,.64,1);
-      box-shadow: 0 8px 48px rgba(0,0,0,0.6);
+      transition: transform .25s cubic-bezier(.34, 1.56, .64, 1);
+      box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
     }
-    .lightbox.open .lightbox-img { transform: scale(1); }
+
+    .lightbox.open .lightbox-img {
+      transform: scale(1);
+    }
+
     .lightbox-close {
-      position: absolute; top: 14px; right: 14px;
-      width: 38px; height: 38px; border-radius: 50%;
-      background: rgba(255,255,255,0.15);
-      border: 1.5px solid rgba(255,255,255,0.3);
-      color: #fff; font-size: 1.1rem; line-height: 1;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1.5px solid rgba(255, 255, 255, 0.3);
+      color: #fff;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       backdrop-filter: blur(4px);
       transition: background .15s;
     }
-    .lightbox-close:hover { background: rgba(255,255,255,0.28); }
+
+    .lightbox-close:hover {
+      background: rgba(255, 255, 255, 0.28);
+    }
+
     .lightbox-hint {
-      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
-      font-size: 0.72rem; color: rgba(255,255,255,0.45);
-      letter-spacing: 0.05em; white-space: nowrap;
+      position: absolute;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.45);
+      letter-spacing: 0.05em;
+      white-space: nowrap;
     }
 
     /* ─── OPTIONS ─── */
@@ -426,14 +640,17 @@
       grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
+
     .option {
       position: relative;
     }
+
     .option input[type="radio"] {
       position: absolute;
       opacity: 0;
       pointer-events: none;
     }
+
     .option-label {
       display: flex;
       align-items: center;
@@ -449,9 +666,14 @@
       -webkit-tap-highlight-color: transparent;
       min-height: 52px;
     }
-    .option-label:active { transform: scale(0.96); }
+
+    .option-label:active {
+      transform: scale(0.96);
+    }
+
     .option-letter-wrap {
-      width: 28px; height: 28px;
+      width: 28px;
+      height: 28px;
       border-radius: 8px;
       background: var(--border);
       display: flex;
@@ -460,6 +682,7 @@
       flex-shrink: 0;
       transition: background .18s;
     }
+
     .option-letter {
       font-size: 0.88rem;
       font-weight: 800;
@@ -468,15 +691,17 @@
     }
 
     /* Checked state */
-    .option input[type="radio"]:checked ~ .option-label {
+    .option input[type="radio"]:checked~.option-label {
       background: linear-gradient(135deg, var(--primary-dark), #0a6e38);
       border-color: var(--primary-dark);
-      box-shadow: 0 4px 16px rgba(8,82,42,0.22);
+      box-shadow: 0 4px 16px rgba(8, 82, 42, 0.22);
     }
-    .option input[type="radio"]:checked ~ .option-label .option-letter-wrap {
-      background: rgba(255,255,255,0.18);
+
+    .option input[type="radio"]:checked~.option-label .option-letter-wrap {
+      background: rgba(255, 255, 255, 0.18);
     }
-    .option input[type="radio"]:checked ~ .option-label .option-letter {
+
+    .option input[type="radio"]:checked~.option-label .option-letter {
       color: var(--white);
     }
 
@@ -488,10 +713,12 @@
       bottom: 0;
       z-index: 50;
     }
+
     .submit-inner {
       max-width: 580px;
       margin: 0 auto;
     }
+
     .answered-status {
       text-align: center;
       font-size: 0.8rem;
@@ -499,7 +726,11 @@
       margin-bottom: 10px;
       font-weight: 500;
     }
-    .answered-status strong { color: var(--primary-dark); }
+
+    .answered-status strong {
+      color: var(--primary-dark);
+    }
+
     .submit-btn {
       width: 100%;
       padding: 17px;
@@ -511,20 +742,29 @@
       border-radius: var(--radius-lg);
       cursor: pointer;
       letter-spacing: 0.01em;
-      box-shadow: 0 6px 24px rgba(8,82,42,0.28);
+      box-shadow: 0 6px 24px rgba(8, 82, 42, 0.28);
       transition: transform .15s, box-shadow .15s, opacity .2s;
       position: relative;
       overflow: hidden;
     }
+
     .submit-btn::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(to bottom, rgba(255,255,255,0.08), transparent);
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.08), transparent);
       pointer-events: none;
     }
-    .submit-btn:active { transform: scale(0.98); }
-    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .submit-btn:active {
+      transform: scale(0.98);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
 
     /* ───── UNANSWERED WARNING ───── */
     .unanswered-warning {
@@ -541,14 +781,18 @@
       align-items: center;
       gap: 8px;
     }
-    .unanswered-warning.visible { display: flex; }
+
+    .unanswered-warning.visible {
+      display: flex;
+    }
 
     /* ───── SCROLL TO TOP BUTTON ───── */
     .scroll-top-btn {
       position: fixed;
       bottom: calc(90px + env(safe-area-inset-bottom));
       right: 16px;
-      width: 42px; height: 42px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       background: var(--primary-dark);
       color: var(--white);
@@ -562,111 +806,200 @@
       z-index: 60;
       transition: opacity .2s, transform .15s;
     }
-    .scroll-top-btn.visible { display: flex; }
-    .scroll-top-btn:active { transform: scale(0.92); }
+
+    .scroll-top-btn.visible {
+      display: flex;
+    }
+
+    .scroll-top-btn:active {
+      transform: scale(0.92);
+    }
 
     /* ─── REVIEW SHEET ─── */
     .review-backdrop {
-      position: fixed; inset: 0; z-index: 200;
-      background: rgba(0,0,0,0.45);
-      opacity: 0; pointer-events: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      pointer-events: none;
       transition: opacity .28s ease;
     }
-    .review-backdrop.open { opacity: 1; pointer-events: all; }
+
+    .review-backdrop.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
     .review-sheet {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 201;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 201;
       background: var(--surface);
       border-radius: 24px 24px 0 0;
       padding: 0 0 calc(24px + env(safe-area-inset-bottom));
       max-height: 88vh;
-      display: flex; flex-direction: column;
+      display: flex;
+      flex-direction: column;
       transform: translateY(100%);
-      transition: transform .32s cubic-bezier(.32,1,.4,1);
-      box-shadow: 0 -8px 40px rgba(8,82,42,0.16);
+      transition: transform .32s cubic-bezier(.32, 1, .4, 1);
+      box-shadow: 0 -8px 40px rgba(8, 82, 42, 0.16);
     }
-    .review-sheet.open { transform: translateY(0); }
+
+    .review-sheet.open {
+      transform: translateY(0);
+    }
+
     .review-handle {
-      width: 40px; height: 4px;
+      width: 40px;
+      height: 4px;
       background: var(--border);
       border-radius: 99px;
       margin: 14px auto 0;
       flex-shrink: 0;
     }
+
     .review-header {
       padding: 16px 20px 12px;
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       flex-shrink: 0;
       border-bottom: 1px solid var(--border);
     }
-    .review-header-title { font-size: 1rem; font-weight: 800; color: var(--text); }
-    .review-header-sub   { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+    .review-header-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .review-header-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
     .review-close-btn {
-      width: 32px; height: 32px; border-radius: 50%;
-      background: var(--bg); border: none; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1rem; color: var(--text-muted);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      color: var(--text-muted);
       flex-shrink: 0;
     }
+
     .review-list {
-      flex: 1; overflow-y: auto;
+      flex: 1;
+      overflow-y: auto;
       padding: 14px 16px;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
       gap: 10px;
       align-content: start;
     }
+
     .review-item {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       padding: 10px 6px;
       border-radius: var(--radius-md);
       border: 1.5px solid var(--border);
       background: var(--surface-2);
       gap: 4px;
     }
+
     .review-item.answered {
-      border-color: rgba(20,199,103,0.5);
+      border-color: rgba(20, 199, 103, 0.5);
       background: #edfaf3;
     }
+
     .review-item.unanswered {
-      border-color: rgba(255,190,21,0.6);
+      border-color: rgba(255, 190, 21, 0.6);
       background: #fff8e1;
     }
+
     .review-item-num {
-      font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.04em; color: var(--text-muted);
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
     }
+
     .review-item-ans {
-      font-size: 1.1rem; font-weight: 800;
+      font-size: 1.1rem;
+      font-weight: 800;
       color: var(--primary-dark);
     }
-    .review-item.unanswered .review-item-ans { color: #b45309; font-size: 0.8rem; }
+
+    .review-item.unanswered .review-item-ans {
+      color: #b45309;
+      font-size: 0.8rem;
+    }
+
     .review-footer {
       padding: 12px 16px 0;
-      display: flex; flex-direction: column; gap: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       flex-shrink: 0;
       border-top: 1px solid var(--border);
     }
+
     .review-confirm-btn {
-      width: 100%; padding: 16px; font-size: 1.05rem; font-weight: 800;
+      width: 100%;
+      padding: 16px;
+      font-size: 1.05rem;
+      font-weight: 800;
       color: var(--white);
       background: linear-gradient(135deg, var(--primary) 0%, #0dc45e 100%);
-      border: none; border-radius: var(--radius-lg); cursor: pointer;
-      box-shadow: 0 4px 20px rgba(20,199,103,0.32);
+      border: none;
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(20, 199, 103, 0.32);
       transition: transform .15s, opacity .2s;
     }
-    .review-confirm-btn:active { transform: scale(0.98); }
-    .review-confirm-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .review-confirm-btn:active {
+      transform: scale(0.98);
+    }
+
+    .review-confirm-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .review-back-btn {
-      width: 100%; padding: 14px; font-size: 0.95rem; font-weight: 700;
+      width: 100%;
+      padding: 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
       color: var(--text-muted);
-      background: transparent; border: 1.5px solid var(--border);
-      border-radius: var(--radius-lg); cursor: pointer;
+      background: transparent;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
       transition: border-color .15s, color .15s;
     }
-    .review-back-btn:hover { border-color: var(--primary-dark); color: var(--primary-dark); }
+
+    .review-back-btn:hover {
+      border-color: var(--primary-dark);
+      color: var(--primary-dark);
+    }
   </style>
 </head>
+
 <body>
 
 
@@ -676,7 +1009,9 @@
     <div id="blockTitle" class="overlay-title"></div>
     <div id="blockMessage" class="overlay-msg"></div>
     <div style="display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; justify-content:center;">
-      <button id="blockBackBtn" style="display:none; padding:14px 24px; background:transparent; color:var(--white); border:2px solid rgba(255,255,255,0.6); border-radius:40px; font-size:1rem; font-weight:700; cursor:pointer;">← Orqaga</button>
+      <button id="blockBackBtn"
+        style="display:none; padding:14px 24px; background:transparent; color:var(--white); border:2px solid rgba(255,255,255,0.6); border-radius:40px; font-size:1rem; font-weight:700; cursor:pointer;">←
+        Orqaga</button>
       <button id="closeAppBtn" class="overlay-close-btn">Yopish</button>
     </div>
   </div>
@@ -712,12 +1047,33 @@
     </div>
   </div>
 
+  <!-- ── LANGUAGE SCREEN ── -->
+  <div id="languageScreen" style="display:none; padding-top: 20px;">
+    <div class="container">
+      <div class="start-hero">
+        <div
+          style="display:flex; align-items:center; justify-content:center; margin-bottom:18px; position:relative; z-index:1;">
+          <img src="{% static 'img/logo_rs.png' %}" alt="Rahimov School"
+            style="height:72px; object-fit:contain; filter:brightness(0) invert(1);">
+        </div>
+        <div class="start-emoji">🌍</div>
+        <div class="start-hero-title">Test tilini tanlang</div>
+        <div class="start-hero-sub">O'zingizga qulay tilni tanlang</div>
+      </div>
+      <div id="languageButtonsContainer" style="display: flex; flex-direction: column; gap: 12px; margin-top: 20px;">
+        <!-- Language buttons injected here -->
+      </div>
+    </div>
+  </div>
+
   <!-- ── START SCREEN ── -->
   <div id="startScreen">
     <div class="container">
       <div class="start-hero">
-        <div style="display:flex; align-items:center; justify-content:center; margin-bottom:18px; position:relative; z-index:1;">
-          <img src="{% static 'img/logo_rs.png' %}" alt="Rahimov School" style="height:72px; object-fit:contain; filter:brightness(0) invert(1);">
+        <div
+          style="display:flex; align-items:center; justify-content:center; margin-bottom:18px; position:relative; z-index:1;">
+          <img src="{% static 'img/logo_rs.png' %}" alt="Rahimov School"
+            style="height:72px; object-fit:contain; filter:brightness(0) invert(1);">
         </div>
         <div class="start-emoji">📋</div>
         <div class="start-hero-title">Testga tayyormisiz?</div>
@@ -730,17 +1086,25 @@
           <div class="info-card-value" id="startQuestionsCount">—</div>
         </div>
         <div class="info-card">
-           <div class="info-card-label">Berilgan daqiqa:</div>
+          <div class="info-card-label">Berilgan daqiqa:</div>
           <div class="info-card-value" id="startDuration">—</div>
         </div>
       </div>
 
       <div class="rules-card">
         <div class="rules-title">📌 Qoidalar</div>
-        <div class="rule-item"><div class="rule-dot">1</div><span>Har bir savolga bitta javob tanlang.</span></div>
-        <div class="rule-item"><div class="rule-dot">2</div><span>Berilgan vaqt tugaganda test ham avtomatik tugaydi.</span></div>
-        <div class="rule-item"><div class="rule-dot">3</div><span>Test boshlanganidan so'ng uni tark etmang.</span></div>
-        <div class="rule-item"><div class="rule-dot">4</div><span>Barcha savollarga to'liq javob bering.</span></div>
+        <div class="rule-item">
+          <div class="rule-dot">1</div><span>Har bir savolga bitta javob tanlang.</span>
+        </div>
+        <div class="rule-item">
+          <div class="rule-dot">2</div><span>Berilgan vaqt tugaganda test ham avtomatik tugaydi.</span>
+        </div>
+        <div class="rule-item">
+          <div class="rule-dot">3</div><span>Test boshlanganidan so'ng uni tark etmang.</span>
+        </div>
+        <div class="rule-item">
+          <div class="rule-dot">4</div><span>Barcha savollarga to'liq javob bering.</span>
+        </div>
       </div>
 
       <button class="start-btn" id="startTestBtn">🚀 Testni boshlash</button>
@@ -760,23 +1124,23 @@
           <span id="unansweredText"></span>
         </div>
         <div class="answered-status" id="answeredStatus"></div>
-  <!-- ── REVIEW SHEET ── -->
-  <div id="reviewBackdrop" class="review-backdrop"></div>
-  <div id="reviewSheet" class="review-sheet" role="dialog" aria-modal="true">
-    <div class="review-handle"></div>
-    <div class="review-header">
-      <div>
-        <div class="review-header-title">📝 Javoblarni tekshiring</div>
-        <div class="review-header-sub" id="reviewHeaderSub"></div>
-      </div>
-      <button class="review-close-btn" id="reviewCloseBtn">&times;</button>
-    </div>
-    <div class="review-list" id="reviewList"></div>
-    <div class="review-footer">
-      <button class="review-confirm-btn" id="reviewConfirmBtn">✅ Tasdiqlash va yuborish</button>
-      <button class="review-back-btn"   id="reviewBackBtn">← Orqaga qaytish</button>
-    </div>
-  </div>
+        <!-- ── REVIEW SHEET ── -->
+        <div id="reviewBackdrop" class="review-backdrop"></div>
+        <div id="reviewSheet" class="review-sheet" role="dialog" aria-modal="true">
+          <div class="review-handle"></div>
+          <div class="review-header">
+            <div>
+              <div class="review-header-title">📝 Javoblarni tekshiring</div>
+              <div class="review-header-sub" id="reviewHeaderSub"></div>
+            </div>
+            <button class="review-close-btn" id="reviewCloseBtn">&times;</button>
+          </div>
+          <div class="review-list" id="reviewList"></div>
+          <div class="review-footer">
+            <button class="review-confirm-btn" id="reviewConfirmBtn">✅ Tasdiqlash va yuborish</button>
+            <button class="review-back-btn" id="reviewBackBtn">← Orqaga qaytish</button>
+          </div>
+        </div>
 
         <button class="submit-btn" id="submitBtn" type="button">✅ Testni yakunlash</button>
       </div>
@@ -795,50 +1159,121 @@
 
   <script>
     var testAppQuestionsUrl = "{{ test_app_questions_url|default:'/test-app/questions/'|escapejs }}";
-    var testAppSubmitUrl    = "{{ test_app_submit_url|default:'/test-app/submit/'|escapejs }}";
+    var testAppSubmitUrl = "{{ test_app_submit_url|default:'/test-app/submit/'|escapejs }}";
 
     const tg = window.Telegram?.WebApp;
     var tgInitData = (tg && tg.initData) ? tg.initData : "";
-    var tgUserId   = "";
+    var tgUserId = "";
 
     const urlParams = new URLSearchParams(window.location.search);
-    var urlTgUid    = urlParams.get('tg_uid');
+    var urlTgUid = urlParams.get('tg_uid');
 
     if (tg) {
       tg.ready();
       tg.expand();
-      try { if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen(); } catch (_) {}
+      try { if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen(); } catch (_) { }
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         tgUserId = String(tg.initDataUnsafe.user.id || "");
       }
     }
     if (!tgUserId && urlTgUid) tgUserId = urlTgUid;
 
+    // ─── TRANSLATIONS ───
+    let currentLang = 'uz';
+    const UI_TXT = {
+      uz: {
+        timeRem: "Qolgan vaqt", ansStr: "Javoblar", startT: "Testga tayyormisiz?",
+        startSub: "Barcha savollarga e'tiborli bo'ling", qCount: "Savollar soni:",
+        durCount: "Berilgan daqiqa:", rules: "📌 Qoidalar", r1: "Har bir savolga bitta javob tanlang.",
+        r2: "Berilgan vaqt tugaganda test ham avtomatik tugaydi.",
+        r3: "Test boshlanganidan so'ng uni tark etmang.", r4: "Barcha savollarga to'liq javob bering.",
+        btnStart: "🚀 Testni boshlash", warnLeft: " ta savol javobsiz qoldi",
+        revT: "📝 Javoblarni tekshiring", btnConf: "✅ Tasdiqlash va yuborish", btnBack: "← Orqaga qaytish",
+        btnYak: "✅ Testni yakunlash", btnFin: "⏳ Yakunlanmoqda...",
+        markQ: "✓ belgilandi", badgeQ: "-savol", ansNo: "Yo'q", revAns: "savol belgilandi",
+        revUans: "ta javobsiz", revAll: "Barcha",
+        lbClose: "Yopish uchun bosing", scrollBtn: "Tepaga qaytish",
+        testTitleMenu: "Test", readyOk: "Tayyor bo'lsangiz boshlang",
+        waitBtn: "⏳ Yuborilmoqda...",
+        btnBackOverlay: "← Orqaga", btnCloseOverlay: "Yopish"
+      },
+      ru: {
+        timeRem: "Оставшееся время", ansStr: "Ответы", startT: "Готовы к тесту?",
+        startSub: "Будьте внимательны ко всем вопросам", qCount: "Кол-во вопросов:",
+        durCount: "Дано минут:", rules: "📌 Правила", r1: "Выберите один вариант ответа для каждого вопроса.",
+        r2: "Тест завершится автоматически по истечении времени.",
+        r3: "Не закрывайте тест после его начала.", r4: "Ответьте на все вопросы.",
+        btnStart: "🚀 Начать тест", warnLeft: " без ответа",
+        revT: "📝 Проверьте ответы", btnConf: "✅ Подтвердить и отправить", btnBack: "← Вернуться назад",
+        btnYak: "✅ Завершить тест", btnFin: "⏳ Завершение...",
+        markQ: "✓ выбрано", badgeQ: "Вопрос", ansNo: "Нет", revAns: "вопр. отмечено",
+        revUans: "без ответа", revAll: "Все",
+        lbClose: "Нажмите, чтобы закрыть", scrollBtn: "Наверх",
+        testTitleMenu: "Тест", readyOk: "Начните, когда будете готовы",
+        waitBtn: "⏳ Отправка...",
+        btnBackOverlay: "← Назад", btnCloseOverlay: "Закрыть"
+      }
+    };
+
+    function t(key) { return UI_TXT[currentLang][key] || UI_TXT['uz'][key]; }
+
+    function applyTranslations() {
+      // Top bar usually handled dynamically, but others:
+      document.querySelector('.timer-bar-label').textContent = t('timeRem');
+      document.querySelector('.progress-label').textContent = t('ansStr');
+      document.querySelector('#startScreen .start-hero-title').textContent = t('startT');
+      document.querySelector('#startScreen .start-hero-sub').textContent = t('startSub');
+
+      const infoLabels = document.querySelectorAll('.info-card-label');
+      if (infoLabels.length > 1) {
+        infoLabels[0].textContent = t('qCount'); infoLabels[1].textContent = t('durCount');
+      }
+      document.querySelector('.rules-title').textContent = t('rules');
+      const rules = document.querySelectorAll('.rule-item span');
+      if (rules.length > 3) {
+        rules[0].textContent = t('r1'); rules[1].textContent = t('r2');
+        rules[2].textContent = t('r3'); rules[3].textContent = t('r4');
+      }
+      document.getElementById('startTestBtn').textContent = t('btnStart');
+      document.getElementById('submitBtn').textContent = t('btnYak');
+
+      document.querySelector('.review-header-title').textContent = t('revT');
+      document.getElementById('reviewConfirmBtn').textContent = t('btnConf');
+      document.getElementById('reviewBackBtn').textContent = t('btnBack');
+      document.querySelector('.lightbox-hint').textContent = t('lbClose');
+      document.getElementById('scrollTopBtn').setAttribute('aria-label', t('scrollBtn'));
+
+      document.getElementById('blockBackBtn').textContent = t('btnBackOverlay');
+      document.getElementById('closeAppBtn').textContent = t('btnCloseOverlay');
+    }
+
     // ─── STATE ───
-    let totalQuestions  = 0;
-    let answeredCount   = 0;
-    let endTimestamp    = null;
-    let timerInterval   = null;
-    let _questionIds    = [];  // ordered list of question IDs for review sheet
+    let totalQuestions = 0;
+    let answeredCount = 0;
+    let endTimestamp = null;
+    let timerInterval = null;
+    let currentTestId = null;
+    let _questionIds = [];  // ordered list of question IDs for review sheet
 
     // ─── HELPERS ───
     function showOverlay(msg, title, isSuccess) {
-      document.getElementById('mainContainer').style.display  = 'none';
-      document.getElementById('startScreen').style.display    = 'none';
-      document.getElementById('topBar').style.display         = 'none';
+      document.getElementById('mainContainer').style.display = 'none';
+      document.getElementById('startScreen').style.display = 'none';
+      document.getElementById('languageScreen').style.display = 'none';
+      document.getElementById('topBar').style.display = 'none';
       const timerBar = document.getElementById('timerBar');
       if (timerBar) timerBar.style.display = 'none';
       document.getElementById('progressAnswered').classList.remove('visible');
 
       const overlay = document.getElementById('blockOverlay');
-      document.getElementById('blockIcon').innerHTML    = isSuccess ? '🎉' : '⚠️';
-      document.getElementById('blockTitle').textContent = title  || '';
-      document.getElementById('blockMessage').innerHTML = msg    || '';
+      document.getElementById('blockIcon').innerHTML = isSuccess ? '🎉' : '⚠️';
+      document.getElementById('blockTitle').textContent = title || '';
+      document.getElementById('blockMessage').innerHTML = msg || '';
       const closeBtn = document.getElementById('closeAppBtn');
-      const backBtn  = document.getElementById('blockBackBtn');
+      const backBtn = document.getElementById('blockBackBtn');
       closeBtn.style.display = isSuccess ? 'inline-block' : 'none';
-      backBtn.style.display  = isSuccess ? 'none' : 'inline-block';
-      overlay.style.display  = 'flex';
+      backBtn.style.display = isSuccess ? 'none' : 'inline-block';
+      overlay.style.display = 'flex';
     }
 
     document.getElementById('closeAppBtn').addEventListener('click', () => {
@@ -855,8 +1290,11 @@
       const pct = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
       document.getElementById('progressFill').style.width = pct + '%';
       document.getElementById('progressCountText').textContent = answeredCount + ' / ' + totalQuestions;
+
+      const v1 = currentLang === 'ru' ? 'Отмечено ' : '';
+      const v2 = currentLang === 'ru' ? ' вопр.' : ' savol belgilandi';
       document.getElementById('answeredStatus').innerHTML =
-        '<strong>' + answeredCount + '</strong> / ' + totalQuestions + ' savol belgilandi';
+        v1 + '<strong>' + answeredCount + '</strong> / ' + totalQuestions + v2;
     }
 
     function markCardAnswered(cardEl) {
@@ -873,9 +1311,9 @@
     function checkUnanswered() {
       const remaining = totalQuestions - answeredCount;
       const warn = document.getElementById('unansweredWarning');
-      const txt  = document.getElementById('unansweredText');
+      const txt = document.getElementById('unansweredText');
       if (remaining > 0) {
-        txt.textContent = remaining + ' ta savol javobsiz qoldi';
+        txt.textContent = currentLang === 'ru' ? `Осталось без ответа: ${remaining}` : `${remaining} ta savol javobsiz qoldi`;
         warn.classList.add('visible');
       } else {
         warn.classList.remove('visible');
@@ -894,13 +1332,15 @@
           clearInterval(timerInterval);
           document.getElementById('timeRemaining').textContent = '00:00';
           bar.classList.add('urgent');
-          showOverlay('Vaqt tugadi! Test avtomatik tarzda yakunlandi.', 'Vaqt tugadi ⏰', false);
+          const title = currentLang === 'ru' ? 'Время вышло ⏰' : 'Vaqt tugadi ⏰';
+          const msg = currentLang === 'ru' ? 'Время вышло! Тест завершен автоматически.' : 'Vaqt tugadi! Test avtomatik tarzda yakunlandi.';
+          showOverlay(msg, title, false);
           submitTest(true);
           return;
         }
-        if (diff <= 60)       { bar.classList.add('urgent');  bar.classList.remove('warning'); }
-        else if (diff <= 300) { bar.classList.add('warning'); bar.classList.remove('urgent');  }
-        else                  { bar.classList.remove('urgent', 'warning'); }
+        if (diff <= 60) { bar.classList.add('urgent'); bar.classList.remove('warning'); }
+        else if (diff <= 300) { bar.classList.add('warning'); bar.classList.remove('urgent'); }
+        else { bar.classList.remove('urgent', 'warning'); }
         const m = Math.floor(diff / 60);
         const s = diff % 60;
         document.getElementById('timeRemaining').textContent =
@@ -913,8 +1353,8 @@
     // ─── RENDER QUESTIONS ───
     function renderQuestions(questions) {
       totalQuestions = questions.length;
-      answeredCount  = 0;
-      _questionIds   = questions.map(q => q.id);
+      answeredCount = 0;
+      _questionIds = questions.map(q => q.id);
       const container = document.getElementById('questionsContainer');
       container.innerHTML = '';
 
@@ -923,13 +1363,16 @@
         card.className = 'question-card';
         card.style.animationDelay = (idx * 50) + 'ms';
 
+        const qBadgeText = currentLang === 'ru' ? `📌 Вопрос ${idx + 1}` : `📌 ${idx + 1}-savol`;
+        const qMarkText = t('markQ');
+
         let html = `
           <div class="q-meta">
-            <span class="q-badge">📌 ${idx + 1}-savol</span>
-            <span class="q-answered-pill">✓ belgilandi</span>
+            <span class="q-badge">${qBadgeText}</span>
+            <span class="q-answered-pill">${qMarkText}</span>
           </div>`;
 
-        if (q.image_url) html += `<img src="${q.image_url}" class="q-img" loading="lazy" alt="Savol ${idx+1}">`;
+        if (q.image_url) html += `<img src="${q.image_url}" class="q-img" loading="lazy" alt="Savol ${idx + 1}">`;
         else if (q.text) html += `<div class="q-text">${q.text.replace(/\\n/g, '<br>')}</div>`;
 
         html += `<div class="options">`;
@@ -973,64 +1416,114 @@
     }
 
     // ─── LOAD QUESTIONS ───
-    function loadQuestions(start_test = false) {
+    function loadQuestions(start_test = false, test_id = null) {
       if (!tgUserId) return;
+
+      const payload = {
+        init_data: tgInitData,
+        fallback_uid: tgUserId,
+        start_test: start_test
+      };
+
+      if (test_id) {
+        payload.test_id = test_id;
+      }
 
       fetch(testAppQuestionsUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ init_data: tgInitData, fallback_uid: tgUserId, start_test: start_test })
+        body: JSON.stringify(payload)
       })
-      .then(r => r.json())
-      .then(data => {
-        if (!data.ok) {
-          return showOverlay(data.error_text || "Xatolik yuz berdi. Testlarni yuklash imkonsiz.", "Xatolik", false);
-        }
+        .then(r => r.json())
+        .then(data => {
+          if (data.lang_code) currentLang = data.lang_code;
+          applyTranslations();
 
-        if (data.status === 'SUBMITTED_FINAL') {
-          return showOverlay(
-            "Siz allaqachon ushbu testni topshirgansiz.<br>Natijangizni bot orqali kuting.",
-            "Test topshirilgan ✅", true
-          );
-        }
+          if (!data.ok) {
+            const titleError = currentLang === 'ru' ? 'Ошибка' : 'Xatolik';
+            const txtError = data.error_text || (currentLang === 'ru' ? 'Ошибка загрузки.' : 'Xatolik yuz berdi. Testlarni yuklash imkonsiz.');
+            return showOverlay(txtError, titleError, false);
+          }
 
-        if (data.status === 'PENDING') {
+          if (data.status === 'SUBMITTED_FINAL') {
+            const tDone = currentLang === 'ru' ? 'Тест сдан ✅' : 'Test topshirilgan ✅';
+            const msgDone = currentLang === 'ru'
+              ? 'Вы уже сдавали этот тест.<br>Ждите результаты в боте.'
+              : 'Siz allaqachon ushbu testni topshirgansiz.<br>Natijangizni bot orqali kuting.';
+            return showOverlay(msgDone, tDone, true);
+          }
+
+          if (data.status === 'LANGUAGE_SELECTION') {
+            document.getElementById('topBar').style.display = 'flex';
+            document.getElementById('topBarTitle').textContent = currentLang === 'ru' ? 'Выбор языка' : 'Til tanlash';
+            document.getElementById('topBarSubtitle').textContent = currentLang === 'ru' ? 'Для теста' : 'Test uchun';
+            document.getElementById('startScreen').style.display = 'none';
+
+            document.querySelector('#languageScreen .start-hero-title').textContent = currentLang === 'ru' ? 'Выберите язык теста' : 'Test tilini tanlang';
+            document.querySelector('#languageScreen .start-hero-sub').textContent = currentLang === 'ru' ? 'Выберите удобный для вас язык' : 'O\'zingizga qulay tilni tanlang';
+
+            document.getElementById('languageScreen').style.display = 'block';
+
+            const container = document.getElementById('languageButtonsContainer');
+            container.innerHTML = '';
+            data.tests.forEach(test => {
+              const btn = document.createElement('button');
+              btn.className = 'start-btn';
+              btn.textContent = `📝 ${test.language} tili`;
+              btn.onclick = () => {
+                document.getElementById('languageScreen').style.display = 'none';
+                currentTestId = test.id;
+                currentLang = test.code;
+                applyTranslations();
+                loadQuestions(false, test.id);
+              };
+              container.appendChild(btn);
+            });
+            return;
+          }
+
+          if (data.status === 'PENDING') {
+            currentTestId = data.test_id;
+            document.getElementById('topBar').style.display = 'flex';
+            document.getElementById('topBarTitle').textContent = data.test_title || t('testTitleMenu');
+            document.getElementById('topBarSubtitle').textContent = t('readyOk');
+            document.getElementById('startDuration').textContent = data.duration_minutes || '0';
+            document.getElementById('startQuestionsCount').textContent = data.questions_count || '0';
+            document.getElementById('languageScreen').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'block';
+            return;
+          }
+
+          // Show test
+          document.getElementById('topBarTitle').textContent = data.test_title || t('testTitleMenu');
+          const countTxt = currentLang === 'ru' ? `Вопросов: ${data.questions ? data.questions.length : 0}` : `${data.questions ? data.questions.length : 0} ta savol`;
+          document.getElementById('topBarSubtitle').textContent = countTxt;
           document.getElementById('topBar').style.display = 'flex';
-          document.getElementById('topBarTitle').textContent = data.test_title || 'Test';
-          document.getElementById('topBarSubtitle').textContent = 'Tayyor bo\'lsangiz boshlang';
-          document.getElementById('startDuration').textContent = data.duration_minutes || '0';
-          document.getElementById('startQuestionsCount').textContent = data.questions_count || '0';
-          document.getElementById('startScreen').style.display = 'block';
-          return;
-        }
+          document.getElementById('progressAnswered').classList.add('visible');
 
-        // Show test
-        document.getElementById('topBarTitle').textContent = data.test_title || 'Test';
-        document.getElementById('topBarSubtitle').textContent = (data.questions ? data.questions.length : 0) + ' ta savol';
-        document.getElementById('topBar').style.display = 'flex';
-        document.getElementById('progressAnswered').classList.add('visible');
+          if (!data.questions || data.questions.length === 0) {
+            const tEmpty = currentLang === 'ru' ? 'Вопросы не найдены' : 'Savollar topilmadi';
+            const mEmpty = currentLang === 'ru' ? 'В этом тесте нет вопросов.' : 'Bu testda savollar yo\'q.';
+            return showOverlay(mEmpty, tEmpty, false);
+          }
 
-        if (!data.questions || data.questions.length === 0) {
-          return showOverlay("Bu testda savollar yo'q.", "Savollar topilmadi", false);
-        }
+          renderQuestions(data.questions);
 
-        renderQuestions(data.questions);
+          if (data.expires_at) {
+            endTimestamp = data.expires_at;
+            startTimer();
+          }
 
-        if (data.expires_at) {
-          endTimestamp = data.expires_at;
-          startTimer();
-        }
-
-        document.getElementById('mainContainer').style.display  = 'block';
-      })
-      .catch(err => showOverlay("Tarmoq xatoligi: " + err.message, "Ulanish xatosi", false));
+          document.getElementById('mainContainer').style.display = 'block';
+        })
+        .catch(err => showOverlay("Tarmoq xatoligi: " + err.message, "Ulanish xatosi", false));
     }
 
     // ─── SUBMIT ───
     function submitTest(isAutoSubmit = false) {
       const btn = document.getElementById('submitBtn');
       if (btn) btn.disabled = true;
-      if (btn && !isAutoSubmit) btn.textContent = '⏳ Yakunlanmoqda...';
+      if (btn && !isAutoSubmit) btn.textContent = t('btnFin');
 
       const answers = {};
       document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
@@ -1041,29 +1534,32 @@
       fetch(testAppSubmitUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ init_data: tgInitData, fallback_uid: tgUserId, answers })
+        body: JSON.stringify({ init_data: tgInitData, fallback_uid: tgUserId, answers, test_id: currentTestId })
       })
-      .then(r => r.json())
-      .then(data => {
-        if (!data.ok) {
-          alert("Xatolik: " + (data.error_text || "saqlab bo'lmadi."));
-          if (btn) { btn.disabled = false; btn.textContent = '✅ Testni yakunlash'; }
-          return;
-        }
-        if (timerInterval) clearInterval(timerInterval);
-        showOverlay(
-          "Javoblaringiz muvaffaqiyatli qabul qilindi!<br><br>Natijangizni bot orqali tez orada bilib olasiz.",
-          "Test topshirildi! 🎉",
-          true
-        );
-        if (tg && typeof tg.close === 'function') {
-          setTimeout(() => tg.close(), 3500);
-        }
-      })
-      .catch(err => {
-        alert("Tarmoq xatoligi: " + err.message);
-        if (btn) { btn.disabled = false; btn.textContent = '✅ Testni yakunlash'; }
-      });
+        .then(r => r.json())
+        .then(data => {
+          if (!data.ok) {
+            const errP = currentLang === 'ru' ? 'Ошибка: ' : 'Xatolik: ';
+            const defE = currentLang === 'ru' ? 'не удалось сохранить.' : 'saqlab bo\'lmadi.';
+            alert(errP + (data.error_text || defE));
+            if (btn) { btn.disabled = false; btn.textContent = t('btnYak'); }
+            return;
+          }
+          if (timerInterval) clearInterval(timerInterval);
+
+          const okT = currentLang === 'ru' ? 'Тест сдан! 🎉' : 'Test topshirildi! 🎉';
+          const okM = currentLang === 'ru'
+            ? 'Ваши ответы успешно приняты!<br><br>Результаты скоро будут доступны в боте.'
+            : 'Javoblaringiz muvaffaqiyatli qabul qilindi!<br><br>Natijangizni bot orqali tez orada bilib olasiz.';
+          showOverlay(okM, okT, true);
+          if (tg && typeof tg.close === 'function') {
+            setTimeout(() => tg.close(), 3500);
+          }
+        })
+        .catch(err => {
+          alert((currentLang === 'ru' ? 'Ошибка сети: ' : 'Tarmoq xatoligi: ') + err.message);
+          if (btn) { btn.disabled = false; btn.textContent = t('btnYak'); }
+        });
     }
 
     // ─── REVIEW SHEET ───
@@ -1074,7 +1570,7 @@
 
       for (let i = 1; i <= totalQuestions; i++) {
         // Find the checked radio for this question index
-        const radios = document.querySelectorAll(`input[name="q_${_questionIds[i-1]}"]`);
+        const radios = document.querySelectorAll(`input[name="q_${_questionIds[i - 1]}"]`);
         let selected = null;
         radios.forEach(r => { if (r.checked) selected = r.value; });
         if (!selected) unansweredCount++;
@@ -1082,9 +1578,11 @@
         const item = document.createElement('div');
         item.className = 'review-item ' + (selected ? 'answered' : 'unanswered');
         item.dataset.qidx = i - 1;
+        const qText = currentLang === 'ru' ? `Вопр. ${i}` : `${i}-savol`;
+        const aText = selected ? selected : t('ansNo');
         item.innerHTML = `
-          <span class="review-item-num">${i}-savol</span>
-          <span class="review-item-ans">${selected || 'Yo\'q'}</span>`;
+          <span class="review-item-num">${qText}</span>
+          <span class="review-item-ans">${aText}</span>`;
         if (!selected) {
           item.style.cursor = 'pointer';
           item.addEventListener('click', () => {
@@ -1100,9 +1598,15 @@
       }
 
       const sub = document.getElementById('reviewHeaderSub');
-      sub.textContent = unansweredCount > 0
-        ? `${answeredCount}/${totalQuestions} savol belgilandi — ${unansweredCount} ta javobsiz`
-        : `Barcha ${totalQuestions} ta savol belgilandi ✓`;
+      if (unansweredCount > 0) {
+        sub.textContent = currentLang === 'ru'
+          ? `Отмечено ${answeredCount}/${totalQuestions} — ${unansweredCount} без ответа`
+          : `${answeredCount}/${totalQuestions} savol belgilandi — ${unansweredCount} ta javobsiz`;
+      } else {
+        sub.textContent = currentLang === 'ru'
+          ? `Все ${totalQuestions} вопросов отмечены ✓`
+          : `Barcha ${totalQuestions} ta savol belgilandi ✓`;
+      }
       sub.style.color = unansweredCount > 0 ? '#b45309' : '#0a6e38';
 
       document.getElementById('reviewBackdrop').classList.add('open');
@@ -1125,9 +1629,9 @@
     document.getElementById('reviewBackBtn').addEventListener('click', closeReview);
     document.getElementById('reviewBackdrop').addEventListener('click', closeReview);
 
-    document.getElementById('reviewConfirmBtn').addEventListener('click', function() {
+    document.getElementById('reviewConfirmBtn').addEventListener('click', function () {
       this.disabled = true;
-      this.textContent = '⏳ Yuborilmoqda...';
+      this.textContent = t('waitBtn');
       closeReview();
       submitTest(false);
     });
@@ -1139,8 +1643,8 @@
 
     // ─── START BTN ───
     document.getElementById('startTestBtn').addEventListener('click', () => {
-      document.getElementById('startScreen').style.display  = 'none';
-      loadQuestions(true);
+      document.getElementById('startScreen').style.display = 'none';
+      loadQuestions(true, currentTestId);
     });
 
     // ─── SCROLL TO TOP ───
@@ -1162,7 +1666,7 @@
       setTimeout(() => { document.getElementById('lightboxImg').src = ''; }, 250);
     }
     document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
-    document.getElementById('lightbox').addEventListener('click', function(e) { if (e.target === this) closeLightbox(); });
+    document.getElementById('lightbox').addEventListener('click', function (e) { if (e.target === this) closeLightbox(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
     // ─── INIT ───
@@ -1178,4 +1682,5 @@
   </script>
 
 </body>
+
 </html>

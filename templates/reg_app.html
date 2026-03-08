@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="uz">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#1a5f2a" />
   <title>Ro'yxatdan o'tish</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -16,8 +18,13 @@
       --border: #c8e6c9;
       --error: #c62828;
     }
-    * { box-sizing: border-box; }
-    html, body {
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -26,6 +33,7 @@
       background: var(--bg);
       color: var(--text);
     }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       padding: 16px;
@@ -34,27 +42,36 @@
       padding-bottom: calc(16px + env(safe-area-inset-bottom));
       padding-top: calc(16px + env(safe-area-inset-top));
     }
-    .container { max-width: 560px; margin: 0 auto; }
+
+    .container {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
     .form-grid {
       display: grid;
       grid-template-columns: 1fr;
       gap: 14px 16px;
     }
+
     .logo-wrap {
       text-align: center;
       margin-bottom: 20px;
     }
+
     .logo-wrap img {
       max-width: 120px;
       height: auto;
       display: inline-block;
     }
+
     h1 {
       font-size: 1.25rem;
       margin: 0 0 20px;
       text-align: center;
       color: var(--primary-dark);
     }
+
     .section-title {
       font-size: 0.9rem;
       font-weight: 600;
@@ -63,7 +80,11 @@
       padding-bottom: 4px;
       border-bottom: 1px solid var(--border);
     }
-    .field { margin-bottom: 14px; }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
     label {
       display: block;
       font-size: 0.85rem;
@@ -71,7 +92,9 @@
       margin-bottom: 4px;
       color: var(--text);
     }
-    input, select {
+
+    input,
+    select {
       width: 100%;
       padding: 12px;
       font-size: 16px;
@@ -80,11 +103,14 @@
       background: var(--bg);
       color: var(--text);
     }
-    input:focus, select:focus {
+
+    input:focus,
+    select:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px rgba(26, 95, 42, 0.2);
     }
+
     select {
       cursor: pointer;
       -webkit-appearance: none;
@@ -97,8 +123,16 @@
       background-position: right 12px center;
       background-color: var(--bg);
     }
-    select:invalid, select option[value=""]:checked { color: rgba(0,0,0,0.5); }
-    select option { color: var(--text); }
+
+    select:invalid,
+    select option[value=""]:checked {
+      color: rgba(0, 0, 0, 0.5);
+    }
+
+    select option {
+      color: var(--text);
+    }
+
     button[type="submit"] {
       width: 100%;
       margin-top: 24px;
@@ -112,28 +146,37 @@
       border-radius: 8px;
       cursor: pointer;
     }
-    button[type="submit"]:hover { background: var(--primary-light); }
+
+    button[type="submit"]:hover {
+      background: var(--primary-light);
+    }
+
     button[type="submit"]:disabled {
       opacity: 0.6;
       cursor: not-allowed;
     }
+
     .error {
       font-size: 0.8rem;
       color: var(--error);
       margin-top: 4px;
     }
+
     input[type="number"]::-webkit-outer-spin-button,
     input[type="number"]::-webkit-inner-spin-button {
       -webkit-appearance: none;
       margin: 0;
     }
+
     input[type="number"] {
       -moz-appearance: textfield;
     }
+
     .phone-group {
       display: flex;
       align-items: stretch;
     }
+
     .phone-prefix {
       display: flex;
       align-items: center;
@@ -147,6 +190,7 @@
       border-radius: 8px 0 0 8px;
       white-space: nowrap;
     }
+
     .phone-group input {
       border-radius: 0 8px 8px 0;
       flex: 1;
@@ -154,6 +198,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     {% if logo_url %}
@@ -167,12 +212,14 @@
       <div class="form-grid">
         <div class="field">
           <label for="first_name">Ism *</label>
-          <input type="text" id="first_name" name="first_name" required minlength="2" placeholder="Ismingiz" autocomplete="given-name" />
+          <input type="text" id="first_name" name="first_name" required minlength="2" placeholder="Ismingiz"
+            autocomplete="given-name" />
           <div id="err_first_name" class="error" hidden></div>
         </div>
         <div class="field">
           <label for="last_name">Familiya *</label>
-          <input type="text" id="last_name" name="last_name" required minlength="2" placeholder="Familiyangiz" autocomplete="family-name" />
+          <input type="text" id="last_name" name="last_name" required minlength="2" placeholder="Familiyangiz"
+            autocomplete="family-name" />
           <div id="err_last_name" class="error" hidden></div>
         </div>
         <div class="field">
@@ -263,7 +310,8 @@
       <button type="submit" id="submitBtn">Yuborish</button>
     </form>
   </div>
-  <div id="blockOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,0.97);align-items:center;justify-content:center;text-align:center;padding:32px;">
+  <div id="blockOverlay"
+    style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,0.97);align-items:center;justify-content:center;text-align:center;padding:32px;">
     <div>
       <div style="font-size:2.5rem;margin-bottom:16px;">⚠️</div>
       <div id="blockMessage" style="font-size:1rem;color:#333;line-height:1.6;max-width:400px;"></div>
@@ -279,7 +327,7 @@
     if (tg) {
       tg.ready();
       tg.expand();
-      try { if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen(); } catch (_) {}
+      try { if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen(); } catch (_) { }
       if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         tgUserId = String(tg.initDataUnsafe.user.id || "");
         tgUsername = tg.initDataUnsafe.user.username || "";
@@ -309,7 +357,7 @@
 
     // Fetch user info via initData — prefill phone & check registration
     var isAlreadyRegistered = false;
-    (function() {
+    (function () {
       var phoneInput = document.getElementById('phone_number');
       phoneInput.value = '';
 
@@ -320,54 +368,59 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ init_data: tgInitData })
       })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (!data.ok) return;
-        
-        // Store registration status
-        isAlreadyRegistered = data.is_registered || false;
-        
-        // If user is registered, change button text to "Update"
-        if (isAlreadyRegistered) {
-          submitBtn.textContent = 'Yangilash';
-          document.querySelector('h1').textContent = "Ma'lumotlarni tahrirlash";
-        }
-        
-        // Pre-fill all available student data
-        if (data.student_data) {
-          var sd = data.student_data;
-          if (sd.first_name) document.getElementById('first_name').value = sd.first_name;
-          if (sd.last_name) document.getElementById('last_name').value = sd.last_name;
-          if (sd.phone_number) document.getElementById('phone_number').value = sd.phone_number;
-          if (sd.document_number) document.getElementById('document_number').value = sd.document_number;
-          if (sd.region) document.getElementById('region').value = sd.region;
-          if (sd.district) document.getElementById('district').value = sd.district;
-          if (sd.grade !== undefined && sd.grade !== "" && sd.grade !== null) {
-            var gradeVal = sd.grade === 0 ? 'other' : String(sd.grade);
-            document.getElementById('grade').value = gradeVal;
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.ok) return;
+
+          // Store registration status
+          isAlreadyRegistered = data.is_registered || false;
+
+          if (data.registration_closed) {
+            showBlock("Bugun ro'yxatdan o'tish yopilgan. Iltimos, ertaga urinib ko'ring.");
+            return;
           }
-          if (sd.school_name) document.getElementById('school_name').value = sd.school_name;
-          if (sd.guardian_name) document.getElementById('guardian_name').value = sd.guardian_name;
-          if (sd.guardian_phone) document.getElementById('guardian_phone').value = sd.guardian_phone;
-          if (sd.teacher_name) document.getElementById('teacher_name').value = sd.teacher_name;
-          if (sd.teacher_phone) document.getElementById('teacher_phone').value = sd.teacher_phone;
-        }
-        
-        // Only show the "must answer bot questions" warning if not registered and no phone
-        if (!data.is_registered && !data.phone) {
-          if (tg && typeof tg.showPopup === 'function') {
-            tg.showPopup(
-              { title: '', message: "Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi", buttons: [{ type: 'ok' }] },
-              function() { if (typeof tg.close === 'function') tg.close(); }
-            );
-          } else {
-            alert("Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi");
+
+          // If user is registered, change button text to "Update"
+          if (isAlreadyRegistered) {
+            submitBtn.textContent = 'Yangilash';
+            document.querySelector('h1').textContent = "Ma'lumotlarni tahrirlash";
           }
-          showBlock("Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi");
-          return;
-        }
-      })
-      .catch(function() {});
+
+          // Pre-fill all available student data
+          if (data.student_data) {
+            var sd = data.student_data;
+            if (sd.first_name) document.getElementById('first_name').value = sd.first_name;
+            if (sd.last_name) document.getElementById('last_name').value = sd.last_name;
+            if (sd.phone_number) document.getElementById('phone_number').value = sd.phone_number;
+            if (sd.document_number) document.getElementById('document_number').value = sd.document_number;
+            if (sd.region) document.getElementById('region').value = sd.region;
+            if (sd.district) document.getElementById('district').value = sd.district;
+            if (sd.grade !== undefined && sd.grade !== "" && sd.grade !== null) {
+              var gradeVal = sd.grade === 0 ? 'other' : String(sd.grade);
+              document.getElementById('grade').value = gradeVal;
+            }
+            if (sd.school_name) document.getElementById('school_name').value = sd.school_name;
+            if (sd.guardian_name) document.getElementById('guardian_name').value = sd.guardian_name;
+            if (sd.guardian_phone) document.getElementById('guardian_phone').value = sd.guardian_phone;
+            if (sd.teacher_name) document.getElementById('teacher_name').value = sd.teacher_name;
+            if (sd.teacher_phone) document.getElementById('teacher_phone').value = sd.teacher_phone;
+          }
+
+          // Only show the "must answer bot questions" warning if not registered and no phone
+          if (!data.is_registered && !data.phone) {
+            if (tg && typeof tg.showPopup === 'function') {
+              tg.showPopup(
+                { title: '', message: "Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi", buttons: [{ type: 'ok' }] },
+                function () { if (typeof tg.close === 'function') tg.close(); }
+              );
+            } else {
+              alert("Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi");
+            }
+            showBlock("Avval botdagi savollarga javob bering keyin ro'yxatdan o'tishingiz mumkin bo'ladi");
+            return;
+          }
+        })
+        .catch(function () { });
     })();
 
     function showError(id, msg) {
@@ -455,40 +508,41 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      .then(function (resp) { return resp.json(); })
-      .then(function (data) {
-        if (data.ok) {
-          submitBtn.textContent = 'Yuborildi ✓';
-          var successTitle = isAlreadyRegistered ? 'Yangilandi!' : 'Muvaffaqiyatli!';
-          var successMessage = isAlreadyRegistered 
-            ? "Ma'lumotlaringiz muvaffaqiyatli yangilandi ✅\n\nEndi botga qayting."
-            : "Ro'yxatdan muvaffaqiyatli o'tdingiz ✅\n\nEndi botga qayting.";
-          
-          if (tg && typeof tg.showPopup === 'function') {
-            tg.showPopup(
-              { title: successTitle, message: successMessage, buttons: [{ type: 'ok' }] },
-              function () { if (typeof tg.close === 'function') tg.close(); }
-            );
+        .then(function (resp) { return resp.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            submitBtn.textContent = 'Yuborildi ✓';
+            var successTitle = isAlreadyRegistered ? 'Yangilandi!' : 'Muvaffaqiyatli!';
+            var successMessage = isAlreadyRegistered
+              ? "Ma'lumotlaringiz muvaffaqiyatli yangilandi ✅\n\nEndi botga qayting."
+              : "Ro'yxatdan muvaffaqiyatli o'tdingiz ✅\n\nEndi botga qayting.";
+
+            if (tg && typeof tg.showPopup === 'function') {
+              tg.showPopup(
+                { title: successTitle, message: successMessage, buttons: [{ type: 'ok' }] },
+                function () { if (typeof tg.close === 'function') tg.close(); }
+              );
+            } else {
+              alert(successMessage);
+              if (tg && typeof tg.close === 'function') tg.close();
+            }
           } else {
-            alert(successMessage);
-            if (tg && typeof tg.close === 'function') tg.close();
+            submitBtn.disabled = false;
+            submitBtn.textContent = isAlreadyRegistered ? 'Yangilash' : 'Yuborish';
+            var errMsg = 'Xatolik yuz berdi.';
+            if (data.error === 'invalid_data') errMsg = 'Iltimos, barcha maydonlarni to\'g\'ri to\'ldiring.';
+            else if (data.error === 'duplicate_document') errMsg = 'Bu metrika raqami allaqachon ro\'yxatdan o\'tgan.';
+            else if (data.error === 'db_error') errMsg = 'Serverda xatolik. Qaytadan urinib ko\'ring.';
+            alert(errMsg);
           }
-        } else {
+        })
+        .catch(function (err) {
           submitBtn.disabled = false;
           submitBtn.textContent = isAlreadyRegistered ? 'Yangilash' : 'Yuborish';
-          var errMsg = 'Xatolik yuz berdi.';
-          if (data.error === 'invalid_data') errMsg = 'Iltimos, barcha maydonlarni to\'g\'ri to\'ldiring.';
-          else if (data.error === 'duplicate_document') errMsg = 'Bu metrika raqami allaqachon ro\'yxatdan o\'tgan.';
-          else if (data.error === 'db_error') errMsg = 'Serverda xatolik. Qaytadan urinib ko\'ring.';
-          alert(errMsg);
-        }
-      })
-      .catch(function (err) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = isAlreadyRegistered ? 'Yangilash' : 'Yuborish';
-        alert('Tarmoq xatoligi: ' + err.message);
-      });
+          alert('Tarmoq xatoligi: ' + err.message);
+        });
     });
   </script>
 </body>
+
 </html>

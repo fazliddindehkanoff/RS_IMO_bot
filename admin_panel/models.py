@@ -191,28 +191,20 @@ class Student(models.Model):
 
     @property
     def is_fully_registered(self):
-        """True if Stage 2 registration is complete: core fields + parent and teacher with phone numbers,
+        """True if registration is complete: phone_number, first_name, last_name, date_of_birth, document_number, region, district, school_name, grade
         OR if user registered via the Web App."""
         if self.registered_from_web:
             return True
-        if not (self.first_name and self.last_name and self.date_of_birth and self.document_number):
-            return False
-        try:
-            parent = self.parent
-            parent_has_phone = bool(
-                (parent.phone_number and parent.phone_number.strip())
-                or (parent.phone_number2 and parent.phone_number2.strip())
-            )
-            if not parent_has_phone:
-                return False
-        except Parent.DoesNotExist:
-            return False
-        try:
-            teacher = self.teacher
-            teacher_has_phone = bool(teacher.phone_number and teacher.phone_number.strip())
-            if not teacher_has_phone:
-                return False
-        except Teacher.DoesNotExist:
+        if not (
+            self.first_name and 
+            self.last_name and 
+            self.phone_number and 
+            self.grade and 
+            self.district and 
+            self.region and 
+            self.document_number and 
+            self.school_name
+        ):
             return False
         return True
 

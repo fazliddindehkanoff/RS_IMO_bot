@@ -211,9 +211,9 @@ def get_main_menu_keyboard(other_grade: bool = False, telegram_id: int = None) -
                 url_with_id = f"{test_webapp_url}{sep}tg_uid={telegram_id}"
             else:
                 url_with_id = test_webapp_url
-            builder.row(KeyboardButton(text="📝 1-bosqich sinov testini yechish: 1-mart", web_app=WebAppInfo(url=url_with_id)))
+            builder.row(KeyboardButton(text="📝 1-bosqich asosiy testini yechish: 8-mart", web_app=WebAppInfo(url=url_with_id)))
         else:
-            builder.button(text="📝 1-bosqich sinov testini yechish: 1-mart")
+            builder.button(text="📝 1-bosqich asosiy testini yechish: 8-mart")
     builder.button(text="✏️ Taklif va shikoyatlar")
     builder.button(text="🔥 Konkursdagi ballarim")
     builder.button(text="🏆 Reyting")
@@ -240,9 +240,9 @@ def get_main_menu_keyboard(other_grade: bool = False, telegram_id: int = None) -
                 url_with_id = f"{test_webapp_url}{sep}tg_uid={telegram_id}"
             else:
                 url_with_id = test_webapp_url
-            b2.row(KeyboardButton(text="📝 1-bosqich sinov testini yechish: 1-mart", web_app=WebAppInfo(url=url_with_id)))
+            b2.row(KeyboardButton(text="📝 1-bosqich asosiy testini yechish: 8-mart", web_app=WebAppInfo(url=url_with_id)))
         else:
-            b2.row(KeyboardButton(text="📝 1-bosqich sinov testini yechish: 1-mart"))
+            b2.row(KeyboardButton(text="📝 1-bosqich asosiy testini yechish: 8-mart"))
             
     b2.row(KeyboardButton(text="✏️ Taklif va shikoyatlar"), KeyboardButton(text="🔥 Konkursdagi ballarim"))
     b2.row(KeyboardButton(text="🏆 Reyting"), KeyboardButton(text="👨‍🏫 Ustozlar reytingi"))

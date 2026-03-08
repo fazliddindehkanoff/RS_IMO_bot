@@ -287,7 +287,10 @@ def reg_app_user_info_view(request):
     phone = ""
     phone_owner = ""
     is_registered = False
+    registration_closed = False
     student_data = {}
+    
+    now_date = timezone.now().date()
     
     def strip_phone_prefix(raw_phone):
         """Strip +998 prefix from phone number."""
@@ -303,6 +306,9 @@ def reg_app_user_info_view(request):
         phone = strip_phone_prefix(student.phone_number)
         phone_owner = student.phone_owner or ""
         is_registered = student.is_fully_registered
+        
+        if student.created_at.date() == now_date:
+            registration_closed = True
         
         # Prepare full student data for pre-filling form
         student_data = {
@@ -337,6 +343,7 @@ def reg_app_user_info_view(request):
         "phone_owner": phone_owner,
         "user_id": telegram_id,
         "is_registered": is_registered,
+        "registration_closed": registration_closed,
         "student_data": student_data,
     })
     return _add_cors_headers(resp)
@@ -374,6 +381,18 @@ def reg_app_submit_view(request):
             response = JsonResponse({"ok": False, "error": "invalid_user_id"}, status=400)
             return _add_cors_headers(response)
         username = (data.get("username") or "").strip() or None
+    
+    # Block registration if joined today
+    try:
+        student = Student.objects.get(telegram_id=telegram_id)
+        if student.created_at.date() == timezone.now().date():
+            response = JsonResponse({"ok": False, "error": "registration_closed"}, status=403)
+            return _add_cors_headers(response)
+    except Student.DoesNotExist:
+        # If they don't even exist in DB, they definitely joined today
+        response = JsonResponse({"ok": False, "error": "registration_closed"}, status=403)
+        return _add_cors_headers(response)
+
     err = _save_reg_app_data(telegram_id, username, data)
     if err == "invalid_data":
         response = JsonResponse({"ok": False, "error": "invalid_data"}, status=400)
@@ -393,9 +412,9 @@ def reg_app_submit_view(request):
     if test_webapp_url:
         sep = "&" if "?" in test_webapp_url else "?"
         url_with_id = f"{test_webapp_url}{sep}tg_uid={telegram_id}"
-        test_btn = {"text": "\U0001f4dd 1-bosqich sinov testini yechish: 1-mart", "web_app": {"url": url_with_id}}
+        test_btn = {"text": "\U0001f4dd 1-bosqich asosiy testini yechish: 8-mart", "web_app": {"url": url_with_id}}
     else:
-        test_btn = {"text": "\U0001f4dd 1-bosqich sinov testini yechish: 1-mart"}
+        test_btn = {"text": "\U0001f4dd 1-bosqich asosiy testini yechish: 8-mart"}
 
     # Send SUCCESS_MESSAGE with Reply keyboard (main menu buttons)
     if is_other_grade:
@@ -560,10 +579,36 @@ def test_app_questions_view(request):
     except (Student.DoesNotExist, ValueError):
         return _add_cors_headers(JsonResponse({"ok": False, "error_text": "O'quvchi topilmadi. Ro'yxatdan o'ting!"}, status=404))
 
-    # Find active test for their grade
-    test = Test.objects.filter(grade=student.grade, is_active=True).first()
-    if not test:
+    test_id = body.get("test_id")
+    
+    # Check if student has an existing attempt in progress or finished for this grade
+    # We prioritize returning the same test they already started
+    existing_attempt = TestAttempt.objects.filter(
+        student=student, 
+        test__grade=student.grade,
+        status__in=['PENDING', 'IN_PROGRESS', 'SUBMITTED_FINAL']
+    ).order_by('-created_at').first()
+
+    tests = list(Test.objects.filter(grade=student.grade, is_active=True))
+    if not tests:
         return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Sizning sinfingiz uchun faol test topilmadi."}, status=404))
+
+    test = None
+    if existing_attempt:
+        test = existing_attempt.test
+    else:
+        # If there's multiple tests and they haven't picked one yet
+        if len(tests) > 1:
+            if test_id:
+                test = next((t for t in tests if str(t.id) == str(test_id)), None)
+                if not test:
+                    return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Noma'lum test parametri."}, status=400))
+            else:
+                # Return language selection prompt
+                tests_data = [{"id": t.id, "language": t.get_language_display() or "Boshqa", "code": t.language or "uz"} for t in tests]
+                return _add_cors_headers(JsonResponse({"ok": True, "status": "LANGUAGE_SELECTION", "tests": tests_data}))
+        else:
+            test = tests[0]
 
     # Check time window
     now = timezone.now()
@@ -581,7 +626,14 @@ def test_app_questions_view(request):
         return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Test vaqti tugadi."}, status=403))
 
     # Attempt tracking
-    attempt = TestAttempt.objects.filter(student=student, test=test).order_by('-created_at').first()
+    attempt = existing_attempt
+    if attempt and attempt.test_id != test.id:
+        # Edge case: switching tests manually but they have an old attempt. 
+        # Update attempt to new test if pending?
+        if attempt.status == 'PENDING':
+            attempt.test = test
+            attempt.save()
+            
     if attempt and attempt.status == 'SUBMITTED_FINAL':
         return _add_cors_headers(JsonResponse({"ok": True, "status": "SUBMITTED_FINAL"}))
     
@@ -596,7 +648,9 @@ def test_app_questions_view(request):
             return _add_cors_headers(JsonResponse({
                 "ok": True, 
                 "status": "PENDING",
+                "test_id": test.id,
                 "test_title": test.title,
+                "lang_code": test.language or "uz",
                 "duration_minutes": test.duration_minutes,
                 "questions_count": questions_count
             }))
@@ -640,6 +694,7 @@ def test_app_questions_view(request):
     resp = JsonResponse({
         "ok": True,
         "test_title": test.title,
+        "lang_code": test.language or "uz",
         "expires_at": int(attempt.expires_at.timestamp()) if attempt.expires_at else None,
         "questions": questions_data
     })
@@ -679,11 +734,26 @@ def test_app_submit_view(request):
     except Student.DoesNotExist:
         return _add_cors_headers(JsonResponse({"ok": False, "error_text": "O'quvchi topilmadi"}, status=404))
 
-    test = Test.objects.filter(grade=student.grade, is_active=True).first()
+    attempt = TestAttempt.objects.filter(
+        student=student, 
+        test__grade=student.grade, 
+        status__in=['IN_PROGRESS', 'PENDING']
+    ).order_by('-created_at').first()
+    
+    test_id = body.get("test_id")
+    if attempt:
+        test = attempt.test
+    else:
+        if test_id:
+            test = Test.objects.filter(id=test_id, grade=student.grade, is_active=True).first()
+        else:
+            test = Test.objects.filter(grade=student.grade, is_active=True).first()
+            
     if not test:
         return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Faol test topilmadi"}, status=404))
 
-    attempt = TestAttempt.objects.filter(student=student, test=test).order_by('-created_at').first()
+    if not attempt:
+        attempt = TestAttempt.objects.filter(student=student, test=test).order_by('-created_at').first()
     if not attempt or attempt.status == 'SUBMITTED_FINAL':
         return _add_cors_headers(JsonResponse({"ok": False, "error_text": "Test allaqachon topshirilgan"}, status=400))
 

@@ -1079,9 +1079,8 @@ async def handle_teachers_leaderboard(message: Message, state: FSMContext):
         # leaderboard is a list of dicts: {'phone_number': ..., 'student_count': ..., 'full_name': ...}
         for i, row in enumerate(leaderboard, 1):
             name = row.get('full_name', '') or "Noma'lum"
-            phone = row.get('phone_number', '') or "Noma'lum"
             cnt = row.get('student_count') or 0
-            text += TEACHER_LEADERBOARD_ROW.format(rank=i, teacher_name=name, phone=phone, student_count=cnt)
+            text += TEACHER_LEADERBOARD_ROW.format(rank=i, teacher_name=name, student_count=cnt)
     else:
         text += TEACHER_LEADERBOARD_EMPTY
 

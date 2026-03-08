@@ -301,7 +301,7 @@ LEADERBOARD_USER_RANK = "Sizning o'rningiz: <b>{rank}</b> — <b>{user_points}</
 
 TEACHER_LEADERBOARD_TITLE = "👨‍🏫 <b>Ustozlar Reytingi</b> (o'quvchilar soni bo'yicha)\n\n"
 TEACHER_LEADERBOARD_EMPTY = "Ustozlar reytingi hali bo'sh.\n"
-TEACHER_LEADERBOARD_ROW = "{rank}. <b>{teacher_name}</b> ({phone}) — <b>{student_count}</b> ta\n"
+TEACHER_LEADERBOARD_ROW = "{rank}. <b>{teacher_name}</b> — <b>{student_count}</b> ta\n"
 
 CHECK_SUBS_FAIL = "❌ <b>Siz hali quyidagi kanallarga obuna bo'lmadingiz:</b>"
 CHECK_SUBS_SUCCESS = "✅ <b>Obuna tasdiqlandi!</b>\n\n/start buyrug'ini bosing."
