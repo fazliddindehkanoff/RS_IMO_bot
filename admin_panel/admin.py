@@ -972,6 +972,7 @@ class TestAttemptAdmin(ModelAdmin):
         'started_at',
         'submitted_at',
     ]
+    actions = ['export_test_attempts_csv']
     list_filter = ['status', 'test', 'created_at']
     search_fields = [
         'student__first_name',
@@ -997,6 +998,73 @@ class TestAttemptAdmin(ModelAdmin):
     @display(description='Ball %')
     def score(self, obj):
         return f"{obj.score}%" if obj.score else "-"
+        
+    def export_test_attempts_csv(self, request, queryset):
+        """Export selected test attempts to CSV."""
+        import csv
+        import io
+        from django.http import HttpResponse
+
+        if not queryset.exists():
+            self.message_user(request, "Eksport qilish uchun kamida bitta urinishni tanlang.", level=messages.WARNING)
+            return
+
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        
+        headers = [
+            'Ismi', 
+            'Familiyasi', 
+            'sinfi maktabi', 
+            'viloyati', 
+            'telefon nomer', 
+            'seriya raqam', 
+            'tog\'ri javoblar soni', 
+            'tog\'ri javoblar foizi', 
+            'ustozi ismi', 
+            'ustozi telefon raqami', 
+            'test boshlagan vaqt', 
+            'testni yakunlagan vaqt'
+        ]
+        writer.writerow(headers)
+
+        for attempt in queryset.select_related('student', 'test', 'student__teacher'):
+            student = attempt.student
+            teacher = getattr(student, 'teacher', None)
+            
+            grade_str = student.get_grade_display() if student.grade else ''
+            school_str = student.school_name or ''
+            sinfi_maktabi = f"{grade_str} {school_str}".strip()
+            
+            from django.utils import timezone
+            tz = timezone.get_current_timezone()
+            started = attempt.started_at.astimezone(tz).strftime('%Y-%m-%d %H:%M:%S') if attempt.started_at else ''
+            ended = attempt.submitted_at.astimezone(tz).strftime('%Y-%m-%d %H:%M:%S') if attempt.submitted_at else ''
+            
+            row = [
+                student.first_name or '',
+                student.last_name or '',
+                sinfi_maktabi,
+                student.get_region_display() if student.region else '',
+                student.phone_number or '',
+                student.document_number or '',
+                attempt.earned_points if attempt.earned_points is not None else '',
+                attempt.score if attempt.score is not None else '',
+                teacher.full_name if teacher else '',
+                teacher.phone_number if teacher else '',
+                started,
+                ended
+            ]
+            writer.writerow(row)
+
+        response = HttpResponse(
+            buffer.getvalue().encode('utf-8-sig'),
+            content_type='text/csv; charset=utf-8-sig'
+        )
+        response['Content-Disposition'] = 'attachment; filename="test_attempts.csv"'
+        return response
+
+    export_test_attempts_csv.short_description = "Tanlanganlarni CSV ga eksport qilish"
 
 
 @admin.register(TestAnswer)
