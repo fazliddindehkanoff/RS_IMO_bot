@@ -718,6 +718,7 @@ async def cmd_test_results(message: Message):
         from datetime import datetime
         import csv
         import io
+        from django.utils import timezone
 
         @sync_to_async
         def generate_csv_bytes(tid):
@@ -739,12 +740,14 @@ async def cmd_test_results(message: Message):
             attempts = TestAttempt.objects.filter(
                 test_id=tid, 
                 status='SUBMITTED_FINAL'
-            ).select_related('student').annotate(
+            ).select_related('student', 'student__teacher').annotate(
                 correct_answers=Count('answers', filter=correct_filter)
             )
             
             if not attempts.exists():
                 return None, None, "Ushbu test bo'yicha yakuniy natijalar topilmadi."
+
+            total_questions = test.questions.count()
 
             # Create an in-memory string buffer for CSV
             output = io.StringIO()
@@ -752,28 +755,44 @@ async def cmd_test_results(message: Message):
 
             # Write header
             writer.writerow([
-                'Document (*)',
-                'Telefon (*)',
-                'To\'g\'ri javoblar',
-                'Ball'
+                'Ismi',
+                'Familiyasi',
+                'sinfi',
+                'maktabi',
+                'viloyati',
+                'telefon nomer',
+                'seriya raqam',
+                "tog'ri javoblar soni",
+                "tog'ri javoblar foizi",
+                'ustozi ismi',
+                'ustozi telefon raqami',
+                'test boshlagan vaqt',
+                'testni yakunlagan vaqt',
             ])
 
             for attempt in attempts:
                 student = attempt.student
-                doc_num = (student.document_number or "")[-4:] if student.document_number else ""
-                doc_masked = f"***{doc_num}" if doc_num else ""
-                
-                phone_num = (student.phone_number or "")[-4:] if student.phone_number else ""
-                phone_masked = f"***{phone_num}" if phone_num else ""
-                
                 correct_ans = attempt.correct_answers
-                score = correct_ans * 2
+                correct_percent = round((correct_ans / total_questions) * 100, 2) if total_questions else 0
+                teacher = getattr(student, 'teacher', None)
+
+                started_at = timezone.localtime(attempt.started_at).strftime("%Y-%m-%d %H:%M:%S") if attempt.started_at else ""
+                submitted_at = timezone.localtime(attempt.submitted_at).strftime("%Y-%m-%d %H:%M:%S") if attempt.submitted_at else ""
                 
                 writer.writerow([
-                    doc_masked,
-                    phone_masked,
+                    student.first_name or "",
+                    student.last_name or "",
+                    student.grade or "",
+                    student.school_name or "",
+                    student.region or "",
+                    student.phone_number or "",
+                    student.document_number or "",
                     correct_ans,
-                    score
+                    f"{correct_percent}%",
+                    teacher.full_name if teacher else "",
+                    teacher.phone_number if teacher else "",
+                    started_at,
+                    submitted_at,
                 ])
                 
             # Convert to bytes
