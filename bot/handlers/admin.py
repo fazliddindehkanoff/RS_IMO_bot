@@ -691,6 +691,91 @@ async def cmd_backup(message: Message):
         await status_msg.edit_text(f"❌ Zaxira nusxa yaratishda xatolik: {e}")
 
 
+@router.message(F.text.regexp(r"^/teachers[-_]stat(?:@[\w_]+)?$"))
+async def cmd_teachers_stat(message: Message):
+    """Download teachers ranking as CSV grouped by teacher phone number (admin only)."""
+    if not is_admin(message.from_user.id):
+        await message.answer(ADMIN_NOT_AUTHORIZED)
+        return
+
+    status_msg = await message.answer("⏳ Ustozlar statistikasi tayyorlanmoqda...")
+
+    try:
+        from admin_panel.models import Teacher
+        from aiogram.types import BufferedInputFile
+        from datetime import datetime
+        from django.db.models import Count, Max, Q
+        import csv
+        import io
+
+        @sync_to_async
+        def generate_csv_bytes():
+            fully_registered_q = Q(student__registered_from_web=True) | (
+                Q(student__first_name__gt='') &
+                Q(student__last_name__isnull=False) & ~Q(student__last_name='') &
+                Q(student__date_of_birth__isnull=False) &
+                Q(student__document_number__isnull=False) & ~Q(student__document_number='') &
+                Q(student__parent__isnull=False) &
+                (~Q(student__parent__phone_number='') | ~Q(student__parent__phone_number2='')) &
+                Q(student__teacher__isnull=False) & ~Q(student__teacher__phone_number='')
+            )
+
+            teacher_stats = list(
+                Teacher.objects.filter(phone_number__isnull=False)
+                .exclude(phone_number='')
+                .filter(fully_registered_q)
+                .values('phone_number')
+                .annotate(
+                    student_count=Count('student'),
+                    full_name=Max('full_name'),
+                )
+                .filter(student_count__gt=0)
+                .order_by('-student_count', 'full_name')
+            )
+
+            if not teacher_stats:
+                return None, "Ustozlar statistikasi topilmadi."
+
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow([
+                'reyting',
+                'ustoz ismi',
+                'telefon raqami',
+                "o'quvchilar soni",
+            ])
+
+            for index, row in enumerate(teacher_stats, 1):
+                writer.writerow([
+                    index,
+                    row.get('full_name') or "",
+                    row.get('phone_number') or "",
+                    row.get('student_count') or 0,
+                ])
+
+            return output.getvalue().encode('utf-8-sig'), None
+
+        csv_bytes, error_msg = await generate_csv_bytes()
+
+        if error_msg:
+            await status_msg.edit_text(f"❌ {error_msg}")
+            return
+
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        filename = f"Ustozlar_statistikasi_{timestamp}.csv"
+
+        await message.answer_document(
+            document=BufferedInputFile(csv_bytes, filename=filename),
+            caption=f"👨‍🏫 <b>Ustozlar statistikasi</b>\nSana: {timestamp}",
+            parse_mode=ParseMode.HTML,
+        )
+        await status_msg.delete()
+
+    except Exception as e:
+        logger.error(f"Teachers stat command error: {e}", exc_info=True)
+        await status_msg.edit_text(f"❌ Ustozlar statistikasini yuklashda xatolik: {e}")
+
+
 @router.message(Command("test_results"))
 async def cmd_test_results(message: Message):
     """Download test results as CSV for a specific test (admin only)."""
@@ -757,6 +842,7 @@ async def cmd_test_results(message: Message):
             writer.writerow([
                 'Ismi',
                 'Familiyasi',
+                'til',
                 'sinfi',
                 'maktabi',
                 'viloyati',
@@ -782,6 +868,7 @@ async def cmd_test_results(message: Message):
                 writer.writerow([
                     student.first_name or "",
                     student.last_name or "",
+                    attempt.test.language or "",
                     student.grade or "",
                     student.school_name or "",
                     student.region or "",
@@ -841,6 +928,7 @@ async def cmd_help_admin(message: Message):
         "/broadcast - Xabarnoma yuborish (media qo'llab-quvvatlash bilan)\n"
         "/stats - Bot statistikasi\n"
         "/backup - Ma'lumotlar bazasi zaxira nusxasini yuborish\n"
+        "/teachers_stat - Ustozlar statistikasini CSV formatida yuklash\n"
         "/test_results <id> - Test natijalarini CSV formatida yuklash\n"
         "/help_admin - Admin buyruqlari ro'yxati\n"
         "/cancel - Joriy amalni bekor qilish\n\n"
