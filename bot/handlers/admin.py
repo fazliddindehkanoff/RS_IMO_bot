@@ -808,10 +808,11 @@ async def cmd_test_results(message: Message):
         from datetime import datetime
         import csv
         import io
+        from django.db.models import Count
         from django.utils import timezone
 
         def _get_correct_filter(tid):
-            from django.db.models import Count, Q
+            from django.db.models import Q
 
             # Test 17 exception: consider answers for questions 18 and 25 correct
             if tid == 17:
