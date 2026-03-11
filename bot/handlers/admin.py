@@ -778,24 +778,29 @@ async def cmd_teachers_stat(message: Message):
 
 @router.message(Command("test_results"))
 async def cmd_test_results(message: Message):
-    """Download test results as CSV for a specific test (admin only)."""
+    """Download combined test results as CSV for one or more tests (admin only)."""
     if not is_admin(message.from_user.id):
         await message.answer(ADMIN_NOT_AUTHORIZED)
         return
 
-    # Extract test_id from the command
+    # Extract test_ids from the command
     command_args = message.text.split()
-    if len(command_args) != 2:
-        await message.answer("❌ Iltimos, test ID sini kiriting. Misol: /test_results 123", parse_mode=ParseMode.HTML)
+    if len(command_args) < 2:
+        await message.answer(
+            "❌ Iltimos, kamida bitta test ID kiriting. Misol: /test_results 123 124 125",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     try:
-        test_id = int(command_args[1])
+        test_ids = [int(arg) for arg in command_args[1:]]
     except ValueError:
-        await message.answer("❌ Test ID si raqam bo'lishi kerak.", parse_mode=ParseMode.HTML)
+        await message.answer("❌ Barcha test ID lar raqam bo'lishi kerak.", parse_mode=ParseMode.HTML)
         return
 
-    status_msg = await message.answer(f"⏳ {test_id}-test bo'yicha natijalar yig'ilmoqda...")
+    status_msg = await message.answer(
+        f"⏳ {', '.join(map(str, test_ids))}-testlar bo'yicha natijalar yig'ilmoqda..."
+    )
 
     try:
         from admin_panel.models import TestAttempt, Test
@@ -805,34 +810,27 @@ async def cmd_test_results(message: Message):
         import io
         from django.utils import timezone
 
-        @sync_to_async
-        def generate_csv_bytes(tid):
-            # Check if test exists
-            try:
-                test = Test.objects.get(id=tid)
-            except Test.DoesNotExist:
-                return None, None, "Test topilmadi."
-
+        def _get_correct_filter(tid):
             from django.db.models import Count, Q
-            
+
             # Test 17 exception: consider answers for questions 18 and 25 correct
             if tid == 17:
-                correct_filter = Q(answers__is_correct=True) | Q(answers__question__question_number__in=[18, 25])
-            else:
-                correct_filter = Q(answers__is_correct=True)
-            
-            # Annotate with correct answers count, filtering by SUBMITTED_FINAL
-            attempts = TestAttempt.objects.filter(
-                test_id=tid, 
-                status='SUBMITTED_FINAL'
-            ).select_related('student', 'student__teacher').annotate(
-                correct_answers=Count('answers', filter=correct_filter)
-            )
-            
-            if not attempts.exists():
-                return None, None, "Ushbu test bo'yicha yakuniy natijalar topilmadi."
+                return Q(answers__is_correct=True) | Q(answers__question__question_number__in=[18, 25])
+            return Q(answers__is_correct=True)
 
-            total_questions = test.questions.count()
+        @sync_to_async
+        def generate_csv_bytes(tids):
+            tests = list(Test.objects.filter(id__in=tids))
+            found_test_ids = {test.id for test in tests}
+            missing_ids = [tid for tid in tids if tid not in found_test_ids]
+            if missing_ids:
+                return None, None, f"Quyidagi test ID lar topilmadi: {', '.join(map(str, missing_ids))}."
+
+            tests_by_id = {test.id: test for test in tests}
+            total_questions_by_test = {
+                test.id: test.questions.count()
+                for test in tests
+            }
 
             # Create an in-memory string buffer for CSV
             output = io.StringIO()
@@ -840,6 +838,8 @@ async def cmd_test_results(message: Message):
 
             # Write header
             writer.writerow([
+                'test id',
+                'test nomi',
                 'Ismi',
                 'Familiyasi',
                 'til',
@@ -856,51 +856,72 @@ async def cmd_test_results(message: Message):
                 'testni yakunlagan vaqt',
             ])
 
-            for attempt in attempts:
-                student = attempt.student
-                correct_ans = attempt.correct_answers
-                correct_percent = round((correct_ans / total_questions) * 100, 2) if total_questions else 0
-                teacher = getattr(student, 'teacher', None)
+            written_rows = 0
 
-                started_at = timezone.localtime(attempt.started_at).strftime("%Y-%m-%d %H:%M:%S") if attempt.started_at else ""
-                submitted_at = timezone.localtime(attempt.submitted_at).strftime("%Y-%m-%d %H:%M:%S") if attempt.submitted_at else ""
-                
-                writer.writerow([
-                    student.first_name or "",
-                    student.last_name or "",
-                    attempt.test.language or "",
-                    student.grade or "",
-                    student.school_name or "",
-                    student.region or "",
-                    student.phone_number or "",
-                    student.document_number or "",
-                    correct_ans,
-                    f"{correct_percent}%",
-                    teacher.full_name if teacher else "",
-                    teacher.phone_number if teacher else "",
-                    started_at,
-                    submitted_at,
-                ])
+            for tid in tids:
+                test = tests_by_id[tid]
+                attempts = TestAttempt.objects.filter(
+                    test_id=tid,
+                    status='SUBMITTED_FINAL'
+                ).select_related('student', 'student__teacher', 'test').annotate(
+                    correct_answers=Count('answers', filter=_get_correct_filter(tid))
+                )
+
+                total_questions = total_questions_by_test[tid]
+
+                for attempt in attempts:
+                    student = attempt.student
+                    correct_ans = attempt.correct_answers
+                    correct_percent = round((correct_ans / total_questions) * 100, 2) if total_questions else 0
+                    teacher = getattr(student, 'teacher', None)
+
+                    started_at = timezone.localtime(attempt.started_at).strftime("%Y-%m-%d %H:%M:%S") if attempt.started_at else ""
+                    submitted_at = timezone.localtime(attempt.submitted_at).strftime("%Y-%m-%d %H:%M:%S") if attempt.submitted_at else ""
+
+                    writer.writerow([
+                        test.id,
+                        test.title,
+                        student.first_name or "",
+                        student.last_name or "",
+                        attempt.test.language or "",
+                        student.grade or "",
+                        student.school_name or "",
+                        student.region or "",
+                        student.phone_number or "",
+                        student.document_number or "",
+                        correct_ans,
+                        f"{correct_percent}%",
+                        teacher.full_name if teacher else "",
+                        teacher.phone_number if teacher else "",
+                        started_at,
+                        submitted_at,
+                    ])
+                    written_rows += 1
+
+            if written_rows == 0:
+                return None, None, "Berilgan testlar bo'yicha yakuniy natijalar topilmadi."
                 
             # Convert to bytes
             csv_bytes = output.getvalue().encode('utf-8-sig') # Add BOM for Excel compatibility
-            return csv_bytes, test.title, None
+            titles = [tests_by_id[tid].title for tid in tids]
+            return csv_bytes, titles, None
 
-        csv_bytes, test_title, error_msg = await generate_csv_bytes(test_id)
+        csv_bytes, test_titles, error_msg = await generate_csv_bytes(test_ids)
 
         if error_msg:
             await status_msg.edit_text(f"❌ {error_msg}")
             return
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        # Clean test title for filename
-        clean_title = "".join([c for c in test_title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-        clean_title = clean_title.replace(' ', '_')
-        filename = f"Natijalar_{test_id}_{clean_title}_{timestamp}.csv"
+        filename = f"Natijalar_{'_'.join(map(str, test_ids))}_{timestamp}.csv"
+        title_preview = ", ".join(test_titles[:3])
+        if len(test_titles) > 3:
+            title_preview += "..."
 
         caption = (
-            f"📊 <b>{test_title}</b> natijalari\n"
-            f"ID: {test_id}\n"
+            f"📊 <b>Birlashtirilgan test natijalari</b>\n"
+            f"Testlar: {title_preview}\n"
+            f"ID lar: {', '.join(map(str, test_ids))}\n"
             f"Sana: {timestamp}"
         )
 
