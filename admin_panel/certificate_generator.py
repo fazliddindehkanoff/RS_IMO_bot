@@ -50,14 +50,14 @@ def generate_certificate(student: Student, test_attempt: TestAttempt) -> tuple[s
     
     # 1. Student Full Name
     # X Range: 200 to 400 (Center -> 300)
-    # Y: 490
+    # Y: 515
     c.setFont("Helvetica-Bold", 24)  # Adjusted size to fit well
     student_name = f"{student.first_name} {student.last_name or ''}".strip().upper()
-    c.drawCentredString(300, 490, student_name)
+    c.drawCentredString(300, 515, student_name)
     
     # 2. Teacher Full Name
     # X Range: 200 to 400 (Center -> 300)
-    # Y: 310
+    # Y: 345
     c.setFont("Helvetica", 18)
     teacher_name = ""
     try:
@@ -68,17 +68,17 @@ def generate_certificate(student: Student, test_attempt: TestAttempt) -> tuple[s
         teacher_name = ""
         
     if teacher_name:
-        c.drawCentredString(300, 310, teacher_name)
+        c.drawCentredString(300, 345, teacher_name)
 
     # 3. Generated Date
     # X: 450
-    # Y: 215
+    # Y: 260
     # Format: Date only (e.g., "02.02.2026")
     c.setFont("Helvetica", 12)
     c.setFillColor(HexColor('#000000'))
     
     date_str = test_attempt.submitted_at.strftime('%d.%m.%Y') if test_attempt.submitted_at else datetime.now().strftime('%d.%m.%Y')
-    c.drawString(450, 215, date_str)
+    c.drawString(450, 260, date_str)
     
     # Certificate Number (Optional - keeping it but maybe in a corner or removed if strictly following coordinates?)
     # The instructions didn't specify position for Certificate Number.
