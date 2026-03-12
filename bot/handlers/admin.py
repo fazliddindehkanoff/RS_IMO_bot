@@ -1,8 +1,9 @@
 """Admin command handlers."""
 import logging
 import os
+from pathlib import Path
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
@@ -80,6 +81,121 @@ def get_confirmation_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="confirm_cancel")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_certificate_confirmation_keyboard() -> InlineKeyboardMarkup:
+    """Create certificate send confirmation keyboard."""
+    keyboard = [
+        [
+            InlineKeyboardButton(text="✅ Tasdiqlash", callback_data="certbulk_send"),
+            InlineKeyboardButton(text="❌ Bekor qilish", callback_data="certbulk_cancel"),
+        ]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+CERTIFICATE_TEST_IDS = [21, 25, 22, 26, 23, 27, 24, 28]
+
+
+@sync_to_async
+def collect_certificate_recipients(test_ids: list[int]) -> tuple[list[dict], str | None]:
+    """Return one latest submitted attempt per student for the requested tests."""
+    from admin_panel.models import Test, TestAttempt
+
+    tests = list(Test.objects.filter(id__in=test_ids).order_by('id'))
+    found_test_ids = {test.id for test in tests}
+    missing_ids = [tid for tid in test_ids if tid not in found_test_ids]
+    if missing_ids:
+        return [], f"Quyidagi test ID lar topilmadi: {', '.join(map(str, missing_ids))}."
+
+    attempts = list(
+        TestAttempt.objects.filter(
+            test_id__in=test_ids,
+            status='SUBMITTED_FINAL',
+            student__is_active=True,
+        )
+        .select_related('student', 'test')
+        .order_by('student_id', '-submitted_at', '-created_at', '-id')
+    )
+
+    recipients = []
+    seen_student_ids = set()
+
+    for attempt in attempts:
+        if attempt.student_id in seen_student_ids:
+            continue
+        seen_student_ids.add(attempt.student_id)
+        recipients.append(
+            {
+                'attempt_id': attempt.id,
+                'student_id': attempt.student_id,
+                'telegram_id': attempt.student.telegram_id,
+                'student_name': f"{attempt.student.first_name} {attempt.student.last_name or ''}".strip(),
+                'test_id': attempt.test_id,
+                'test_title': attempt.test.title,
+            }
+        )
+
+    return recipients, None
+
+
+@sync_to_async
+def generate_certificate_preview(attempt_id: int) -> tuple[str, str, str]:
+    """Generate a preview certificate for the given attempt."""
+    from admin_panel.models import TestAttempt
+    from admin_panel.certificate_generator import generate_certificate
+
+    attempt = TestAttempt.objects.select_related('student', 'test').get(id=attempt_id)
+    certificate_path, _certificate_number = generate_certificate(attempt.student, attempt)
+    student_name = f"{attempt.student.first_name} {attempt.student.last_name or ''}".strip()
+    return certificate_path, student_name, attempt.test.title
+
+
+@sync_to_async
+def send_certificates_to_attempts(attempt_ids: list[int]) -> tuple[int, int]:
+    """Generate and send certificates for provided attempts."""
+    import time
+    from admin_panel.models import TestAttempt
+    from admin_panel.certificate_generator import generate_certificate
+    from admin_panel.utils import send_certificate_message
+
+    sent_count = 0
+    error_count = 0
+
+    attempts = list(
+        TestAttempt.objects.filter(id__in=attempt_ids)
+        .select_related('student', 'test')
+        .order_by('id')
+    )
+    attempt_by_id = {attempt.id: attempt for attempt in attempts}
+
+    for attempt_id in attempt_ids:
+        attempt = attempt_by_id.get(attempt_id)
+        if not attempt:
+            error_count += 1
+            logger.error("Certificate send skipped because attempt %s was not found", attempt_id)
+            continue
+
+        try:
+            certificate_path, _certificate_number = generate_certificate(attempt.student, attempt)
+            send_certificate_message(
+                attempt.student.telegram_id,
+                certificate_path,
+                delay_seconds=0.0,
+            )
+            sent_count += 1
+            time.sleep(1.0)
+        except Exception as e:
+            error_count += 1
+            logger.error(
+                "Failed to send certificate to student %s (attempt %s): %s",
+                attempt.student.telegram_id,
+                attempt.id,
+                e,
+                exc_info=True,
+            )
+
+    return sent_count, error_count
 
 
 @router.message(Command("broadcast"))
@@ -691,6 +807,121 @@ async def cmd_backup(message: Message):
         await status_msg.edit_text(f"❌ Zaxira nusxa yaratishda xatolik: {e}")
 
 
+@router.message(Command("send_certificates"))
+async def cmd_send_certificates(message: Message, state: FSMContext):
+    """Preview and confirm certificate sending for submitted participants."""
+    if not is_admin(message.from_user.id):
+        await message.answer(ADMIN_NOT_AUTHORIZED)
+        return
+
+    command_args = (message.text or "").split()
+    if len(command_args) > 1:
+        try:
+            test_ids = [int(arg) for arg in command_args[1:]]
+        except ValueError:
+            await message.answer("❌ Barcha test ID lar raqam bo'lishi kerak.", parse_mode=ParseMode.HTML)
+            return
+    else:
+        test_ids = CERTIFICATE_TEST_IDS
+
+    await state.clear()
+    status_msg = await message.answer(
+        f"⏳ {', '.join(map(str, test_ids))}-testlar bo'yicha sertifikat oluvchilar tayyorlanmoqda..."
+    )
+
+    try:
+        recipients, error_msg = await collect_certificate_recipients(test_ids)
+        if error_msg:
+            await status_msg.edit_text(f"❌ {error_msg}")
+            return
+
+        if not recipients:
+            await status_msg.edit_text("❌ Berilgan testlar bo'yicha topshirgan o'quvchilar topilmadi.")
+            return
+
+        preview_path, preview_student_name, preview_test_title = await generate_certificate_preview(
+            recipients[0]['attempt_id']
+        )
+
+        await state.set_state(AdminStates.waiting_for_certificate_confirmation)
+        await state.update_data(
+            certificate_attempt_ids=[recipient['attempt_id'] for recipient in recipients],
+            certificate_test_ids=test_ids,
+        )
+
+        preview_abs_path = Path(settings.MEDIA_ROOT) / preview_path
+        await message.answer_document(
+            document=FSInputFile(str(preview_abs_path)),
+            caption=(
+                "🎓 <b>Sertifikat preview</b>\n"
+                f"O'quvchi: {preview_student_name}\n"
+                f"Test: {preview_test_title}"
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+
+        await status_msg.edit_text(
+            "📨 <b>Sertifikat yuborish tasdig'i</b>\n\n"
+            f"Test ID lar: {', '.join(map(str, test_ids))}\n"
+            f"Qabul qiluvchilar soni: <b>{len(recipients)}</b>\n\n"
+            "Yuborishni tasdiqlaysizmi?",
+            reply_markup=get_certificate_confirmation_keyboard(),
+            parse_mode=ParseMode.HTML,
+        )
+    except Exception as e:
+        logger.error("Send certificates command error: %s", e, exc_info=True)
+        await state.clear()
+        await status_msg.edit_text(f"❌ Sertifikatlarni tayyorlashda xatolik: {e}")
+
+
+@router.callback_query(StateFilter(AdminStates.waiting_for_certificate_confirmation), F.data.startswith("certbulk_"))
+async def handle_certificate_confirmation(callback: CallbackQuery, state: FSMContext):
+    """Handle certificate bulk send confirmation."""
+    if not is_admin(callback.from_user.id):
+        await callback.answer(ADMIN_NOT_AUTHORIZED, show_alert=True)
+        return
+
+    action = callback.data.replace("certbulk_", "")
+
+    if action == "cancel":
+        await state.clear()
+        await callback.message.edit_text("❌ Sertifikat yuborish bekor qilindi.")
+        await callback.answer()
+        return
+
+    if action != "send":
+        await callback.answer()
+        return
+
+    data = await state.get_data()
+    attempt_ids = data.get('certificate_attempt_ids', [])
+    if not attempt_ids:
+        await state.clear()
+        await callback.message.edit_text("❌ Yuborish uchun ma'lumot topilmadi. Buyruqni qayta yuboring.")
+        await callback.answer()
+        return
+
+    await callback.answer()
+    await callback.message.edit_text(
+        f"⏳ {len(attempt_ids)} ta foydalanuvchiga sertifikat yuborilmoqda...",
+        parse_mode=ParseMode.HTML,
+    )
+
+    try:
+        sent_count, error_count = await send_certificates_to_attempts(attempt_ids)
+        await callback.message.edit_text(
+            "✅ <b>Sertifikat yuborish yakunlandi</b>\n\n"
+            f"Yuborildi: <b>{sent_count}</b>\n"
+            f"Xatolar: <b>{error_count}</b>",
+            parse_mode=ParseMode.HTML,
+        )
+    except Exception as e:
+        logger.error("Certificate bulk send error: %s", e, exc_info=True)
+        await callback.message.edit_text(f"❌ Sertifikat yuborishda xatolik: {e}")
+    finally:
+        await state.clear()
+
+
 @router.message(F.text.regexp(r"^/teachers[-_]stat(?:@[\w_]+)?$"))
 async def cmd_teachers_stat(message: Message):
     """Download teachers ranking as CSV grouped by teacher phone number (admin only)."""
@@ -952,6 +1183,7 @@ async def cmd_help_admin(message: Message):
         "/backup - Ma'lumotlar bazasi zaxira nusxasini yuborish\n"
         "/teachers_stat - Ustozlar statistikasini CSV formatida yuklash\n"
         "/test_results <id> - Test natijalarini CSV formatida yuklash\n"
+        "/send_certificates [id ...] - Test topshirganlarga sertifikat yuborish\n"
         "/help_admin - Admin buyruqlari ro'yxati\n"
         "/cancel - Joriy amalni bekor qilish\n\n"
         "<b>Broadcast jarayoni:</b>\n"

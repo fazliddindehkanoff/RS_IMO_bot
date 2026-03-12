@@ -44,3 +44,4 @@ class AdminStates(StatesGroup):
     waiting_for_broadcast_text = State()
     waiting_for_broadcast_media = State()
     waiting_for_broadcast_confirmation = State()
+    waiting_for_certificate_confirmation = State()
