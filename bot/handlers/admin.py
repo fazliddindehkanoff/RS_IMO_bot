@@ -159,6 +159,7 @@ def send_certificates_to_attempts(attempt_ids: list[int]) -> tuple[int, int]:
     from admin_panel.certificate_generator import generate_certificate
     from admin_panel.utils import send_certificate_message
 
+    total_count = len(attempt_ids)
     sent_count = 0
     error_count = 0
 
@@ -195,7 +196,7 @@ def send_certificates_to_attempts(attempt_ids: list[int]) -> tuple[int, int]:
                 exc_info=True,
             )
 
-    return sent_count, error_count
+    return total_count, sent_count, error_count
 
 
 @router.message(Command("broadcast"))
@@ -863,7 +864,7 @@ async def cmd_send_certificates(message: Message, state: FSMContext):
         await status_msg.edit_text(
             "📨 <b>Sertifikat yuborish tasdig'i</b>\n\n"
             f"Test ID lar: {', '.join(map(str, test_ids))}\n"
-            f"Qabul qiluvchilar soni: <b>{len(recipients)}</b>\n\n"
+            f"Sertifikat oluvchilar soni: <b>{len(recipients)}</b>\n\n"
             "Yuborishni tasdiqlaysizmi?",
             reply_markup=get_certificate_confirmation_keyboard(),
             parse_mode=ParseMode.HTML,
@@ -908,11 +909,13 @@ async def handle_certificate_confirmation(callback: CallbackQuery, state: FSMCon
     )
 
     try:
-        sent_count, error_count = await send_certificates_to_attempts(attempt_ids)
+        total_count, sent_count, error_count = await send_certificates_to_attempts(attempt_ids)
         await callback.message.edit_text(
             "✅ <b>Sertifikat yuborish yakunlandi</b>\n\n"
+            f"Jami rejalashtirilgan: <b>{total_count}</b>\n"
             f"Yuborildi: <b>{sent_count}</b>\n"
-            f"Xatolar: <b>{error_count}</b>",
+            f"Xatolar: <b>{error_count}</b>\n"
+            f"Muvaffaqiyat darajasi: <b>{round((sent_count / total_count) * 100, 1) if total_count else 0}%</b>",
             parse_mode=ParseMode.HTML,
         )
     except Exception as e:
